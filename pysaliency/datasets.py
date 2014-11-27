@@ -420,7 +420,12 @@ class FileStimuli(Stimuli):
         self.shapes = []
         for f in filenames:
             img = Image.open(f)
-            self.shapes.append(img.shape)
+            size = img.size
+            if len(img.mode) > 1:
+                # PIL uses (width, height), we use (height, width)
+                self.shapes.append((size[1], size[0], len(img.mode)))
+            else:
+                self.shapes.append((size[1], size[0]))
             del img
 
     def load_stimulus(self, n):

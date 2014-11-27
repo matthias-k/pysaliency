@@ -1,25 +1,18 @@
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, division
 
 import unittest
 import os.path
-import shutil
 from six.moves import cPickle
+import dill
 
 import numpy as np
+from scipy.misc import imsave
 
 import pysaliency
+from test_helpers import TestWithData
 
 
-class TestFixations(unittest.TestCase):
-    data_path = 'test_data'
-
-    def setUp(self):
-        if not os.path.exists(self.data_path):
-            os.makedirs(self.data_path)
-
-    def tearDown(self):
-        shutil.rmtree(self.data_path)
-
+class TestFixations(TestWithData):
     def test_from_fixations(self):
         xs_trains = [
             [0, 1, 2],
@@ -142,16 +135,7 @@ class TestFixations(unittest.TestCase):
                                               [1, 5]])
 
 
-class TestStimuli(unittest.TestCase):
-    data_path = 'test_data'
-
-    def setUp(self):
-        if not os.path.exists(self.data_path):
-            os.makedirs(self.data_path)
-
-    def tearDown(self):
-        shutil.rmtree(self.data_path)
-
+class TestStimuli(TestWithData):
     def test_stimuli(self):
         img1 = np.random.randn(100, 200, 3)
         img2 = np.random.randn(50, 150)
@@ -160,6 +144,43 @@ class TestStimuli(unittest.TestCase):
         self.assertEqual(stimuli.stimuli, [img1, img2])
         self.assertEqual(stimuli.shapes, [(100, 200, 3), (50, 150)])
         self.assertEqual(stimuli.sizes, [(100, 200), (50, 150)])
+
+        new_stimuli = self.pickle_and_reload(stimuli)
+        print(new_stimuli.stimuli)
+
+        self.assertEqual(len(new_stimuli.stimuli), 2)
+        for s1, s2 in zip(new_stimuli.stimuli, [img1, img2]):
+            np.testing.assert_allclose(s1, s2)
+        self.assertEqual(new_stimuli.shapes, [(100, 200, 3), (50, 150)])
+        self.assertEqual(new_stimuli.sizes, [(100, 200), (50, 150)])
+
+
+class TestFileStimuli(TestWithData):
+    def test_file_stimuli(self):
+        img1 = np.random.randint(255, size=(100, 200, 3)).astype('uint8')
+        filename1 = os.path.join(self.data_path, 'img1.png')
+        imsave(filename1, img1)
+
+        img2 = np.random.randint(255, size=(50, 150)).astype('uint8')
+        filename2 = os.path.join(self.data_path, 'img2.png')
+        imsave(filename2, img2)
+
+        stimuli = pysaliency.FileStimuli([filename1, filename2])
+
+        self.assertEqual(len(stimuli.stimuli), 2)
+        for s1, s2 in zip(stimuli.stimuli, [img1, img2]):
+            np.testing.assert_allclose(s1, s2)
+        self.assertEqual(stimuli.shapes, [(100, 200, 3), (50, 150)])
+        self.assertEqual(stimuli.sizes, [(100, 200), (50, 150)])
+
+        new_stimuli = self.pickle_and_reload(stimuli, pickler=dill)
+        print(new_stimuli.stimuli)
+
+        self.assertEqual(len(new_stimuli.stimuli), 2)
+        for s1, s2 in zip(new_stimuli.stimuli, [img1, img2]):
+            np.testing.assert_allclose(s1, s2)
+        self.assertEqual(new_stimuli.shapes, [(100, 200, 3), (50, 150)])
+        self.assertEqual(new_stimuli.sizes, [(100, 200), (50, 150)])
 
 
 if __name__ == '__main__':
