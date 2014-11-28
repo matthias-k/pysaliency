@@ -1,23 +1,13 @@
 from __future__ import absolute_import, print_function, division
 
 import unittest
-import os.path
-import shutil
-#from six.moves import cPickle
-import dill as cPickle
+import dill
 
 from pysaliency.utils import LazyList
+from test_helpers import TestWithData
 
 
-class TestLazyList(unittest.TestCase):
-    data_path = 'test_data'
-    def setUp(self):
-        if not os.path.exists(self.data_path):
-            os.makedirs(self.data_path)
-
-    def tearDown(self):
-        shutil.rmtree(self.data_path)
-
+class TestLazyList(TestWithData):
     def test_lazy_list(self):
         calls = []
 
@@ -36,7 +26,7 @@ class TestLazyList(unittest.TestCase):
 
         self.assertEqual(calls, range(length))
 
-    def test_pickle(self):
+    def test_pickle_no_cache(self):
         def gen(i):
             print ('calling with {} yielding {}'.format(i, i**2))
             return i**2
@@ -44,14 +34,24 @@ class TestLazyList(unittest.TestCase):
         length = 20
         l = LazyList(gen, length)
 
-        filename = os.path.join(self.data_path, 'lazy_list.pydat')
-        with open(filename, 'wb') as f:
-            cPickle.dump(l, f)
-
-        with open(filename, 'rb') as f:
-            l = cPickle.load(f)
+        l = self.pickle_and_reload(l, pickler=dill)
 
         self.assertEqual(l._cache, {})
+        self.assertEqual(list(l), [i**2 for i in range(length)])
+
+    def test_pickle_with_cache(self):
+        def gen(i):
+            print ('calling with {} yielding {}'.format(i, i**2))
+            return i**2
+
+        length = 20
+        l = LazyList(gen, length, pickle_cache=True)
+
+        list(l)  # make sure all list items are generated
+
+        l = self.pickle_and_reload(l, pickler=dill)
+
+        self.assertEqual(l._cache, {i: i**2 for i in range(length)})
         self.assertEqual(list(l), [i**2 for i in range(length)])
 
 

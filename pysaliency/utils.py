@@ -23,11 +23,34 @@ class LazyList(Sequence):
     LayList implements `collections.Sequence` and therefore `__contains__`.
     However, to use it, in the worst case all elements of the list have
     to be generated.
+
+    .. note::
+        As `LazyList` stores the generator function, pickling it
+        will usually fail. To pickle a `LazyList`, use `dill`.
     """
-    def __init__(self, generator, length, cache=True):
+    def __init__(self, generator, length, cache=True, pickle_cache=False):
+        """
+        Parameters
+        ----------
+
+        @type  generator: callable
+        @param generator: A function that takes an integer `n` and returns the
+                          `n`-th element of the list.
+
+        @type  length:   int
+        @param length:   The length of the list
+
+        @type  cache: bool, defaults to `True`
+        @param cache: Wether to cache the list items.
+
+        @type  pickle_cache: bool, defaults to `False`
+        @param pickle_cache: Whether the cache should be saved when
+                             pickling the object.
+        """
         self.generator = generator
         self.length = length
         self.cache = cache
+        self.pickle_cache = pickle_cache
         self._cache = {}
 
     def __len__(self):
@@ -54,9 +77,11 @@ class LazyList(Sequence):
     def __getstate__(self):
         # we don't want to save the cache
         state = dict(self.__dict__)
-        state.pop('_cache')
+        if not self.pickle_cache:
+            state.pop('_cache')
         return state
 
     def __setstate__(self, state):
-        state['_cache'] = {}
+        if not '_cache' in state:
+            state['_cache'] = {}
         self.__dict__ = dict(state)
