@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function, division
 import unittest
 import dill
 
-from pysaliency.utils import LazyList
+from pysaliency.utils import LazyList, TemporaryDirectory
 from test_helpers import TestWithData
 
 
@@ -54,6 +54,15 @@ class TestLazyList(TestWithData):
         self.assertEqual(l._cache, {i: i**2 for i in range(length)})
         self.assertEqual(list(l), [i**2 for i in range(length)])
 
+
+class TestTemporaryDirectory(unittest.TestCase):
+    def test_temporary_directory(self):
+        import os
+        with TemporaryDirectory() as tmp_dir:
+            self.assertTrue(os.path.isdir(tmp_dir))
+
+        self.assertFalse(os.path.isdir(tmp_dir))
+        self.assertFalse(os.path.exists(tmp_dir))
 
 if __name__ == '__main__':
     unittest.main()
