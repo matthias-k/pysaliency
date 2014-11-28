@@ -2,6 +2,8 @@
 #kate: space-indent on; indent-width 4; backspace-indents on;
 from __future__ import absolute_import, print_function, division
 
+from hashlib import sha1
+
 from six.moves import range as xrange
 
 import numpy as np
@@ -9,6 +11,7 @@ from scipy.misc import imread
 from PIL import Image
 
 from .utils import LazyList
+
 
 def _split_crossval(fixations, part, partcount):
     xs = []
@@ -367,6 +370,15 @@ class Fixations(object):
         return self.subjects.max()+1
 
 
+def get_image_hash(img):
+    """
+    Calculate a unique hash for the given image.
+
+    Can be used to cache results for images, e.g. saliency maps.
+    """
+    return sha1(img).hexdigest()
+
+
 class Stimuli(object):
     """
     Manages a list of stimuli (i.e. images).
@@ -384,10 +396,15 @@ class Stimuli(object):
     sizes :
         The sizes of all stimuli in pixels as pairs (height, width). In difference
         to `shapes`, the color dimension is ignored here.
+    stimulus_ids:
+        A unique id for each stimulus. Can be used to cache results for stimuli
     """
     def __init__(self, stimuli):
         self.stimuli = stimuli
         self.shapes = [s.shape for s in self.stimuli]
+        self.stimulus_ids = LazyList(lambda n: get_image_hash(self.stimuli(n)),
+                                     length=len(self.stimuli),
+                                     pickle_cache=True)
 
     @property
     def sizes(self):
@@ -396,7 +413,7 @@ class Stimuli(object):
 
 class FileStimuli(Stimuli):
     """
-    Manage a list of stimuli that are saved as files. The
+    Manage a list of stimuli that are saved as files.
     """
     def __init__(self, filenames, cache=True):
         """
@@ -407,6 +424,13 @@ class FileStimuli(Stimuli):
         to read their dimensions, however the actual image data won't
         be read.
 
+        .. note ::
+
+            To calculate the stimulus_ids, the stimuli have to be
+            loaded. Therefore it might be a good idea to load all
+            stimuli and pickle the `FileStimuli` afterwarts. Then
+            the ids are pickled but the stimuli will be reloaded
+            when needed again.
 
         Parameters
         ----------
@@ -428,6 +452,9 @@ class FileStimuli(Stimuli):
                 self.shapes.append((size[1], size[0]))
             del img
 
+        self.stimulus_ids = LazyList(lambda n: get_image_hash(self.stimuli(n)),
+                                     length=len(self.stimuli),
+                                     pickle_cache=True)
+
     def load_stimulus(self, n):
         return imread(self.filenames[n])
-

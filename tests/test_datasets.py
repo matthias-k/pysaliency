@@ -145,7 +145,7 @@ class TestStimuli(TestWithData):
         self.assertEqual(stimuli.shapes, [(100, 200, 3), (50, 150)])
         self.assertEqual(stimuli.sizes, [(100, 200), (50, 150)])
 
-        new_stimuli = self.pickle_and_reload(stimuli)
+        new_stimuli = self.pickle_and_reload(stimuli, pickler=dill)
         print(new_stimuli.stimuli)
 
         self.assertEqual(len(new_stimuli.stimuli), 2)
