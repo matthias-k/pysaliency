@@ -4,6 +4,8 @@ from collections import Sequence
 import warnings as _warnings
 import os as _os
 import sys as _sys
+import sys
+import subprocess
 from tempfile import mkdtemp
 
 
@@ -106,10 +108,11 @@ class TemporaryDirectory(object):
     From http://stackoverflow.com/a/19299884
     """
 
-    def __init__(self, suffix="", prefix="tmp", dir=None):
+    def __init__(self, suffix="", prefix="tmp", dir=None, cleanup=True):
         self._closed = False
         self.name = None  # Handle mkdtemp raising an exception
         self.name = mkdtemp(suffix, prefix, dir)
+        self.do_cleanup = cleanup
 
     def __repr__(self):
         return "<{} {!r}>".format(self.__class__.__name__, self.name)
@@ -118,6 +121,8 @@ class TemporaryDirectory(object):
         return self.name
 
     def cleanup(self, _warn=False):
+        if not self.do_cleanup:
+            return
         if self.name and not self._closed:
             try:
                 self._rmtree(self.name)
@@ -173,3 +178,26 @@ class TemporaryDirectory(object):
             self._rmdir(path)
         except OSError:
             pass
+
+
+def which(program):
+    """
+    Check whether a program is present on the system.
+    from https://stackoverflow.com/a/377028
+    """
+    import os
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
