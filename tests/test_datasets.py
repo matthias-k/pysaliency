@@ -144,6 +144,9 @@ class TestStimuli(TestWithData):
         self.assertEqual(stimuli.stimuli, [img1, img2])
         self.assertEqual(stimuli.shapes, [(100, 200, 3), (50, 150)])
         self.assertEqual(stimuli.sizes, [(100, 200), (50, 150)])
+        self.assertEqual(stimuli.stimulus_ids[1], pysaliency.datasets.get_image_hash(img2))
+        np.testing.assert_allclose(stimuli.stimulus_objects[1].stimulus_data, img2)
+        self.assertEqual(stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
 
         new_stimuli = self.pickle_and_reload(stimuli, pickler=dill)
         print(new_stimuli.stimuli)
@@ -153,6 +156,8 @@ class TestStimuli(TestWithData):
             np.testing.assert_allclose(s1, s2)
         self.assertEqual(new_stimuli.shapes, [(100, 200, 3), (50, 150)])
         self.assertEqual(new_stimuli.sizes, [(100, 200), (50, 150)])
+        self.assertEqual(new_stimuli.stimulus_ids[1], pysaliency.datasets.get_image_hash(img2))
+        self.assertEqual(new_stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
 
 
 class TestFileStimuli(TestWithData):
@@ -172,6 +177,8 @@ class TestFileStimuli(TestWithData):
             np.testing.assert_allclose(s1, s2)
         self.assertEqual(stimuli.shapes, [(100, 200, 3), (50, 150)])
         self.assertEqual(stimuli.sizes, [(100, 200), (50, 150)])
+        self.assertEqual(stimuli.stimulus_ids[1], pysaliency.datasets.get_image_hash(img2))
+        self.assertEqual(stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
 
         new_stimuli = self.pickle_and_reload(stimuli, pickler=dill)
         print(new_stimuli.stimuli)
@@ -181,6 +188,8 @@ class TestFileStimuli(TestWithData):
             np.testing.assert_allclose(s1, s2)
         self.assertEqual(new_stimuli.shapes, [(100, 200, 3), (50, 150)])
         self.assertEqual(new_stimuli.sizes, [(100, 200), (50, 150)])
+        self.assertEqual(new_stimuli.stimulus_ids[1], pysaliency.datasets.get_image_hash(img2))
+        self.assertEqual(new_stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
 
 
 if __name__ == '__main__':

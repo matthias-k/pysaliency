@@ -104,6 +104,9 @@ class Fixations(object):
             filter_array(name)
         return new_fixations
 
+    def __getitem__(self, indices):
+        return self.filter(indices)
+
     def fixation_trains(self):
         """Yield for every fixation train of the dataset:
              xs, ys, ts, n, subject
@@ -386,6 +389,41 @@ def get_image_hash(img):
     return sha1(img).hexdigest()
 
 
+class Stimulus(object):
+    """
+    Manages a stimulus.
+
+    In application, this can always be substituted by
+    the numpy array containing the actual stimulus. This class
+    is just there to be able to cache calculation results and
+    retrieve the cache content without having to load
+    the actual stimulus
+    """
+    def __init__(self, stimulus_data, stimulus_id = None):
+        self.stimulus_data = stimulus_data
+        self._stimulus_id = stimulus_id
+
+    @property
+    def stimulus_id(self):
+        if self._stimulus_id is None:
+            self._stimulus_id = get_image_hash(self.stimulus_data)
+        return self._stimulus_id
+
+
+class FileStimulus(Stimulus):
+    def __init__(self, stimuli, index):
+        self.stimuli = stimuli
+        self.index = index
+
+    @property
+    def stimulus_data(self):
+        return self.stimuli.stimuli[self.index]
+
+    @property
+    def stimulus_id(self):
+        return self.stimuli.stimulus_ids[self.index]
+
+
 class Stimuli(object):
     """
     Manages a list of stimuli (i.e. images).
@@ -405,13 +443,18 @@ class Stimuli(object):
         to `shapes`, the color dimension is ignored here.
     stimulus_ids:
         A unique id for each stimulus. Can be used to cache results for stimuli
+    stimulus_objects:
+        A `Stimulus` instance for each stimulus. Mainly for caching.
+
     """
     def __init__(self, stimuli):
         self.stimuli = stimuli
         self.shapes = [s.shape for s in self.stimuli]
-        self.stimulus_ids = LazyList(lambda n: get_image_hash(self.stimuli(n)),
+        self.stimulus_ids = LazyList(lambda n: get_image_hash(self.stimuli[n]),
                                      length=len(self.stimuli),
                                      pickle_cache=True)
+        self.stimulus_objects = LazyList(lambda n: Stimulus(self.stimuli[n], self.stimulus_ids[n]),
+                                         length=len(self.stimuli))
 
     @property
     def sizes(self):
@@ -459,9 +502,10 @@ class FileStimuli(Stimuli):
                 self.shapes.append((size[1], size[0]))
             del img
 
-        self.stimulus_ids = LazyList(lambda n: get_image_hash(self.stimuli(n)),
+        self.stimulus_ids = LazyList(lambda n: get_image_hash(self.stimuli[n]),
                                      length=len(self.stimuli),
                                      pickle_cache=True)
+        self.stimulus_objects = [FileStimulus(self, n) for n in range(len(self.stimuli))]
 
     def load_stimulus(self, n):
         return imread(self.filenames[n])
