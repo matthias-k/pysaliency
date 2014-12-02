@@ -3,6 +3,7 @@
 from __future__ import absolute_import, print_function, division
 
 from hashlib import sha1
+from copy import deepcopy
 
 from six.moves import range as xrange
 
@@ -87,8 +88,14 @@ class Fixations(object):
         self.full_nonfixations = None
 
     def filter(self, inds):
-        """create new fixations object which contains only the fixations with indexes in inds"""
-        new_fixations = type(self)(self.train_xs, self.train_ys, self.train_ts, self.train_ns, self.train_subjects)
+        """
+        Create new fixations object which contains only the fixations with indexes in inds
+
+        .. note::
+            The fixation trains of the object are left as is. Filtering the fixation trains
+            is not possible as the indices may include only some fixation of a fixation train.
+        """
+        new_fixations = deepcopy(self)
 
         def filter_array(name):
             a = getattr(self, name).copy()[inds]
