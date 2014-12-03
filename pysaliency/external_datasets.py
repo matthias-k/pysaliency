@@ -1,13 +1,10 @@
 from __future__ import absolute_import, print_function, division
 
-from six.moves import urllib
 import zipfile
 import os
 import shutil
 import warnings
-import hashlib
 import glob
-import subprocess as sp
 
 import numpy as np
 from scipy.io import loadmat
@@ -16,71 +13,8 @@ import dill
 from pkg_resources import resource_string
 from PIL import Image
 
-from .datasets import FileStimuli, Stimuli, Fixations
-from .utils import TemporaryDirectory, which
-
-
-def full_split(filename):
-    """Split filename into all of its parts"""
-    parts = list(os.path.split(filename))
-    if parts[0]:
-        return full_split(parts[0]) + [parts[1]]
-    else:
-        return [parts[1]]
-
-
-def filter_files(filenames, ignores):
-    """
-    Filter a list of files, excluding all filenames which contain
-    an element of `ignores` as part of their path
-    """
-    parts = map(full_split, filenames)
-    inds = [i for i, ps in enumerate(parts)
-            if not any([ignore in ps for ignore in ignores])]
-    return [filenames[i] for i in inds]
-
-
-def get_matlab_or_octave():
-    for name in ['matlab', 'matlab.exe', 'octave', 'octave.exe']:
-        if which(name):
-            return which(name)
-    raise Exception('No version of matlab or octave was found on this system!')
-
-
-def run_matlab_cmd(cmd, cwd=None):
-    matlab = get_matlab_or_octave()
-    args = []
-    if os.path.basename(matlab).startswith('matlab'):
-        args += ['-nodesktop', '-nosplash']
-    args.append('-r')
-    args.append("try;{};catch exc;disp(getReport(exc));disp('__ERROR__');exit(1);end;quit".format(cmd))
-    sp.check_call([matlab] + args, cwd=cwd)
-
-
-def check_file_hash(filename, md5_hash):
-    """
-    Check a file's hash and issue a warning it is has not the expected value.
-    """
-    print('Checking md5 sum...')
-    with open(filename, 'rb') as f:
-        file_hash = hashlib.md5(f.read()).hexdigest()
-    if file_hash != md5_hash:
-        warnings.warn("MD5 sum of {} has changed. Expected {} but got {}. This might lead to"
-                      " this code producing wrong data.".format(filename, md5_hash, file_hash))
-
-
-def download_file(url, target):
-    """Download url to target while displaying progress information."""
-    def log(blocks_recieved, block_size, file_size):
-        print('\rDownloading file. {}% done'.format(int(blocks_recieved * block_size / file_size * 100)), end='')
-    urllib.request.urlretrieve(url, target, log)
-    print('')
-
-
-def download_and_check(url, target, md5_hash):
-    """Download url to target and check for correct md5_hash. Prints warning if hash is not correct."""
-    download_file(url, target)
-    check_file_hash(target, md5_hash)
+from .datasets import FileStimuli, Stimuli, FixationTrains
+from .utils import TemporaryDirectory, filter_files, run_matlab_cmd, download_and_check
 
 
 def create_memory_stimuli(filenames):
@@ -139,10 +73,10 @@ def get_toronto(location=None):
     @param location: If and where to cache the dataset. The dataset
                      will be stored in the subdirectory `toronto` of
                      location and read from there, if already present.
-    @return: Stimuli, Fixations
+    @return: Stimuli, FixationTrains
 
     .. warning::
-        At the moment, the subjects stated in the Fixations object
+        At the moment, the subjects stated in the FixationTrains object
         will not be correct, as they are difficult to infer from the
         published data (the data per subject is not stated in image dimensions)
 
@@ -188,7 +122,7 @@ def get_toronto(location=None):
             ns.extend([n for x in _xs])
             ts.extend([[0] for x in _xs])
             subjects.extend([0 for x in _xs])
-        fixations = Fixations.from_fixation_trains(xs, ys, ts, ns, subjects)
+        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
     if location:
         dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
         dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
@@ -206,7 +140,7 @@ def get_toronto_with_subjects(location=None):
     @param location: If and where to cache the dataset. The dataset
                      will be stored in the subdirectory `toronto` of
                      location and read from there, if already present.
-    @return: Stimuli, Fixations
+    @return: Stimuli, FixationTrains
 
     .. warning::
         This function uses the positions as given per subject in the toronto
@@ -291,7 +225,7 @@ def get_toronto_with_subjects(location=None):
                 train_ns.append(n)
                 train_subjects.append(subject_nr)
 
-        fixations = Fixations.from_fixation_trains(train_xs, train_ys, train_ts, train_ns, train_subjects)
+        fixations = FixationTrains.from_fixation_trains(train_xs, train_ys, train_ts, train_ns, train_subjects)
 
     if location:
         dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
@@ -314,7 +248,7 @@ def get_mit1003(location=None):
     @param location: If and where to cache the dataset. The dataset
                      will be stored in the subdirectory `toronto` of
                      location and read from there, if already present.
-    @return: Stimuli, Fixations
+    @return: Stimuli, FixationTrains
 
     .. note::
         This code needs a working matlab or octave installation as the original
@@ -363,7 +297,7 @@ def get_mit1003(location=None):
 
         stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
-        # Fixations
+        # FixationTrains
 
         print('Creating fixations')
         f = zipfile.ZipFile(os.path.join(temp_dir, 'DATA.zip'))
@@ -438,7 +372,7 @@ def get_mit1003(location=None):
                 ts.append(t)
                 ns.append(n)
                 train_subjects.append(subject_id)
-        fixations = Fixations.from_fixation_trains(xs, ys, ts, ns, train_subjects)
+        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
     if location:
         dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
@@ -464,7 +398,7 @@ def get_mit1003_onesize(location=None):
     @param location: If and where to cache the dataset. The dataset
                      will be stored in the subdirectory `toronto` of
                      location and read from there, if already present.
-    @return: Stimuli, Fixations
+    @return: Stimuli, FixationTrains
 
     .. note::
         This code needs a working matlab or octave installation as the original
@@ -519,7 +453,7 @@ def get_mit1003_onesize(location=None):
 
         stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
-        # Fixations
+        # FixationTrains
 
         print('Creating fixations')
         f = zipfile.ZipFile(os.path.join(temp_dir, 'DATA.zip'))
@@ -590,7 +524,7 @@ def get_mit1003_onesize(location=None):
                 ts.append(t)
                 ns.append(n)
                 train_subjects.append(subject_id)
-        fixations = Fixations.from_fixation_trains(xs, ys, ts, ns, train_subjects)
+        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
     if location:
         dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
