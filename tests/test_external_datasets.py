@@ -71,7 +71,7 @@ class TestExternalDatasets(TestWithData):
         stimuli, fixations = pysaliency.external_datasets.get_mit1003_onesize(location=self.data_path)
         self.assertIsInstance(stimuli, pysaliency.Stimuli)
         self.assertIsInstance(stimuli, pysaliency.FileStimuli)
-        self.assertTrue(os.path.isdir(os.path.join(self.data_path, 'MIT1003')))
+        self.assertTrue(os.path.isdir(os.path.join(self.data_path, 'MIT1003_onesize')))
 
         self.assertEqual(len(stimuli.stimuli), 463)
         for n in range(len(stimuli.stimuli)):

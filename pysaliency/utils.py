@@ -4,8 +4,11 @@ from collections import Sequence
 import warnings as _warnings
 import os as _os
 import sys as _sys
-import sys
-import subprocess
+import os
+import hashlib
+import warnings
+from six.moves import urllib
+import subprocess as sp
 from tempfile import mkdtemp
 
 
@@ -185,7 +188,6 @@ def which(program):
     Check whether a program is present on the system.
     from https://stackoverflow.com/a/377028
     """
-    import os
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
@@ -201,3 +203,74 @@ def which(program):
                 return exe_file
 
     return None
+
+
+def full_split(filename):
+    """Split filename into all of its parts"""
+    parts = list(os.path.split(filename))
+    if parts[0]:
+        return full_split(parts[0]) + [parts[1]]
+    else:
+        return [parts[1]]
+
+
+def filter_files(filenames, ignores):
+    """
+    Filter a list of files, excluding all filenames which contain
+    an element of `ignores` as part of their path
+    """
+    parts = map(full_split, filenames)
+    inds = [i for i, ps in enumerate(parts)
+            if not any([ignore in ps for ignore in ignores])]
+    return [filenames[i] for i in inds]
+
+
+def get_matlab_or_octave():
+    for name in ['matlab', 'matlab.exe', 'octave', 'octave.exe']:
+        if which(name):
+            return which(name)
+    raise Exception('No version of matlab or octave was found on this system!')
+
+
+def run_matlab_cmd(cmd, cwd=None):
+    matlab = get_matlab_or_octave()
+    args = []
+    if os.path.basename(matlab).startswith('matlab'):
+        args += ['-nodesktop', '-nosplash']
+    args.append('-r')
+    args.append("try;{};catch exc;disp(getReport(exc));disp('__ERROR__');exit(1);end;quit".format(cmd))
+    sp.check_call([matlab] + args, cwd=cwd)
+
+
+def check_file_hash(filename, md5_hash):
+    """
+    Check a file's hash and issue a warning it is has not the expected value.
+    """
+    print('Checking md5 sum...')
+    with open(filename, 'rb') as f:
+        file_hash = hashlib.md5(f.read()).hexdigest()
+    if file_hash != md5_hash:
+        warnings.warn("MD5 sum of {} has changed. Expected {} but got {}. This might lead to"
+                      " this code producing wrong data.".format(filename, md5_hash, file_hash))
+
+
+def download_file(url, target):
+    """Download url to target while displaying progress information."""
+    class Log(object):
+        def __init__(self):
+            self.last_percent = -1
+
+        def __call__(self, blocks_recieved, block_size, file_size):
+            percent = int(blocks_recieved * block_size / file_size * 100)
+            if percent == self.last_percent:
+                return
+            print('\rDownloading file. {}% done'.format(percent), end='')
+            self.last_percent = percent
+    urllib.request.urlretrieve(url, target, Log())
+    print('')
+
+
+def download_and_check(url, target, md5_hash):
+    """Download url to target and check for correct md5_hash. Prints warning if hash is not correct."""
+    download_file(url, target)
+    check_file_hash(target, md5_hash)
