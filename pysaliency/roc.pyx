@@ -84,7 +84,7 @@ def general_roc(np.ndarray[double, ndim=1] positives, np.ndarray[double, ndim=1]
         all_values = np.hstack([positives, negatives])
         all_values = np.sort(all_values)[::-1]
     else:
-        min_val = np.min([positives[-1], negatives[-1]])
+        min_val = np.min([positives[len(positives)-1], negatives[len(negatives)-1]])
         max_val = np.max([positives[0], negatives[0]])+1
         all_values = np.hstack((max_val, positives, min_val))
         all_values = np.sort(all_values)[::-1]

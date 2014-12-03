@@ -17,8 +17,10 @@ from Cython.Build import cythonize
 #)
 
 def enable_openmp(ext):
-    ext.extra_compile_args.extend(['-fopenmp', '-O3'])
-    ext.extra_link_args.extend(['-fopenmp'])
+    #ext.extra_compile_args.extend(['-fopenmp', '-O3'])
+    #ext.extra_link_args.extend(['-fopenmp'])
+    ext.extra_compile_args = ['-fopenmp', '-O3']
+    ext.extra_link_args = ['-fopenmp']
     return ext
 
 def openmp_cythonize(*args, **kwargs):
