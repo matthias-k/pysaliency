@@ -1,6 +1,6 @@
 # vim: set expandtab :
 #kate: space-indent on; indent-width 4; backspace-indents on;
-from __future__ import absolute_import, print_function, division
+from __future__ import absolute_import, print_function, division, unicode_literals
 
 from hashlib import sha1
 from copy import deepcopy
@@ -48,6 +48,123 @@ class Fixations(object):
            t_hist: the previous times in the history of this fixation
            subject: the subject who made the fixation
            n: the number of the stimuli (optional, only needed when evaluating not on single images)
+
+        Fixations support slicing via fixations[indices] as a shortcut for fixations.filter.
+
+        Although all fixations have a history of previous fixations, these histories
+        do not have to form a set of fixation sequences. For example, if a fixation
+        has a previous fixation, this previous fixation does not have to be as a
+        fixation of its on in the dataset. This is important because otherwise
+        a lot of useful filtering operations would not be possible (e.g. filter
+        for all fixations with at least one previous fixation to calculate
+        saccade lengths). If you need fixation trains, use the subclass
+        `FixationTrains`.
+    """
+    def __init__(self, x, y, t, x_hist, y_hist, t_hist, n, subjects):
+        self.x = x
+        self.y = y
+        self.t = t
+        self.x_hist = x_hist
+        self.y_hist = y_hist
+        self.t_hist = t_hist
+        self.n = n
+        self.subjects = subjects
+        self.lengths = (1 - np.isnan(self.x_hist)).sum(axis=-1)
+
+    def __getitem__(self, indices):
+        return self.filter(indices)
+
+    def filter(self, inds):
+        """
+        Create new fixations object which contains only the fixations with indexes in inds
+
+        .. note::
+            The fixation trains of the object are left as is. Filtering the fixation trains
+            is not possible as the indices may include only some fixation of a fixation train.
+
+            The attributes `consistent_fixation_trains` tracks whether a `Fixations` instance
+            still has consistent fixation trains. The return of this function will be marked
+            to have inconsistent fixation trains. If you need to filter with consistent
+            fixation trains, use `Fixations.filter_fixation_trains`.
+        """
+
+        kwargs = {}
+
+        def filter_array(name):
+            kwargs[name] = getattr(self, name)[inds].copy()
+        for name in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']:
+            filter_array(name)
+        return Fixations(**kwargs)
+
+    def _get_previous_values(self, name, index):
+        """return fixations.name[np.arange(len(fixations.name)),index]"""
+        a = getattr(self, name)
+        inds = np.arange(len(a))
+        if index >= 0:
+            return a[inds, index]
+        else:
+            indexes = self.lengths + index
+            return a[inds, indexes]
+
+    def get_saccade(self, index = -1):
+        """
+        Return saccades for all fixations.
+
+        @type  index: integer
+        @param index: index of the saccade to return. `index==-1` returns the
+                      the last saccades of all fixations etc.
+
+        @return dx, dy, dt of the saccade
+
+        Example:
+
+            dx, dy, dt = fixations.get_saccade(-1)
+            mean_saccade_length = np.sqrt(dx**2+dy**2).mean()
+        """
+
+        if index > 0:
+            raise NotImplemented()
+        if index == -1:
+            x1 = self.x
+            y1 = self.y
+            t1 = self.t
+        else:
+            x1 = self._get_previous_values('x_hist', index+1)
+            y1 = self._get_previous_values('y_hist', index+1)
+            t1 = self._get_previous_values('t_hist', index+1)
+        dx = x1 - self._get_previous_values('x_hist', index)
+        dy = y1 - self._get_previous_values('y_hist', index)
+        dt = t1 - self._get_previous_values('t_hist', index)
+        return dx, dy, dt
+        #return np.vstack((dy,dx)).T
+
+    @property
+    def x_int(self):
+        """ x coordinates of the fixations, converted to integers """
+        return np.asarray(self.x, np.int)
+
+    @property
+    def y_int(self):
+        """ y coordinates of the fixations, converted to integers """
+        return np.asarray(self.y, np.int)
+
+    @property
+    def subject_count(self):
+        return self.subjects.max()+1
+
+
+class FixationTrains(Fixations):
+    """
+    Capsules the fixations of a dataset as fixation trains.
+
+    Additionally to `Fixations`, `FixationTrains`-instances
+    have the attributes
+        train_xs: 2d array (number_of_trains, maximum_length_of_train)
+        train_ys: 2d array (number_of_trains, maximum_length_of_train)
+        train_ts: 2d array (number_of_trains, maximum_length_of_train)
+        train_ns: 1d array (number_of_trains)
+        train_subjects: 1d array (number_of_trains)
+
     """
     def __init__(self, train_xs, train_ys, train_ts, train_ns, train_subjects):
         self.train_xs = train_xs
@@ -87,25 +204,16 @@ class Fixations(object):
                 out_index += 1
         self.full_nonfixations = None
 
-    def filter(self, inds):
+    def filter_fixation_trains(self, indices):
         """
-        Create new fixations object which contains only the fixations with indexes in inds
-
-        .. note::
-            The fixation trains of the object are left as is. Filtering the fixation trains
-            is not possible as the indices may include only some fixation of a fixation train.
+        Create new fixations object which contains only the fixation trains indicated.
         """
-        new_fixations = deepcopy(self)
-
-        def filter_array(name):
-            a = getattr(self, name).copy()[inds]
-            setattr(new_fixations, name, a)
-        for name in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'lengths', 'subjects']:
-            filter_array(name)
-        return new_fixations
-
-    def __getitem__(self, indices):
-        return self.filter(indices)
+        train_xs = self.train_xs[indices]
+        train_ys = self.train_ys[indices]
+        train_ts = self.train_ts[indices]
+        train_ns = self.train_ns[indices]
+        train_subjects = self.train_subjects[indices]
+        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
 
     def fixation_trains(self):
         """Yield for every fixation train of the dataset:
@@ -207,70 +315,131 @@ class Fixations(object):
                                                                train_subjects_eval)
         return fixations_training, fixations_evaluation
 
-    def generate_nonfixations(self, seed=42):
-        """Generate nonfixational distribution from this
-        fixation object by shuffling the images of the
-        fixation trains. The individual fixation trains
-        will be left intact"""
-        train_xs = self.train_xs.copy()
-        train_ys = self.train_ys.copy()
-        train_ts = self.train_ts.copy()
-        train_ns = self.train_ns.copy()
-        train_subjects = self.train_subjects.copy()
-        max_n = train_ns.max()
-        rs = np.random.RandomState(seed)
-        for i in range(len(train_ns)):
-            old_n = train_ns[i]
-            new_ns = range(0, old_n)+range(old_n+1, max_n+1)
-            new_n = rs.choice(new_ns)
-            train_ns[i] = new_n
-        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
+#    def generate_nonfixations(self, seed=42):
+#        """Generate nonfixational distribution from this
+#        fixation object by shuffling the images of the
+#        fixation trains. The individual fixation trains
+#        will be left intact"""
+#        train_xs = self.train_xs.copy()
+#        train_ys = self.train_ys.copy()
+#        train_ts = self.train_ts.copy()
+#        train_ns = self.train_ns.copy()
+#        train_subjects = self.train_subjects.copy()
+#        max_n = train_ns.max()
+#        rs = np.random.RandomState(seed)
+#        for i in range(len(train_ns)):
+#            old_n = train_ns[i]
+#            new_ns = range(0, old_n)+range(old_n+1, max_n+1)
+#            new_n = rs.choice(new_ns)
+#            train_ns[i] = new_n
+#        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
+#
+#    def generate_more_nonfixations(self, count=1, seed=42):
+#        """Generate nonfixational distribution from this
+#        fixation object by assining each fixation
+#        train to $count other images.
+#
+#        with count=0, each train will be assigned to all
+#        other images"""
+#        train_xs = []
+#        train_ys = []
+#        train_ts = []
+#        train_ns = []
+#        train_subjects = []
+#        max_n = self.train_ns.max()
+#        if count == 0:
+#            count = max_n-1
+#        rs = np.random.RandomState(seed)
+#        for i in range(len(self.train_ns)):
+#            old_n = self.train_ns[i]
+#            new_ns = range(0, old_n)+range(old_n+1, max_n+1)
+#            new_ns = rs.choice(new_ns, size=count, replace=False)
+#            for new_n in new_ns:
+#                train_xs.append(self.train_xs[i])
+#                train_ys.append(self.train_ys[i])
+#                train_ts.append(self.train_ts[i])
+#                train_ns.append(new_n)
+#                train_subjects.append(self.train_subjects[i])
+#        train_xs = np.vstack(train_xs)
+#        train_ys = np.vstack(train_ys)
+#        train_ts = np.vstack(train_ts)
+#        train_ns = np.hstack(train_ns)
+#        train_subjects = np.hstack(train_subjects)
+#        # reorder
+#        inds = np.argsort(train_ns)
+#        train_xs = train_xs[inds]
+#        train_ys = train_ys[inds]
+#        train_ts = train_ts[inds]
+#        train_ns = train_ns[inds]
+#        train_subjects = train_subjects[inds]
+#        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
 
-    def generate_more_nonfixations(self, count=1, seed=42):
-        """Generate nonfixational distribution from this
-        fixation object by assining each fixation
-        train to $count other images.
+    def shuffle_fixations(self, stimuli=None):
+        new_indices = []
+        new_ns = []
+        if stimuli:
+            widths = np.asarray([s[1] for s in stimuli.sizes]).astype(float)
+            heights = np.asarray([s[0] for s in stimuli.sizes]).astype(float)
+            x_factors = []
+            y_factors = []
+        for n in range(self.n.max()+1):
+            inds = np.nonzero(~(self.n == n))[0]
+            new_indices.extend(inds)
+            new_ns.extend([n]*len(inds))
+            if stimuli:
+                other_ns = self.n[inds]
+                x_factors.extend(stimuli.sizes[n][1]/widths[other_ns])
+                y_factors.extend(stimuli.sizes[n][0]/heights[other_ns])
+        new_fixations = self[new_indices]
+        new_fixations.n = np.asarray(new_ns)
+        if stimuli:
+            x_factors = np.asarray(x_factors)
+            y_factors = np.asarray(y_factors)
+            new_fixations.x = x_factors*new_fixations.x
+            new_fixations.x_hist = x_factors[:, np.newaxis]*new_fixations.x_hist
+            new_fixations.y = y_factors*new_fixations.y
+            new_fixations.y_hist = y_factors[:, np.newaxis]*new_fixations.y_hist
+        return new_fixations
 
-        with count=0, each train will be assigned to all
-        other images"""
+    def shuffle_fixation_trains(self, stimuli=None):
+        """
+
+        """
+        if not self.consistent_fixation_trains:
+            raise ValueError('Cannot shuffle fixation trains as fixation trains not consistent!')
         train_xs = []
         train_ys = []
         train_ts = []
         train_ns = []
         train_subjects = []
-        max_n = self.train_ns.max()
-        if count == 0:
-            count = max_n-1
-        rs = np.random.RandomState(seed)
-        for i in range(len(self.train_ns)):
-            old_n = self.train_ns[i]
-            new_ns = range(0, old_n)+range(old_n+1, max_n+1)
-            new_ns = rs.choice(new_ns, size=count, replace=False)
-            for new_n in new_ns:
-                train_xs.append(self.train_xs[i])
-                train_ys.append(self.train_ys[i])
-                train_ts.append(self.train_ts[i])
-                train_ns.append(new_n)
-                train_subjects.append(self.train_subjects[i])
+        for n in range(self.n.max()+1):
+            inds = ~(self.train_ns == n)
+            train_xs.append(self.train_xs[inds])
+            train_ys.append(self.train_ys[inds])
+            train_ts.append(self.train_ts[inds])
+            train_ns.append(np.ones(inds.sum(), dtype=np.int)*n)
+            train_subjects.append(self.train_subjects[inds])
         train_xs = np.vstack(train_xs)
         train_ys = np.vstack(train_ys)
         train_ts = np.vstack(train_ts)
         train_ns = np.hstack(train_ns)
         train_subjects = np.hstack(train_subjects)
-        # reorder
-        inds = np.argsort(train_ns)
-        train_xs = train_xs[inds]
-        train_ys = train_ys[inds]
-        train_ts = train_ts[inds]
-        train_ns = train_ns[inds]
-        train_subjects = train_subjects[inds]
-        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
+        full_nonfixations = type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
+        #self.full_nonfixations = full_nonfixations
+        return full_nonfixations
 
-    def generate_full_nonfixations(self):
-        """Generate nonfixational distribution from this
+    def generate_full_nonfixations(self, stimuli=None):
+        """
+        Generate nonfixational distribution from this
         fixation object by using all fixation trains of
         other images. The individual fixation trains
-        will be left intact"""
+        will be left intact.
+
+        .. warning::
+            This function operates on the fixation trains.
+            Therefore, for filtered fixation objects it
+            might return wrong results.
+        """
         if self.full_nonfixations is not None:
             print("Reusing nonfixations!")
             return self.full_nonfixations
@@ -279,8 +448,6 @@ class Fixations(object):
         train_ts = []
         train_ns = []
         train_subjects = []
-        #max_n = train_ns.max()
-#        new_train_
         for n in range(self.n.max()+1):
             inds = ~(self.train_ns == n)
             train_xs.append(self.train_xs[inds])
@@ -323,61 +490,6 @@ class Fixations(object):
                 train_ts[train_index][i] = self.t[new_fix_index]
         return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
 
-    def _get_previous_values(self, name, index):
-        """return fixations.name[np.arange(len(fixations.name)),index]"""
-        a = getattr(self, name)
-        inds = np.arange(len(a))
-        if index >= 0:
-            return a[inds, index]
-        else:
-            indexes = self.lengths + index
-            return a[inds, indexes]
-
-    def get_saccade(self, index = -1):
-        """
-        Return saccades for all fixations.
-
-        @type  index: integer
-        @param index: index of the saccade to return. `index==-1` returns the
-                      the last saccades of all fixations etc.
-
-        @return dx, dy, dt of the saccade
-
-        Example:
-
-            dx, dy, dt = fixations.get_saccade(-1)
-            mean_saccade_length = np.sqrt(dx**2+dy**2).mean()
-        """
-
-        if index > 0:
-            raise NotImplemented()
-        if index == -1:
-            x1 = self.x
-            y1 = self.y
-            t1 = self.t
-        else:
-            x1 = self._get_previous_values('x_hist', index+1)
-            y1 = self._get_previous_values('y_hist', index+1)
-            t1 = self._get_previous_values('t_hist', index+1)
-        dx = x1 - self._get_previous_values('x_hist', index)
-        dy = y1 - self._get_previous_values('y_hist', index)
-        dt = t1 - self._get_previous_values('t_hist', index)
-        return dx, dy, dt
-        #return np.vstack((dy,dx)).T
-
-    @property
-    def x_int(self):
-        """ x coordinates of the fixations, converted to integers """
-        return np.asarray(self.x, np.int)
-
-    @property
-    def y_int(self):
-        """ y coordinates of the fixations, converted to integers """
-        return np.asarray(self.y, np.int)
-
-    @property
-    def subject_count(self):
-        return self.subjects.max()+1
 
 
 def get_image_hash(img):

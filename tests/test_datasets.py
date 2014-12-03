@@ -12,6 +12,14 @@ import pysaliency
 from test_helpers import TestWithData
 
 
+def compare_fix(f1, f2, f2_inds):
+    np.testing.assert_allclose(f1.x, f2.x[f2_inds])
+    np.testing.assert_allclose(f1.y, f2.y[f2_inds])
+    np.testing.assert_allclose(f1.t, f2.t[f2_inds])
+    np.testing.assert_allclose(f1.n, f2.n[f2_inds])
+    np.testing.assert_allclose(f1.subjects, f2.subjects[f2_inds])
+
+
 class TestFixations(TestWithData):
     def test_from_fixations(self):
         xs_trains = [
@@ -29,7 +37,7 @@ class TestFixations(TestWithData):
         ns = [0, 0, 1]
         subjects = [0, 1, 1]
         # Create Fixations
-        f = pysaliency.Fixations.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+        f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
 
         # Test fixation trains
         np.testing.assert_allclose(f.train_xs, [[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
@@ -55,12 +63,6 @@ class TestFixations(TestWithData):
                                               [1, 5]])
 
     def test_filter(self):
-        def compare_fix(f1, f2, f2_inds):
-            np.testing.assert_allclose(f1.x, f2.x[f2_inds])
-            np.testing.assert_allclose(f1.y, f2.y[f2_inds])
-            np.testing.assert_allclose(f1.t, f2.t[f2_inds])
-            np.testing.assert_allclose(f1.n, f2.n[f2_inds])
-            np.testing.assert_allclose(f1.subjects, f2.subjects[f2_inds])
         xs_trains = []
         ys_trains = []
         ts_trains = []
@@ -73,10 +75,11 @@ class TestFixations(TestWithData):
             ts_trains.append(np.cumsum(np.square(np.random.randn(size))))
             ns.append(np.random.randint(20))
             subjects.append(np.random.randint(20))
-        f = pysaliency.Fixations.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+        f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
         # First order filtering
         inds = f.n == 10
         _f = f.filter(inds)
+        self.assertNotIsInstance(_f, pysaliency.FixationTrains)
         compare_fix(_f, f, inds)
 
         # second order filtering
@@ -86,6 +89,35 @@ class TestFixations(TestWithData):
         __f = _f.filter(inds2)
         cum_inds = inds[inds2]
         compare_fix(__f, f, cum_inds)
+
+    def test_filter_trains(self):
+        xs_trains = []
+        ys_trains = []
+        ts_trains = []
+        ns = []
+        subjects = []
+        for n in range(1000):
+            size = np.random.randint(10)
+            xs_trains.append(np.random.randn(size))
+            ys_trains.append(np.random.randn(size))
+            ts_trains.append(np.cumsum(np.square(np.random.randn(size))))
+            ns.append(np.random.randint(20))
+            subjects.append(np.random.randint(20))
+            f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+        # First order filtering
+        inds = f.train_ns == 10
+        _f = f.filter_fixation_trains(inds)
+        self.assertIsInstance(_f, pysaliency.FixationTrains)
+        equivalent_indices = f.n == 10
+        compare_fix(_f, f, equivalent_indices)
+
+        ## second order filtering
+        #inds = np.nonzero(f.n == 10)[0]
+        #_f = f.filter(inds)
+        #inds2 = np.nonzero(_f.subjects == 0)[0]
+        #__f = _f.filter(inds2)
+        #cum_inds = inds[inds2]
+        #compare_fix(__f, f, cum_inds)
 
     def test_save_and_load(self):
         xs_trains = [
@@ -102,8 +134,8 @@ class TestFixations(TestWithData):
             [50, 500, 900]]
         ns = [0, 0, 1]
         subjects = [0, 1, 1]
-        # Create Fixations
-        f = pysaliency.Fixations.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+        # Create /Fixations
+        f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
 
         filename = os.path.join(self.data_path, 'fixation.pydat')
         with open(filename, 'wb') as out_file:
