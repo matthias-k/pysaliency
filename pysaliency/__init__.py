@@ -7,4 +7,5 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from .datasets import Fixations, FixationTrains, Stimuli, FileStimuli
 from .models import SaliencyMapModel, GeneralSaliencyMapModel
 
-#from stationary_models import StationarySaliencyModel
+#from .stationary_models import StationarySaliencyModel
+from .external_models import AIM

@@ -1,8 +1,7 @@
-function [ ] = BruceTsotso(filename, outname)
-%function [ ] = BruceTsotso(filename, outname, filters)
+function [ ] = AIM(filename, outname, convolve, filters)
 
-    addpath('AIM')
+    addpath('AIM');
 
-    saliency_map = AIM(filename, 1.0, 1, '31jade950');
+    saliency_map = AIM(filename, 1.0, convolve, filters);
     save(outname, 'saliency_map');
     

@@ -158,7 +158,7 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
     will contain the filename which contains the stimulus (by default as png),
     the second argument contains the filename where the saliency map should be
     saved to (by default a .mat file). For more complicated scripts, you can
-    overwrite the attribute `matlab_command`. It has to be a format string
+    overwrite the method `matlab_command`. It has to be a format string
     which takes the fields `stimulus` and `saliency_map` for the stimulus file
     and the saliency map file.
     """
@@ -169,9 +169,25 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
         self.saliency_map_ext = saliency_map_ext
         self.script_directory = os.path.dirname(script_file)
         script_name = os.path.basename(script_file)
-        command, ext = os.path.splitext(script_name)
+        self.command, ext = os.path.splitext(script_name)
 
-        self.matlab_command = "{command}('{{stimulus}}', '{{saliency_map}}');".format(command=command)
+    def matlab_command(self, stimulus):
+        """
+        Construct the command to pass to matlab.
+
+        Parameters
+        ----------
+
+        @type  stimulus: ndarray
+        @param stimulus: The stimulus for which the saliency map should be generated.
+                         In most cases, this argument should not be needed.
+
+        @returns: string, the command to pass to matlab. The returned string has to be
+                  a format string with placeholders for `stimulus` and `saliency_map`
+                  where the files containing stimulus and saliency map will be inserted.
+                  To change the type of these files, see the constructor.
+        """
+        return "{command}('{{stimulus}}', '{{saliency_map}}');".format(command=self.command)
 
     def _saliency_map(self, stimulus):
         with TemporaryDirectory(cleanup=True) as temp_dir:
