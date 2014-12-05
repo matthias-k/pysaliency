@@ -3,10 +3,11 @@ from __future__ import print_function, division, unicode_literals, absolute_impo
 import os
 import shutil
 import filecmp
+import unittest
 
 from pysaliency.quilt import PatchFile, QuiltSeries
 
-from test_helpers import TestWithData
+from test_helpers import TestWithData, assertDirsEqual
 
 
 class TestPatchFile(TestWithData):
@@ -48,10 +49,8 @@ class TestSeries(TestWithData):
         shutil.copytree('tests/test_quilt/source', location)
         series = QuiltSeries(os.path.join('tests', 'test_quilt', 'patches'))
         series.apply(location)
-        to_compare = ['source.txt']
-        match, mismatch, errors = filecmp.cmpfiles(location,
-                                                   os.path.join('tests', 'test_quilt', 'target'),
-                                                   to_compare,
-                                                   shallow=False)
-        self.assertEqual(mismatch, [])
-        self.assertEqual(errors, [])
+        assertDirsEqual(location, os.path.join('tests', 'test_quilt', 'target'),
+                        ignore=['patches', '.pc'])
+
+if __name__ == '__main__':
+    unittest.main()
