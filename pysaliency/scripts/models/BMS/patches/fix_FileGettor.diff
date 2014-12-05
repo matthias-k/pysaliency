@@ -1,0 +1,20 @@
+Index: src/mex/fileGettor.h
+===================================================================
+--- src.orig/mex/fileGettor.h	2013-09-13 19:44:12.000000000 +0200
++++ src/mex/fileGettor.h	2014-12-05 20:34:55.405538000 +0100
+@@ -35,8 +35,13 @@
+ 			cout << "Error opening " << directory << endl;
+ 		}
+ 
+-		readdir(dp);//.
+-		readdir(dp);//..
++		//commented out by Matthias Kuemmerer:
++		//readdir does not garantue any order, in
++		//particular . and .. are not garanteed to
++		//be the first results.
++		//
++		//readdir(dp);//.
++		//readdir(dp);//..
+ 		while ((dirp = readdir(dp)) != NULL) {
+ 			string filename(dirp->d_name);
+ 			_name_list.push_back(filename);

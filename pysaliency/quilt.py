@@ -56,6 +56,9 @@ class Hunk(object):
                 src_pos += 1
             elif type == '+':
                 target.append(data)
+            elif type == '\\':
+                # Newline stuff, ignore
+                pass
             else:
                 raise ValueError(line)
         assert src_pos == self.source_start + self.source_length - 1

@@ -8,4 +8,4 @@ from .datasets import Fixations, FixationTrains, Stimuli, FileStimuli
 from .models import SaliencyMapModel, GeneralSaliencyMapModel
 
 #from .stationary_models import StationarySaliencyModel
-from .external_models import AIM, SUN
+from .external_models import AIM, SUN, ContextAwareSaliency, BMS

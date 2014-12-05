@@ -3,7 +3,11 @@ from __future__ import absolute_import, print_function, division
 import unittest
 import os.path
 import shutil
+import filecmp
 from six.moves import cPickle
+import six
+
+from nose.tools import assert_equal
 
 
 class TestWithData(unittest.TestCase):
@@ -26,3 +30,19 @@ class TestWithData(unittest.TestCase):
             new_data = pickler.load(f)
 
         return new_data
+
+
+def check_dircmp(dircmp):
+    assert_equal(dircmp.left_only, [])
+    assert_equal(dircmp.right_only, [])
+    assert_equal(dircmp.diff_files, [])
+    assert_equal(dircmp.funny_files, [])
+    for sub_dcmp in dircmp.subdirs.values():
+        check_dircmp(dircmp)
+
+
+def assertDirsEqual(dir1, dir2, ignore=[]):
+    if six.PY2:
+        ignore = map(str, ignore)
+    dircmp = filecmp.dircmp(dir1, dir2, ignore=ignore)
+    check_dircmp(dircmp)

@@ -1,0 +1,3 @@
+adapt_opencv_paths.diff
+correct_add_path.diff
+fix_FileGettor.diff

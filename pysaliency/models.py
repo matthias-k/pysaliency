@@ -162,11 +162,33 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
     which takes the fields `stimulus` and `saliency_map` for the stimulus file
     and the saliency map file.
     """
-    def __init__(self, script_file, stimulus_ext = '.png', saliency_map_ext='.mat'):
+    def __init__(self, script_file, stimulus_ext = '.png', saliency_map_ext='.mat', only_color_stimuli=False):
+        """
+        Initialize MatlabSaliencyModel
+
+        Parameters
+        ----------
+
+        @type  script_file: string
+        @param script_file: location of script file for Matlab/octave.
+                            Matlab/octave will be run from this directory.
+
+        @type  stimulus_ext: string, defaults to '.png'
+        @param stimulus_ext: In which format the stimulus should be handed to the matlab script.
+
+        @type  saliency_map_ext: string, defaults to '.png'
+        @param saliency_map_ext: In which format the script will return the saliency map
+
+        @type  only_color_stimuli: bool, defaults to `False`
+        @param only_color_stimuli: If True, indicates that the script can handle only color stimuli.
+                                   Grayscale stimuli will be converted to color stimuli by setting all
+                                   RGB channels to the same value.
+        """
         super(MatlabSaliencyMapModel, self).__init__()
         self.script_file = script_file
         self.stimulus_ext = stimulus_ext
         self.saliency_map_ext = saliency_map_ext
+        self.only_color_stimuli = only_color_stimuli
         self.script_directory = os.path.dirname(script_file)
         script_name = os.path.basename(script_file)
         self.command, ext = os.path.splitext(script_name)
@@ -192,6 +214,12 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
     def _saliency_map(self, stimulus):
         with TemporaryDirectory(cleanup=True) as temp_dir:
             stimulus_file = os.path.join(temp_dir, 'stimulus'+self.stimulus_ext)
+            if self.only_color_stimuli:
+                if stimulus.ndim == 2:
+                    new_stimulus = np.empty((stimulus.shape[0], stimulus.shape[1], 3), dtype=stimulus.dtype)
+                    for i in range(3):
+                        new_stimulus[:, :, i] = stimulus
+                    stimulus = new_stimulus
             if self.stimulus_ext == '.png':
                 imsave(stimulus_file, stimulus)
             else:
@@ -199,8 +227,8 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
 
             saliency_map_file = os.path.join(temp_dir, 'saliency_map'+self.saliency_map_ext)
 
-            command = self.matlab_command.format(stimulus=stimulus_file,
-                                                 saliency_map=saliency_map_file)
+            command = self.matlab_command(stimulus).format(stimulus=stimulus_file,
+                                                           saliency_map=saliency_map_file)
 
             run_matlab_cmd(command, cwd = self.script_directory)
 
