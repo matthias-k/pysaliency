@@ -110,21 +110,15 @@ class Diff(object):
 class PatchFile(object):
     def __init__(self, patch):
         self.diffs = []
-        self.index = []
         lines = patch.split('\n')
-        # Read index
-        while True:
-            line = lines.pop(0)
-            if not line.startswith('========================'):
-                self.index.append(line)
-            else:
-                break
-
-        # Read diffs
         while lines:
+            index1 = lines.pop(0)
+            assert index1.startswith('Index: ')
+            index2 = lines.pop(0)
+            assert index2.startswith('==============')
             diff = []
             diff.append(lines.pop(0))
-            while lines and not lines[0].startswith('---'):
+            while lines and not lines[0].startswith('Index: '):
                 diff.append(lines.pop(0))
             diff_obj = Diff(diff)
             self.diffs.append(diff_obj)
