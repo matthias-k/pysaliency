@@ -225,8 +225,13 @@ def filter_files(filenames, ignores):
     return [filenames[i] for i in inds]
 
 
+class MatlabOptions(object):
+    matlab_names = ['matlab', 'matlab.exe']
+    octave_names = ['octave', 'octave.exe']
+
+
 def get_matlab_or_octave():
-    for name in ['matlab', 'matlab.exe', 'octave', 'octave.exe']:
+    for name in MatlabOptions.matlab_names + MatlabOptions.octave_names:
         if which(name):
             return which(name)
     raise Exception('No version of matlab or octave was found on this system!')
@@ -236,9 +241,10 @@ def run_matlab_cmd(cmd, cwd=None):
     matlab = get_matlab_or_octave()
     args = []
     if os.path.basename(matlab).startswith('matlab'):
-        args += ['-nodesktop', '-nosplash']
-    args.append('-r')
-    args.append("try;{};catch exc;disp(getReport(exc));disp('__ERROR__');exit(1);end;quit".format(cmd))
+        args += ['-nodesktop', '-nosplash', '-r']
+    else:
+        args += ['--traditional', '--eval']
+    args.append("try;{};catch exc;if exist('getReport')>0;disp(getReport(exc));else;disp(lasterror);for i=1:size(lasterror.stack);disp(lasterror.stack(i));end;end;disp('__ERROR__');exit(1);end;quit".format(cmd))
     sp.check_call([matlab] + args, cwd=cwd)
 
 

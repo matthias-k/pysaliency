@@ -14,6 +14,8 @@ class TestWithData(unittest.TestCase):
     data_path = 'test_data'
 
     def setUp(self):
+        if os.path.isdir(self.data_path):
+            shutil.rmtree(self.data_path)
         if not os.path.exists(self.data_path):
             os.makedirs(self.data_path)
 

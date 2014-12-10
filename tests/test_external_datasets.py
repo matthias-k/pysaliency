@@ -80,5 +80,15 @@ class TestExternalDatasets(TestWithData):
         self.assertEqual(len(fixations.x), 48771)
         self.assertEqual((fixations.n == 0).sum(), 121)
 
+
+class TestExternalDatasetsOctave(TestExternalDatasets):
+    def setUp(self):
+        self.old_matlab_names = pysaliency.utils.MatlabOptions
+        pysaliency.utils.MatlabOptions.matlab_names = []
+
+    def tearDown(self):
+        pysaliency.utils.MatlabOptions.matlab_names = self.old_matlab_names
+
+
 if __name__ == '__main__':
     unittest.main()
