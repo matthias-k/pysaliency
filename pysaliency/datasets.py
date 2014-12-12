@@ -498,7 +498,7 @@ def get_image_hash(img):
 
     Can be used to cache results for images, e.g. saliency maps.
     """
-    return sha1(img).hexdigest()
+    return sha1(np.ascontiguousarray(img)).hexdigest()
 
 
 class Stimulus(object):
