@@ -136,29 +136,6 @@ class GeneralSaliencyMapModel(object):
         aucs = self.AUCs(stimuli, fixations, nonfixations=nonfixations)
         return np.mean(aucs)
 
-    def fixation_based_KL_divergence(self, stimuli, fixations, nonfixations='shuffled', bins=10):
-        """
-        Calulate fixation-based KL-divergences for fixations
-
-        :type fixations : Fixations
-        :param fixations : Fixation object to calculate the AUC scores for.
-
-        :type nonfixations : string or Fixations
-        :param nonfixations : Nonfixations to use for calculating AUC scores.
-                              Possible values are:
-                                  'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
-                                              all pixels from the saliency map.
-                                  'shuffled': Use all fixations from other images as nonfixations.
-                                  fixations-object: For each image, use the fixations in this fixation
-                                                    object as nonfixations
-
-        :rtype : ndarray
-        :return : list of AUC scores for each fixation,
-                  ordered as in `fixations.x` (average=='fixation' or None)
-                  or by image numbers (average=='image')
-        """
-
-
 
 class SaliencyMapModel(GeneralSaliencyMapModel):
     """
@@ -197,6 +174,77 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
     def conditional_saliency_map(self, stimulus, *args, **kwargs):
         return self.saliency_map(stimulus)
+
+    def fixation_based_KL_divergence(self, stimuli, fixations, nonfixations='shuffled', bins=10, eps=1e-20):
+        """
+        Calulate fixation-based KL-divergences for fixations
+
+        :type fixations : Fixations
+        :param fixations : Fixation object to calculate the AUC scores for.
+
+        :type nonfixations : string or Fixations
+        :param nonfixations : Nonfixations to use for calculating AUC scores.
+                              Possible values are:
+                                  'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
+                                              all pixels from the saliency map.
+                                  'shuffled': Use all fixations from other images as nonfixations.
+                                  fixations-object: For each image, use the fixations in this fixation
+                                                    object as nonfixations
+
+        :type  bins : int
+        :param bins : Number of bins to use in estimating the fixation based KL divergence
+
+        :type  eps : float
+        :param eps : regularization constant for the KL divergence to avoid logarithms of zero.
+
+
+        :rtype : float
+        :return : fixation based KL divergence
+        """
+
+        fixation_values = []
+        nonfixation_values = []
+
+        saliency_min = np.inf
+        saliency_max = -np.inf
+
+        for n in range(len(stimuli.stimuli)):
+            saliency_map = self.saliency_map(stimuli.stimulus_objects[n])
+            saliency_min = min(saliency_min, saliency_map.min())
+            saliency_max = max(saliency_max, saliency_map.max())
+
+            f = fixations[fixations.n == n]
+            fixation_values.append(saliency_map[f.y_int, f.x_int])
+            if nonfixations == 'uniform':
+                nonfixation_values.append(saliency_map.flatten())
+            elif nonfixations == 'shuffled':
+                f = fixations[fixations.n != n]
+                widths = np.asarray([s[1] for s in stimuli.sizes]).astype(float)
+                heights = np.asarray([s[0] for s in stimuli.sizes]).astype(float)
+                xs = (f.x.copy())
+                ys = (f.y.copy())
+                other_ns = f.n
+
+                xs *= stimuli.sizes[n][1]/widths[other_ns]
+                ys *= stimuli.sizes[n][0]/heights[other_ns]
+
+                nonfixation_values.append(saliency_map[ys.astype(int), xs.astype(int)])
+            else:
+                nonfixation_values.append(saliency_map[nonfixations.y_int, nonfixations.x_int])
+
+        fixation_values = np.hstack(fixation_values)
+        nonfixation_values = np.hstack(nonfixation_values)
+
+        hist_range = saliency_min, saliency_max
+
+        p_fix, _ = np.histogram(fixation_values, bins=bins, range=hist_range, density=True)
+        p_fix += eps
+        p_fix /= p_fix.sum()
+        p_nonfix, _ = np.histogram(nonfixation_values, bins=bins, range=hist_range, density=True)
+        p_nonfix += eps
+        p_nonfix /= p_nonfix.sum()
+
+        return (p_fix * (np.log(p_fix) - np.log(p_nonfix))).sum()
 
 
 class MatlabSaliencyMapModel(SaliencyMapModel):
