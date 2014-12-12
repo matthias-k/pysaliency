@@ -242,9 +242,10 @@ def run_matlab_cmd(cmd, cwd=None):
     args = []
     if os.path.basename(matlab).startswith('matlab'):
         args += ['-nodesktop', '-nosplash', '-r']
+        args.append("try;{};catch exc;disp(getReport(exc));disp('__ERROR__');exit(1);end;quit".format(cmd))
     else:
         args += ['--traditional', '--eval']
-    args.append("try;{};catch exc;if exist('getReport')>0;disp(getReport(exc));else;disp(lasterror);for i=1:size(lasterror.stack);disp(lasterror.stack(i));end;end;disp('__ERROR__');exit(1);end;quit".format(cmd))
+        args.append("try;{};catch exc;disp(lasterror);for i=1:size(lasterror.stack);disp(lasterror.stack(i));end;disp('__ERROR__');exit(1);end;quit".format(cmd))
     sp.check_call([matlab] + args, cwd=cwd)
 
 
