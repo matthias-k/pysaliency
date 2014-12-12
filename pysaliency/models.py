@@ -52,12 +52,6 @@ class GeneralSaliencyMapModel(object):
                                   fixations-object: For each image, use the fixations in this fixation
                                                     object as nonfixations
 
-        :type average : string
-        :param average : How to average the AUC scores for each fixation.
-                         Possible values are:
-                             'image': average over images
-                             'fixation' or None: Return AUC score for each fixation separately
-
         :rtype : ndarray
         :return : list of AUC scores for each fixation,
                   ordered as in `fixations.x` (average=='fixation' or None)
@@ -104,11 +98,11 @@ class GeneralSaliencyMapModel(object):
             this_roc, _, _ = general_roc(positives, negatives)
             rocs.setdefault(fixations.n[i], []).append(this_roc)
             rocs_per_fixation.append(this_roc)
-        if average is 'image':
-            rocs_per_image = [np.mean(rocs.get(n, [])) for n in range(fixations.n.max()+1)]
-            return rocs_per_image
-        else:
-            return rocs_per_fixation
+#        if average is 'image':
+#            rocs_per_image = [np.mean(rocs.get(n, [])) for n in range(fixations.n.max()+1)]
+#            return rocs_per_image
+#        else:
+        return rocs_per_fixation
 
     def AUC(self, stimuli, fixations, nonfixations='uniform', average='fixation'):
         """
@@ -141,6 +135,29 @@ class GeneralSaliencyMapModel(object):
             raise NotImplementedError()
         aucs = self.AUCs(stimuli, fixations, nonfixations=nonfixations)
         return np.mean(aucs)
+
+    def fixation_based_KL_divergence(self, stimuli, fixations, nonfixations='shuffled', bins=10):
+        """
+        Calulate fixation-based KL-divergences for fixations
+
+        :type fixations : Fixations
+        :param fixations : Fixation object to calculate the AUC scores for.
+
+        :type nonfixations : string or Fixations
+        :param nonfixations : Nonfixations to use for calculating AUC scores.
+                              Possible values are:
+                                  'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
+                                              all pixels from the saliency map.
+                                  'shuffled': Use all fixations from other images as nonfixations.
+                                  fixations-object: For each image, use the fixations in this fixation
+                                                    object as nonfixations
+
+        :rtype : ndarray
+        :return : list of AUC scores for each fixation,
+                  ordered as in `fixations.x` (average=='fixation' or None)
+                  or by image numbers (average=='image')
+        """
+
 
 
 class SaliencyMapModel(GeneralSaliencyMapModel):
