@@ -36,7 +36,7 @@ class GeneralSaliencyMapModel(object):
         """
         raise NotImplementedError()
 
-    def AUCs(self, stimuli, fixations, nonfixations='uniform', average='image'):
+    def AUCs(self, stimuli, fixations, nonfixations='uniform'):
         """
         Calulate AUC scores for fixations
 
@@ -71,8 +71,8 @@ class GeneralSaliencyMapModel(object):
             nonfix_ys = []
             for n in range(fixations.n.max()+1):
                 inds = nonfixations.n == n
-                nonfix_xs.append(nonfixations.x[inds].copy())
-                nonfix_ys.append(nonfixations.y[inds].copy())
+                nonfix_xs.append(nonfixations.x_int[inds].copy())
+                nonfix_ys.append(nonfixations.y_int[inds].copy())
 
         if nonfixations == 'shuffled':
             nonfix_ys = []
@@ -109,6 +109,38 @@ class GeneralSaliencyMapModel(object):
             return rocs_per_image
         else:
             return rocs_per_fixation
+
+    def AUC(self, stimuli, fixations, nonfixations='uniform', average='fixation'):
+        """
+        Calulate AUC scores for fixations
+
+        :type fixations : Fixations
+        :param fixations : Fixation object to calculate the AUC scores for.
+
+        :type nonfixations : string or Fixations
+        :param nonfixations : Nonfixations to use for calculating AUC scores.
+                              Possible values are:
+                                  'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
+                                              all pixels from the saliency map.
+                                  'shuffled': Use all fixations from other images as nonfixations.
+                                  fixations-object: For each image, use the fixations in this fixation
+                                                    object as nonfixations
+
+        :type average : string
+        :param average : How to average the AUC scores for each fixation.
+                         Possible values are:
+                             'image': average over images
+                             'fixation' or None: Return AUC score for each fixation separately
+
+        :rtype : ndarray
+        :return : list of AUC scores for each fixation,
+                  ordered as in `fixations.x` (average=='fixation' or None)
+                  or by image numbers (average=='image')
+        """
+        if average != 'fixation':
+            raise NotImplementedError()
+        aucs = self.AUCs(stimuli, fixations, nonfixations=nonfixations)
+        return np.mean(aucs)
 
 
 class SaliencyMapModel(GeneralSaliencyMapModel):
