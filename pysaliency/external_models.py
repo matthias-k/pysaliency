@@ -175,6 +175,11 @@ class BMS(ExternalModelMixin, MatlabSaliencyMapModel):
         model in other systems, you might have to adapt the compile script and run
         it yourself.
 
+        In Debian-based linux systems like Ubuntu you can install all needed
+        opencv-libraries with
+
+            apt-get install libopencv-core-dev libopencv-highgui-dev libopencv-imgproc-dev libopencv-flann-dev libopencv-photo-dev libopencv-video-dev libopencv-features2d-dev libopencv-objdetect-dev libopencv-calib3d-dev libopencv-ml-dev libopencv-contrib-dev
+
     .. seealso::
         Jianming Zhang, Stan Sclaroff. Saliency detection: a boolean map approach [ICCV 2013]
         [http://cs-people.bu.edu/jmzhang/BMS/BMS_iccv13_preprint.pdf]
@@ -221,3 +226,115 @@ class BMS(ExternalModelMixin, MatlabSaliencyMapModel):
 
             with open(os.path.join(self.location, 'BMS_wrapper.m'), 'wb') as f:
                 f.write(resource_string(__name__, 'scripts/models/BMS/BMS_wrapper.m'))
+
+
+class GBVS(ExternalModelMixin, MatlabSaliencyMapModel):
+    """
+    "Graph Based Visual Saliency (GBVS)" by Zhang and Sclaroff.
+    The original matlab code is used.
+
+    .. note::
+        The original code is slightly patched to work from other directories.
+        Also, their code uses OpenCV for performance. The original compile script
+        had hardcoded Windows paths for the location of OpenCV. The compile script
+        is patched to use the path of OpenCV in Ubuntu. If you want to use the BMS
+        model in other systems, you might have to adapt the compile script and run
+        it yourself.
+
+    .. seealso::
+        Jianming Zhang, Stan Sclaroff. Saliency detection: a boolean map approach [ICCV 2013]
+        [http://cs-people.bu.edu/jmzhang/BMS/BMS_iccv13_preprint.pdf]
+
+        http://cs-people.bu.edu/jmzhang/BMS/BMS.html
+    """
+    __modelname__ = 'GBVS'
+
+    def __init__(self, location=None):
+        """
+        The parameter explanation have been adopted from the original code.
+
+        Parameters
+        ==========
+
+        General
+        -------
+
+        @type  salmapmaxsize: integer, defaults to 32
+        @param salmapmaxsize: size of calculated saliency maps (maximum dimension).
+                              don't set this too high (e.g., >60).
+
+        @type  blurfrac: float, defaults to 0.02
+        @param blurfrac: final blur to apply to master saliency map
+                         (in standard deviations of gaussian kernel,
+                         expressed as fraction of image width).
+                         Use value 0 to turn off this feature.
+
+        Features
+        --------
+
+        @type  channels: string, defaults to `DIO`.
+        @param channels: feature channels to use encoded as a string.
+                         these are available:
+                           C is for Color
+                           I is for Intensity
+                           O is for Orientation
+                           R is for contRast
+                           F is for Flicker
+                           M is for Motion
+                           D is for DKL Color (Derrington Krauskopf Lennie) ==
+                             much better than C channel
+                         e.g., 'IR' would be only intensity and
+                               contrast, or
+                         'CIO' would be only color,int.,ori. (standard)
+                         'CIOR' uses col,int,ori, and contrast
+        @type  colorWeight, intensityWeight, orientationWeight, contrastWeight, flickerWeight, motionWeight, dklcolorWeight: float, defaults to 1
+        @param colorWeight, intensityWeight, orientationWeight, contrastWeight, flickerWeight, motionWeight, dklcolorWeight:
+                  weights of feature channels (do not need to sum to 1).
+
+        @type  gaborangles: list, None is the default: [0, 45, 90, 135]
+        @param gaborangles: angles of gabor filters
+
+        @type  contrastwidth: float, defaults to 0.1
+        @param contrastwidth: fraction of image width = length of square side over which luminance variance is
+                              computed for 'contrast' feature map. LARGER values will give SMOOTHER contrast maps.
+
+        @type
+
+
+        """
+        self.setup(location)
+        super(GBVS, self).__init__(os.path.join(self.location, 'GBVS_wrapper.m'))
+
+    def _setup(self):
+        with TemporaryDirectory() as temp_dir:
+            if not os.path.isdir(temp_dir):
+                os.makedirs(temp_dir)
+            download_and_check('http://www.vision.caltech.edu/~harel/share/gbvs.zip',
+                               os.path.join(temp_dir, 'gbvs.zip'),
+                               'c5a86b9549c2c0bbd1b7f7e5b663b031')
+
+            z = zipfile.ZipFile(os.path.join(temp_dir, 'gbvs.zip'))
+            source_location = os.path.join(self.location, 'gbvs')
+            z.extractall(self.location)
+
+            def unpack_directory(package, resource_name, location):
+                files = resource_listdir(package, resource_name)
+                for file in files:
+                    with open(os.path.join(location, file), 'wb') as f:
+                        f.write(resource_string(package, os.path.join(resource_name, file)))
+
+            patch_dir = os.path.join(self.location, 'patches')
+            os.makedirs(patch_dir)
+            unpack_directory(__name__, os.path.join('scripts',
+                                                    'models',
+                                                    'GBVS',
+                                                    'patches'),
+                             patch_dir)
+
+            series = QuiltSeries(patch_dir)
+            series.apply(source_location, verbose=True)
+
+            #run_matlab_cmd('compile', cwd=os.path.join(source_location, 'mex'))
+
+            with open(os.path.join(self.location, 'GBVS_wrapper.m'), 'wb') as f:
+                f.write(resource_string(__name__, 'scripts/models/GBVS/GBVS_wrapper.m'))
