@@ -5,6 +5,21 @@ import numpy as np
 import pysaliency
 
 
+class ConstantSaliencyMapModel(pysaliency.SaliencyMapModel):
+    def _saliency_map(self, stimulus):
+        return np.ones((stimulus.shape[0], stimulus.shape[1]))
+
+
+class GaussianSaliencyMapModel(pysaliency.SaliencyMapModel):
+    def _saliency_map(self, stimulus):
+        height = stimulus.shape[0]
+        width = stimulus.shape[1]
+        YS, XS = np.mgrid[:height, :width]
+        r_squared = (XS-0.5*width)**2 + (YS-0.5*height)**2
+        size = np.sqrt(width**2+height**2)
+        return np.ones((stimulus.shape[0], stimulus.shape[1]))*np.exp(-0.5*(r_squared/size))
+
+
 class TestAUC(object):
     def setUp(self):
         xs_trains = [
@@ -24,10 +39,6 @@ class TestAUC(object):
         self.f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
 
     def test_constant(self):
-        class ConstantSaliencyMapModel(pysaliency.SaliencyMapModel):
-            def _saliency_map(self, stimulus):
-                return np.ones((stimulus.shape[0], stimulus.shape[1]))
-
         stimuli = pysaliency.Stimuli([np.random.randn(600, 1000, 3),
                                       np.random.randn(600, 1000, 3)])
         csmm = ConstantSaliencyMapModel()
@@ -39,15 +50,6 @@ class TestAUC(object):
         np.testing.assert_allclose(aucs, np.ones(len(self.f.x))*0.5)
 
     def test_gauss(self):
-        class GaussianSaliencyMapModel(pysaliency.SaliencyMapModel):
-            def _saliency_map(self, stimulus):
-                height = stimulus.shape[0]
-                width = stimulus.shape[1]
-                XS, YS = np.mgrid[:height, :width]
-                r_squared = (XS-0.5*width)**2 + (YS-0.5*height)**2
-                size = np.sqrt(width**2+height**2)
-                return np.ones((stimulus.shape[0], stimulus.shape[1]))*np.exp(-0.5*(r_squared/size))
-
         stimuli = pysaliency.Stimuli([np.random.randn(40, 40, 3),
                                       np.random.randn(40, 40, 3)])
         gsmm = GaussianSaliencyMapModel()
@@ -61,6 +63,7 @@ class TestAUC(object):
         np.testing.assert_allclose(aucs, [0.0,         0.33333333,  0.33333333,  0.33333333,
                                           0.33333333,  1.,          1.,          0.2],
                                    rtol=1e-6)
+
 
 class TestFixationBasedKLDivergence(object):
     def setUp(self):
@@ -81,10 +84,6 @@ class TestFixationBasedKLDivergence(object):
         self.f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
 
     def test_constant(self):
-        class ConstantSaliencyMapModel(pysaliency.SaliencyMapModel):
-            def _saliency_map(self, stimulus):
-                return np.ones((stimulus.shape[0], stimulus.shape[1]))
-
         stimuli = pysaliency.Stimuli([np.random.randn(600, 1000, 3),
                                       np.random.randn(600, 1000, 3)])
         csmm = ConstantSaliencyMapModel()
@@ -96,15 +95,6 @@ class TestFixationBasedKLDivergence(object):
         np.testing.assert_allclose(fb_kl, 0.0)
 
     def test_gauss(self):
-        class GaussianSaliencyMapModel(pysaliency.SaliencyMapModel):
-            def _saliency_map(self, stimulus):
-                height = stimulus.shape[0]
-                width = stimulus.shape[1]
-                XS, YS = np.mgrid[:height, :width]
-                r_squared = (XS-0.5*width)**2 + (YS-0.5*height)**2
-                size = np.sqrt(width**2+height**2)
-                return np.ones((stimulus.shape[0], stimulus.shape[1]))*np.exp(-0.5*(r_squared/size))
-
         stimuli = pysaliency.Stimuli([np.random.randn(40, 40, 3),
                                       np.random.randn(40, 40, 3)])
         gsmm = GaussianSaliencyMapModel()
@@ -114,4 +104,3 @@ class TestFixationBasedKLDivergence(object):
 
         fb_kl = gsmm.fixation_based_KL_divergence(stimuli, self.f, nonfixations='shuffled')
         np.testing.assert_allclose(fb_kl, 0.0)
-

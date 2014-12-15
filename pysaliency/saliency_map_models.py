@@ -1,6 +1,8 @@
 from __future__ import absolute_import, print_function, division, unicode_literals
 
 import os
+from abc import ABCMeta, abstractmethod
+from six import add_metaclass
 
 import numpy as np
 from scipy.io import loadmat
@@ -22,6 +24,7 @@ def handle_stimulus(stimulus):
     return stimulus
 
 
+@add_metaclass(ABCMeta)
 class GeneralSaliencyMapModel(object):
     """
     Most general saliency model class. The model is neither
@@ -29,6 +32,7 @@ class GeneralSaliencyMapModel(object):
     model.
     """
 
+    @abstractmethod
     def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, out=None):
         """
         Return the models saliency map prediction depending on a fixation history
@@ -160,6 +164,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             self._saliency_map_cache[stimulus_id] = self._saliency_map(stimulus.stimulus_data)
         return self._saliency_map_cache[stimulus_id]
 
+    @abstractmethod
     def _saliency_map(self, stimulus):
         """
         Overwrite this to implement you own SaliencyMapModel.
