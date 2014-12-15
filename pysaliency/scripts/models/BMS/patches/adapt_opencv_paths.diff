@@ -9,7 +9,7 @@ Index: src/mex/compile.m
 -opts.opencv_include_path    =   'C:\opencv240\install\include'; % OpenCV include path
 -opts.opencv_lib_path        =   'C:\opencv240\install\lib'; % OpenCV lib path
 +opts.opencv_include_path    =   '/usr/include'; % OpenCV include path
-+opts.opencv_lib_path        =   '/usr/lib'; % OpenCV lib path
++opts.opencv_lib_path        =   '/usr/lib/x86_64-linux-gnu'; % OpenCV lib path
  opts.clean                  =   false; % clean mode
  opts.dryrun                 =   false; % dry run mode
  opts.verbose                =   1; % output verbosity
