@@ -175,7 +175,7 @@ class TestStimuli(TestWithData):
 
         self.assertEqual(stimuli.stimuli, [img1, img2])
         self.assertEqual(stimuli.shapes, [(100, 200, 3), (50, 150)])
-        self.assertEqual(stimuli.sizes, [(100, 200), (50, 150)])
+        self.assertEqual(list(stimuli.sizes), [(100, 200), (50, 150)])
         self.assertEqual(stimuli.stimulus_ids[1], pysaliency.datasets.get_image_hash(img2))
         np.testing.assert_allclose(stimuli.stimulus_objects[1].stimulus_data, img2)
         self.assertEqual(stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
@@ -187,9 +187,41 @@ class TestStimuli(TestWithData):
         for s1, s2 in zip(new_stimuli.stimuli, [img1, img2]):
             np.testing.assert_allclose(s1, s2)
         self.assertEqual(new_stimuli.shapes, [(100, 200, 3), (50, 150)])
-        self.assertEqual(new_stimuli.sizes, [(100, 200), (50, 150)])
+        self.assertEqual(list(new_stimuli.sizes), [(100, 200), (50, 150)])
         self.assertEqual(new_stimuli.stimulus_ids[1], pysaliency.datasets.get_image_hash(img2))
         self.assertEqual(new_stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
+
+    def test_slicing(self):
+        count = 10
+        widths = np.random.randint(20, 200, size=count)
+        heights = np.random.randint(20, 200, size=count)
+        images = [np.random.randn(h, w, 3) for h, w in zip(heights, widths)]
+
+        stimuli = pysaliency.Stimuli(images)
+        for i in range(count):
+            s = stimuli[i]
+            np.testing.assert_allclose(s.stimulus_data, stimuli.stimuli[i])
+            self.assertEqual(s.stimulus_id, stimuli.stimulus_ids[i])
+            self.assertEqual(s.shape, stimuli.shapes[i])
+            self.assertEqual(s.size, stimuli.sizes[i])
+
+        indices = [2, 4, 7]
+        ss = stimuli[indices]
+        for k, i in enumerate(indices):
+            np.testing.assert_allclose(ss.stimuli[k], stimuli.stimuli[i])
+            self.assertEqual(ss.stimulus_ids[k], stimuli.stimulus_ids[i])
+            self.assertEqual(ss.shapes[k], stimuli.shapes[i])
+            self.assertEqual(ss.sizes[k], stimuli.sizes[i])
+
+        slc = slice(2, 8, 3)
+        ss = stimuli[slc]
+        indices = range(len(stimuli))[slc]
+        for k, i in enumerate(indices):
+            np.testing.assert_allclose(ss.stimuli[k], stimuli.stimuli[i])
+            self.assertEqual(ss.stimulus_ids[k], stimuli.stimulus_ids[i])
+            self.assertEqual(ss.shapes[k], stimuli.shapes[i])
+            self.assertEqual(ss.sizes[k], stimuli.sizes[i])
+
 
 
 class TestFileStimuli(TestWithData):
@@ -208,7 +240,7 @@ class TestFileStimuli(TestWithData):
         for s1, s2 in zip(stimuli.stimuli, [img1, img2]):
             np.testing.assert_allclose(s1, s2)
         self.assertEqual(stimuli.shapes, [(100, 200, 3), (50, 150)])
-        self.assertEqual(stimuli.sizes, [(100, 200), (50, 150)])
+        self.assertEqual(list(stimuli.sizes), [(100, 200), (50, 150)])
         self.assertEqual(stimuli.stimulus_ids[1], pysaliency.datasets.get_image_hash(img2))
         self.assertEqual(stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
 
@@ -219,10 +251,46 @@ class TestFileStimuli(TestWithData):
         for s1, s2 in zip(new_stimuli.stimuli, [img1, img2]):
             np.testing.assert_allclose(s1, s2)
         self.assertEqual(new_stimuli.shapes, [(100, 200, 3), (50, 150)])
-        self.assertEqual(new_stimuli.sizes, [(100, 200), (50, 150)])
+        self.assertEqual(list(new_stimuli.sizes), [(100, 200), (50, 150)])
         self.assertEqual(new_stimuli.stimulus_ids[1], pysaliency.datasets.get_image_hash(img2))
         self.assertEqual(new_stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
 
+    def test_slicing(self):
+        count = 10
+        widths = np.random.randint(20, 200, size=count)
+        heights = np.random.randint(20, 200, size=count)
+        images = [np.random.randint(255, size=(h, w, 3)) for h, w in zip(heights, widths)]
+        filenames = []
+        for i, img in enumerate(images):
+            filename = os.path.join(self.data_path, 'img{}.png'.format(i))
+            imsave(filename, img)
+            filenames.append(filename)
+
+
+        stimuli = pysaliency.FileStimuli(filenames)
+        for i in range(count):
+            s = stimuli[i]
+            np.testing.assert_allclose(s.stimulus_data, stimuli.stimuli[i])
+            self.assertEqual(s.stimulus_id, stimuli.stimulus_ids[i])
+            self.assertEqual(s.shape, stimuli.shapes[i])
+            self.assertEqual(s.size, stimuli.sizes[i])
+
+        indices = [2, 4, 7]
+        ss = stimuli[indices]
+        for k, i in enumerate(indices):
+            np.testing.assert_allclose(ss.stimuli[k], stimuli.stimuli[i])
+            self.assertEqual(ss.stimulus_ids[k], stimuli.stimulus_ids[i])
+            self.assertEqual(ss.shapes[k], stimuli.shapes[i])
+            self.assertEqual(list(ss.sizes[k]), list(stimuli.sizes[i]))
+
+        slc = slice(2, 8, 3)
+        ss = stimuli[slc]
+        indices = range(len(stimuli))[slc]
+        for k, i in enumerate(indices):
+            np.testing.assert_allclose(ss.stimuli[k], stimuli.stimuli[i])
+            self.assertEqual(ss.stimulus_ids[k], stimuli.stimulus_ids[i])
+            self.assertEqual(ss.shapes[k], stimuli.shapes[i])
+            self.assertEqual(list(ss.sizes[k]), list(stimuli.sizes[i]))
 
 if __name__ == '__main__':
     unittest.main()

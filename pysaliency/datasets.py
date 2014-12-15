@@ -4,6 +4,7 @@ from __future__ import absolute_import, print_function, division, unicode_litera
 
 from hashlib import sha1
 from copy import deepcopy
+from collections import Sequence
 
 from six.moves import range as xrange
 
@@ -511,9 +512,11 @@ class Stimulus(object):
     retrieve the cache content without having to load
     the actual stimulus
     """
-    def __init__(self, stimulus_data, stimulus_id = None):
+    def __init__(self, stimulus_data, stimulus_id = None, shape = None, size = None):
         self.stimulus_data = stimulus_data
         self._stimulus_id = stimulus_id
+        self._shape = shape
+        self._size = size
 
     @property
     def stimulus_id(self):
@@ -521,8 +524,23 @@ class Stimulus(object):
             self._stimulus_id = get_image_hash(self.stimulus_data)
         return self._stimulus_id
 
+    @property
+    def shape(self):
+        if self._shape is None:
+            self._shape = self.stimulus_data.shape
+        return self._shape
 
-class FileStimulus(Stimulus):
+    @property
+    def size(self):
+        if self._size is None:
+            self._size = self.stimulus_data.shape[0], self.stimulus_data.shape[1]
+        return self._shape
+
+
+class StimuliStimulus(Stimulus):
+    """
+    Stimulus bound to a Stimuli object
+    """
     def __init__(self, stimuli, index):
         self.stimuli = stimuli
         self.index = index
@@ -535,8 +553,16 @@ class FileStimulus(Stimulus):
     def stimulus_id(self):
         return self.stimuli.stimulus_ids[self.index]
 
+    @property
+    def shape(self):
+        return self.stimuli.shapes[self.index]
 
-class Stimuli(object):
+    @property
+    def size(self):
+        return self.stimuli.sizes[self.index]
+
+
+class Stimuli(Sequence):
     """
     Manages a list of stimuli (i.e. images).
 
@@ -562,15 +588,36 @@ class Stimuli(object):
     def __init__(self, stimuli):
         self.stimuli = stimuli
         self.shapes = [s.shape for s in self.stimuli]
+        self.sizes = LazyList(lambda n: (self.shapes[n][0], self.shapes[n][1]),
+                              length = len(self.stimuli))
         self.stimulus_ids = LazyList(lambda n: get_image_hash(self.stimuli[n]),
                                      length=len(self.stimuli),
                                      pickle_cache=True)
-        self.stimulus_objects = LazyList(lambda n: Stimulus(self.stimuli[n], self.stimulus_ids[n]),
-                                         length=len(self.stimuli))
+        self.stimulus_objects = [StimuliStimulus(self, n) for n in range(len(self.stimuli))]
 
-    @property
-    def sizes(self):
-        return [(s[0], s[1]) for s in self.shapes]
+    def __len__(self):
+        return len(self.stimuli)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return ObjectStimuli([self.stimulus_objects[i] for i in range(len(self))[index]])
+        elif isinstance(index, list):
+            return ObjectStimuli([self.stimulus_objects[i] for i in index])
+        else:
+            return self.stimulus_objects[index]
+
+
+class ObjectStimuli(Stimuli):
+    def __init__(self, stimuli_objects):
+        self.stimuli_objects = stimuli_objects
+        self.stimuli = LazyList(lambda n: self.stimuli_objects[n].stimulus_data,
+                                length = len(self.stimuli_objects))
+        self.shapes = LazyList(lambda n: self.stimuli_objects[n].shape,
+                               length = len(self.stimuli_objects))
+        self.sizes = LazyList(lambda n: self.stimuli_objects[n].size,
+                              length = len(self.stimuli_objects))
+        self.stimulus_ids = LazyList(lambda n: self.stimuli_objects[n].stimulus_id,
+                                     length = len(self.stimuli_objects))
 
 
 class FileStimuli(Stimuli):
@@ -617,7 +664,9 @@ class FileStimuli(Stimuli):
         self.stimulus_ids = LazyList(lambda n: get_image_hash(self.stimuli[n]),
                                      length=len(self.stimuli),
                                      pickle_cache=True)
-        self.stimulus_objects = [FileStimulus(self, n) for n in range(len(self.stimuli))]
+        self.stimulus_objects = [StimuliStimulus(self, n) for n in range(len(self.stimuli))]
+        self.sizes = LazyList(lambda n: (self.shapes[n][0], self.shapes[n][1]),
+                              length = len(self.stimuli))
 
     def load_stimulus(self, n):
         return imread(self.filenames[n])
