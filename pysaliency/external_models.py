@@ -7,7 +7,7 @@ from pkg_resources import resource_string,  resource_listdir
 
 from .utils import TemporaryDirectory, download_and_check, run_matlab_cmd
 from .quilt import QuiltSeries
-from .models import MatlabSaliencyMapModel
+from .saliency_map_models import MatlabSaliencyMapModel
 
 
 class ExternalModelMixin(object):
