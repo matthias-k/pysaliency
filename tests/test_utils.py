@@ -2,8 +2,12 @@ from __future__ import absolute_import, print_function, division
 
 import unittest
 import dill
+import glob
+import os
 
-from pysaliency.utils import LazyList, TemporaryDirectory
+import numpy as np
+
+from pysaliency.utils import LazyList, TemporaryDirectory, Cache
 from test_helpers import TestWithData
 
 
@@ -57,12 +61,53 @@ class TestLazyList(TestWithData):
 
 class TestTemporaryDirectory(unittest.TestCase):
     def test_temporary_directory(self):
-        import os
         with TemporaryDirectory() as tmp_dir:
             self.assertTrue(os.path.isdir(tmp_dir))
 
         self.assertFalse(os.path.isdir(tmp_dir))
         self.assertFalse(os.path.exists(tmp_dir))
+
+
+class TestCache(TestWithData):
+    def test_basics(self):
+        cache = Cache()
+
+        self.assertEqual(len(cache), 0)
+
+        data = np.random.randn(10, 10, 3)
+        cache['foo'] = data
+
+        self.assertEqual(list(cache.keys()), ['foo'])
+        np.testing.assert_allclose(cache['foo'], data)
+
+        del cache['foo']
+
+        self.assertEqual(len(cache), 0)
+
+    def test_cache_to_disk(self):
+        cache = Cache(cache_location = self.data_path)
+
+        self.assertEqual(len(cache), 0)
+
+        data = np.random.randn(10, 10, 3)
+        cache['foo'] = data
+
+        self.assertEqual(glob.glob(os.path.join(self.data_path, '*.*')),
+                         [os.path.join(self.data_path, 'foo.npy')])
+
+        self.assertEqual(list(cache.keys()), ['foo'])
+        np.testing.assert_allclose(cache['foo'], data)
+
+        cache = Cache(cache_location = self.data_path)
+        self.assertEqual(cache._cache, {})
+        self.assertEqual(list(cache.keys()), ['foo'])
+        np.testing.assert_allclose(cache['foo'], data)
+
+        del cache['foo']
+        self.assertEqual(len(cache), 0)
+        self.assertEqual(glob.glob(os.path.join(self.data_path, '*.*')),
+                         [])
+
 
 if __name__ == '__main__':
     unittest.main()

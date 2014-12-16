@@ -1,5 +1,7 @@
 from __future__ import print_function, absolute_import, division
-from collections import Sequence
+from collections import Sequence, MutableMapping
+from itertools import chain
+from glob import iglob
 
 import warnings as _warnings
 import os as _os
@@ -7,9 +9,12 @@ import sys as _sys
 import os
 import hashlib
 import warnings
-from six.moves import urllib
+from six.moves import urllib, filterfalse, map
+from six import iterkeys
 import subprocess as sp
 from tempfile import mkdtemp
+
+import numpy as np
 
 
 def lazy_property(fn):
@@ -281,3 +286,62 @@ def download_and_check(url, target, md5_hash):
     """Download url to target and check for correct md5_hash. Prints warning if hash is not correct."""
     download_file(url, target)
     check_file_hash(target, md5_hash)
+
+
+class Cache(MutableMapping):
+    """Cache that supports saving the items to files
+
+    Set `cache_location` to save all newly set
+    items to .npy files in cache_location.
+
+    .. warning ::
+        Items that have been set before setting `cache_location` won't
+        be saved to files!
+
+    """
+    def __init__(self, cache_location=None):
+        self._cache = {}
+        self.cache_location = cache_location
+
+    def filename(self, key):
+        return os.path.join(self.cache_location, '{}.npy'.format(key))
+
+
+    def __getitem__(self, key):
+        if not key in self._cache:
+            if self.cache_location is not None:
+                filename = self.filename(key)
+                if os.path.exists(filename):
+                    value = np.load(filename)
+                    self._cache[key] = value
+                else:
+                    raise KeyError('Key {} neither in cache nor on disk'.format(key))
+        return self._cache[key]
+
+    def __setitem__(self, key, value):
+        if not isinstance(key, str):
+            raise TypeError('Only string keys are supported right now!')
+        if self.cache_location is not None:
+            filename = self.filename(key)
+            np.save(filename, value)
+        self._cache[key] = value
+
+    def __delitem__(self, key):
+        if self.cache_location is not None:
+            filename = self.filename(key)
+            if os.path.exists(filename):
+                os.remove(filename)
+        del self._cache[key]
+
+    def __iter__(self):
+        if self.cache_location is not None:
+            filenames = iglob(self.filename('*'))
+            keys = map(lambda f: os.path.splitext(os.path.basename(f))[0], filenames)
+            new_keys = filterfalse(lambda key: key in self._cache.keys(), keys)
+            return chain(iterkeys(self._cache), new_keys)
+        else:
+            return iterkeys(self._cache)
+
+    def __len__(self):
+        i = iter(self)
+        return len(list(i))
