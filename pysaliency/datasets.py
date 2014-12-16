@@ -608,16 +608,19 @@ class Stimuli(Sequence):
 
 
 class ObjectStimuli(Stimuli):
-    def __init__(self, stimuli_objects):
-        self.stimuli_objects = stimuli_objects
-        self.stimuli = LazyList(lambda n: self.stimuli_objects[n].stimulus_data,
-                                length = len(self.stimuli_objects))
-        self.shapes = LazyList(lambda n: self.stimuli_objects[n].shape,
-                               length = len(self.stimuli_objects))
-        self.sizes = LazyList(lambda n: self.stimuli_objects[n].size,
-                              length = len(self.stimuli_objects))
-        self.stimulus_ids = LazyList(lambda n: self.stimuli_objects[n].stimulus_id,
-                                     length = len(self.stimuli_objects))
+    """
+    This Stimuli class is mainly used for slicing of other stimuli objects.
+    """
+    def __init__(self, stimulus_objects):
+        self.stimulus_objects = stimulus_objects
+        self.stimuli = LazyList(lambda n: self.stimulus_objects[n].stimulus_data,
+                                length = len(self.stimulus_objects))
+        self.shapes = LazyList(lambda n: self.stimulus_objects[n].shape,
+                               length = len(self.stimulus_objects))
+        self.sizes = LazyList(lambda n: self.stimulus_objects[n].size,
+                              length = len(self.stimulus_objects))
+        self.stimulus_ids = LazyList(lambda n: self.stimulus_objects[n].stimulus_id,
+                                     length = len(self.stimulus_objects))
 
 
 class FileStimuli(Stimuli):
@@ -670,3 +673,38 @@ class FileStimuli(Stimuli):
 
     def load_stimulus(self, n):
         return imread(self.filenames[n])
+
+
+def calculate_nonfixation_factors(stimuli, index):
+    widths = np.asarray([s[1] for s in stimuli.sizes]).astype(float)
+    heights = np.asarray([s[0] for s in stimuli.sizes]).astype(float)
+
+    x_factors = stimuli.sizes[index][1] / widths
+    y_factors = stimuli.sizes[index][0] / heights
+
+    return x_factors, y_factors
+
+
+def create_nonfixations(stimuli, fixations, index, adjust_n = True, adjust_history=True):
+    """Create nonfixations from fixations for given index
+
+    stimuli of different sizes will be rescaled to match the
+    target stimulus
+    """
+
+    x_factors, y_factors = calculate_nonfixation_factors(stimuli, index)
+
+    non_fixations = fixations[fixations.n != index]
+    other_ns = non_fixations.n
+
+    non_fixations.x = non_fixations.x * x_factors[other_ns]
+    non_fixations.y = non_fixations.y * y_factors[other_ns]
+
+    if adjust_history:
+        non_fixations.x_hist = non_fixations.x_hist * x_factors[other_ns][:, np.newaxis]
+        non_fixations.y_hist = non_fixations.y_hist * y_factors[other_ns][:, np.newaxis]
+
+    if adjust_n:
+        non_fixations.n = np.ones(len(non_fixations.n), dtype=int)*index
+
+    return non_fixations
