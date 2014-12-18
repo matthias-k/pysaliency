@@ -306,7 +306,6 @@ class Cache(MutableMapping):
     def filename(self, key):
         return os.path.join(self.cache_location, '{}.npy'.format(key))
 
-
     def __getitem__(self, key):
         if not key in self._cache:
             if self.cache_location is not None:
@@ -322,6 +321,8 @@ class Cache(MutableMapping):
         if not isinstance(key, str):
             raise TypeError('Only string keys are supported right now!')
         if self.cache_location is not None:
+            if not os.path.exists(self.cache_location):
+                os.makedirs(self.cache_location)
             filename = self.filename(key)
             np.save(filename, value)
         self._cache[key] = value

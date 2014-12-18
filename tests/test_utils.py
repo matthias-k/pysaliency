@@ -108,6 +108,31 @@ class TestCache(TestWithData):
         self.assertEqual(glob.glob(os.path.join(self.data_path, '*.*')),
                          [])
 
+    def test_cache_to_disk_nonexisting_location(self):
+        cache_location = os.path.join(self.data_path, 'cache')
+        cache = Cache(cache_location = cache_location)
+
+        self.assertEqual(len(cache), 0)
+
+        data = np.random.randn(10, 10, 3)
+        cache['foo'] = data
+
+        self.assertEqual(glob.glob(os.path.join(cache_location, '*.*')),
+                         [os.path.join(cache_location, 'foo.npy')])
+
+        self.assertEqual(list(cache.keys()), ['foo'])
+        np.testing.assert_allclose(cache['foo'], data)
+
+        cache = Cache(cache_location = cache_location)
+        self.assertEqual(cache._cache, {})
+        self.assertEqual(list(cache.keys()), ['foo'])
+        np.testing.assert_allclose(cache['foo'], data)
+
+        del cache['foo']
+        self.assertEqual(len(cache), 0)
+        self.assertEqual(glob.glob(os.path.join(cache_location, '*.*')),
+                         [])
+
 
 if __name__ == '__main__':
     unittest.main()
