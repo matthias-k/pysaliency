@@ -1,12 +1,19 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from abc import abstractmethod
+import sys
 
 import numpy as np
+import theano
+import theano.tensor as T
+
+from optpy import minimize
 
 import generics
 from .saliency_map_models import GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus
 from .datasets import FixationTrains
+from .utils import Cache
+from .theano_utils import SaliencyMapProcessing
 
 
 def sample_from_image(densities, count=None):
@@ -165,9 +172,11 @@ class Model(GeneralModel, SaliencyMapModel):
 
     Inheriting classes have to implement `_log_density`.
     """
-    def __init__(self):
+    def __init__(self, cache_location=None):
         super(Model, self).__init__()
-        self._log_density_cache = {}
+        self._log_density_cache = Cache(cache_location)
+        # This make the property `cache_location` work.
+        self._saliency_map_cache = self._log_density_cache
 
     def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, out=None):
         return self.log_density(stimulus)
@@ -213,3 +222,169 @@ class Model(GeneralModel, SaliencyMapModel):
         xs, ys = sample_from_image(np.exp(log_densities), count=length)
         ts = np.arange(len(xs))
         return xs, ys, ts
+
+
+class SaliencyMapConvertor(Model):
+    """
+    Convert saliency map models to probabilistic models.
+    """
+    def __init__(self, saliency_map_model, nonlinearity = None, centerbias = None, alpha=1.0, blur_radius = 0,
+                 saliency_min = None, saliency_max = None, cache_location = None):
+        """
+        Parameters
+        ----------
+
+        @type  saliency_map_model : SaliencyMapModel
+        @param saliency_map_model : The saliency map model to convert to a probabilistic model
+
+        @type  nonlinearity : ndarray
+        @param nonlinearity : The nonlinearity to apply. By default the identity
+
+        TODO
+
+        @type  saliency_min, saliency_max: float
+        @param saliency_min, saliency_max: The saliency values that are interpreted as 0 and 1 before applying
+                                           the nonlinearity. If `None`, the minimum rsp. maximum of each saliency
+                                           map will be used.
+        """
+        super(SaliencyMapConvertor, self).__init__(cache_location=cache_location)
+        self.saliency_map_model = saliency_map_model
+        if nonlinearity is None:
+            nonlinearity = np.linspace(0, 1.0, num=20)
+        if centerbias is None:
+            centerbias = np.ones(12)
+
+        self._blur_radius = blur_radius
+        self._nonlinearity = nonlinearity
+        self._centerbias = centerbias
+        self._alpha = alpha
+
+        self.saliency_min = saliency_min
+        self.saliency_max = saliency_max
+
+        self._build()
+
+    def _build(self):
+        self.theano_input = T.matrix('saliency_map', dtype='float64')
+        self.saliency_map_processing = SaliencyMapProcessing(self.theano_input,
+                                                             sigma=self._blur_radius,
+                                                             nonlinearity_ys=self._nonlinearity,
+                                                             centerbias=self._centerbias,
+                                                             alpha=self._alpha
+                                                             )
+        self._f_log_density = theano.function([self.theano_input], self.saliency_map_processing.log_density)
+
+    def _prepare_saliency_map(self, saliency_map):
+        smin, smax = self.saliency_min, self.saliency_max
+        if smin is None:
+            smin = saliency_map.min()
+        if smax is None:
+            smax = saliency_map.max()
+
+        saliency_map = (saliency_map - smin) / (smax - smin)
+        return saliency_map
+
+    def _log_density(self, stimulus):
+        saliency_map = self.saliency_map_model.saliency_map(stimulus)
+        saliency_map = self._prepare_saliency_map(saliency_map)
+        log_density = self._f_log_density(saliency_map)
+        return log_density
+
+    def fit(self, stimuli, fixations, optimize=None):
+        """
+        Fit the parameters of the model
+        """
+
+        if optimize is None:
+            optimize = ['blur_radius', 'nonlinearity', 'centerbias', 'alpha']
+
+        x_inds = []
+        y_inds = []
+        for n in range(len(stimuli)):
+            f = fixations[fixations.n == n]
+            x_inds.append(f.x_int)
+            y_inds.append(f.y_int)
+
+        weights = np.array([len(inds) for inds in x_inds], dtype=float)
+        weights /= weights.sum()
+
+        smp = self.saliency_map_processing
+
+        log_likelihood = smp.average_log_likelihood
+        param_dict = {'blur_radius': smp.blur_radius,
+                      'nonlinearity': smp.nonlinearity_ys,
+                      'centerbias': smp.centerbias_ys,
+                      'alpha': smp.alpha}
+        params = [param_dict[name] for name in optimize]
+        grads = T.grad(log_likelihood, params)
+
+        print('Compiling theano function')
+        sys.stdout.flush()
+        f_ll_with_grad = theano.function([self.theano_input, self.saliency_map_processing.x_inds,
+                                          self.saliency_map_processing.y_inds],
+                                         [log_likelihood]+grads)
+
+        print('Caching saliency maps')
+        sys.stdout.flush()
+        saliency_maps = []
+        for s in stimuli:
+            smap = self._prepare_saliency_map(self.saliency_map_model.saliency_map(s))
+            saliency_maps.append(smap)
+
+        full_params = self.saliency_map_processing.params
+
+        def func(blur_radius, nonlinearity, centerbias, alpha, optimize=None):
+            print('blur_radius: ', blur_radius)
+            print('nonlinearity:', nonlinearity)
+            print('centerbias:  ', centerbias)
+            print('alpha:       ', alpha)
+            for p, v in zip(full_params, [blur_radius, nonlinearity, centerbias, alpha]):
+                p.set_value(v)
+
+            values = []
+            grads = [[] for p in params]
+            for n in generics.progressinfo(range(len(stimuli))):
+                rets = f_ll_with_grad(saliency_maps[n], x_inds[n], y_inds[n])
+                values.append(rets[0])
+                assert len(rets) == len(params)+1
+                for l, g in zip(grads, rets[1:]):
+                    l.append(g)
+
+            value = np.average(values, axis=0, weights=weights)
+            av_grads = []
+            for grad in grads:
+                av_grads.append(np.average(grad, axis=0, weights=weights))
+
+            #print(value, av_grads)
+
+            return value, tuple(av_grads)
+
+        nonlinearity_value = self.saliency_map_processing.nonlinearity_ys.get_value()
+        num_nonlinearity = len(nonlinearity_value)
+
+        centerbias_value = self.saliency_map_processing.centerbias_ys.get_value()
+
+        constraints = []
+        constraints.append({'type': 'ineq',
+                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]})
+
+        for i in range(1, num_nonlinearity):
+            constraints.append({'type': 'ineq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
+
+        constraints.append({'type': 'eq',
+                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity.sum()-nonlinearity_value.sum()})
+        constraints.append({'type': 'eq',
+                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum()-centerbias_value.sum()})
+
+        options = {'disp': 2,
+                   'iprint': 2,
+                   'maxiter': 1000}
+
+        x0 = {'blur_radius': full_params[0].get_value(),
+              'nonlinearity': full_params[1].get_value(),
+              'centerbias': full_params[2].get_value(),
+              'alpha': full_params[3].get_value()}
+
+        res = minimize(func, x0, jac=True, constraints=constraints, method='SLSQP', tol=1e-9, options=options, optimize=optimize)
+        return res

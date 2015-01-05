@@ -81,7 +81,7 @@ def gaussian_filter(input, sigma, window_radius = 40):
 class Blur(object):
     def __init__(self, input, sigma=20.0, window_radius=60):
         self.input = input
-        self.sigma = theano.shared(value=np.array(sigma), name='sigma')
+        self.sigma = theano.shared(value=np.array(sigma, dtype=theano.config.floatX), name='sigma')
         apply_blur = T.gt(self.sigma, 0.0)
         self.output = ifelse(apply_blur, gaussian_filter(input.dimshuffle('x', 0, 1), self.sigma, window_radius)[0, :, :], input)
         self.params = [self.sigma]
@@ -105,8 +105,8 @@ class CenterBias(object):
         if centerbias is None:
             centerbias = np.ones(12)
         self.alpha = theano.shared(value = np.array(alpha), name='alpha')
-        self.centerbias_ys = theano.shared(value=centerbias, name='centerbias_ys')
-        self.centerbias_xs = theano.shared(value=np.linspace(0, 1, len(centerbias)), name='centerbias_xs')
+        self.centerbias_ys = theano.shared(value=np.array(centerbias, dtype=theano.config.floatX), name='centerbias_ys')
+        self.centerbias_xs = theano.shared(value=np.linspace(0, 1, len(centerbias), dtype=theano.config.floatX), name='centerbias_xs')
 
         height = T.cast(input.shape[0], 'float64')
         width = T.cast(input.shape[1], 'float64')
@@ -122,7 +122,7 @@ class CenterBias(object):
 
         self.factors = nonlinearity(self.dists, self.centerbias_xs, self.centerbias_ys, len(centerbias))
 
-        apply_centerbias = T.lt(self.centerbias_ys.shape[0], 2)
+        apply_centerbias = T.gt(self.centerbias_ys.shape[0], 2)
         self.output = ifelse(apply_centerbias, self.input*self.factors, self.input)
         self.params = [self.centerbias_ys, self.alpha]
 
@@ -138,3 +138,42 @@ class AverageLogLikelihood(object):
         self.log_densities = log_densities
         self.log_likelihoods = log_densities[y_inds, x_inds]
         self.average_log_likelihood = self.log_likelihoods.mean()
+
+
+class SaliencyMapProcessing(object):
+    def __init__(self, saliency_map, x_inds = None, y_inds = None,
+                 sigma = 0.0, window_radius = 80, nonlinearity_ys = None, centerbias = None, alpha = 1.0):
+        if x_inds is None:
+            x_inds = T.lvector('x_inds')
+        if y_inds is None:
+            y_inds = T.lvector('y_inds')
+
+        class TheanoObjects(object):
+            pass
+
+        self.theano_objects = TheanoObjects()
+
+        self.x_inds = x_inds
+        self.y_inds = y_inds
+        self.theano_objects.blur = Blur(saliency_map, sigma=sigma, window_radius=window_radius)
+        self.blur = self.theano_objects.blur.output
+
+        self.theano_objects.nonlinearity = Nonlinearity(self.blur, nonlinearity_ys=nonlinearity_ys)
+        self.nonlinearity = self.theano_objects.nonlinearity.output
+
+        self.theano_objects.centerbias = CenterBias(self.nonlinearity, centerbias=centerbias, alpha=alpha)
+        self.centerbias = self.theano_objects.centerbias.output
+
+        self.theano_objects.log_density = LogDensity(self.centerbias)
+        self.log_density = self.theano_objects.log_density.output
+
+        self.theano_objects.average_log_likelihood = AverageLogLikelihood(self.log_density, self.x_inds, self.y_inds)
+
+        self.average_log_likelihood = self.theano_objects.average_log_likelihood.average_log_likelihood
+        self.params = self.theano_objects.blur.params + self.theano_objects.nonlinearity.params + self.theano_objects.centerbias.params
+
+        self.blur_radius = self.theano_objects.blur.sigma
+        self.nonlinearity_ys = self.theano_objects.nonlinearity.nonlinearity_ys
+        self.centerbias_ys = self.theano_objects.centerbias.centerbias_ys
+        self.alpha = self.theano_objects.centerbias.alpha
+

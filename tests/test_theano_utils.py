@@ -170,6 +170,16 @@ class TestCenterBias(object):
         out = center_bias.output.eval({data: tmp})
         np.testing.assert_allclose(out, tmp)
 
+    def test_centerbias_ones_times_two(self):
+        theano.config.floatX = 'float64'
+        data = T.matrix('data')
+        data.tag.test_value = np.random.randn(10, 10)
+        center_bias = CenterBias(data, centerbias=np.array([2.0, 2.0, 2.0]))
+
+        tmp = np.ones((1000, 2000))
+        out = center_bias.output.eval({data: tmp})
+        np.testing.assert_allclose(out, 2*tmp)
+
     def test_centerbias_random(self):
         theano.config.floatX = 'float64'
         data = T.matrix('data')
@@ -179,6 +189,17 @@ class TestCenterBias(object):
         tmp = np.random.randn(1000, 2000)
         out = center_bias.output.eval({data: tmp})
         np.testing.assert_allclose(out, tmp)
+
+    def test_centerbias_ones_nontrivial(self):
+        theano.config.floatX = 'float64'
+        data = T.matrix('data')
+        data.tag.test_value = np.random.randn(10, 10)
+        center_bias = CenterBias(data, centerbias=np.array([0.0, 0.0, 1.0, 1.0]))
+
+        tmp = np.ones((1000, 2000))
+        out = center_bias.output.eval({data: tmp})
+        np.testing.assert_allclose(out.min(), 0.0)
+        np.testing.assert_allclose(out.max(), 1.0)
 
     def test_centerbias_empty(self):
         theano.config.floatX = 'float64'
