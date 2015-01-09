@@ -3,11 +3,68 @@ from __future__ import absolute_import, print_function, division, unicode_litera
 import os
 import tempfile
 import zipfile
+import tarfile
 from pkg_resources import resource_string,  resource_listdir
 
 from .utils import TemporaryDirectory, download_and_check, run_matlab_cmd
 from .quilt import QuiltSeries
 from .saliency_map_models import MatlabSaliencyMapModel
+
+
+def write_file(filename, contents):
+    """Write contents to file and close file savely"""
+    with open(filename, 'wb') as f:
+        f.write(contents)
+
+
+def extract_zipfile(filename, extract_to):
+    if zipfile.is_zipfile(filename):
+        z = zipfile.ZipFile(filename)
+        #os.makedirs(extract_to)
+        z.extractall(extract_to)
+    elif tarfile.is_tarfile(filename):
+        t = tarfile.open(filename)
+        t.extractall(extract_to)
+    else:
+        raise ValueError('Unkown archive type', filename)
+
+
+def unpack_directory(package, resource_name, location):
+    files = resource_listdir(package, resource_name)
+    for file in files:
+        write_file(os.path.join(location, file),
+                   resource_string(package, os.path.join(resource_name, file)))
+
+
+def apply_quilt(source_location, package, resource_name, patch_directory, verbose=True):
+    """Apply quilt series from package data to source code"""
+    os.makedirs(patch_directory)
+    unpack_directory(package, resource_name, patch_directory)
+    series = QuiltSeries(patch_directory)
+    series.apply(source_location, verbose=verbose)
+
+
+def download_extract_patch(url, hash, location, location_in_archive=True, patches=None):
+    """Download, extract and maybe patch code"""
+    with TemporaryDirectory() as temp_dir:
+        if not os.path.isdir(temp_dir):
+            os.makedirs(temp_dir)
+        archive_name = os.path.basename(url)
+        download_and_check(url,
+                           os.path.join(temp_dir, archive_name),
+                           hash)
+
+        if location_in_archive:
+            target = os.path.dirname(os.path.normpath(location))
+        else:
+            target = location
+        extract_zipfile(os.path.join(temp_dir, archive_name),
+                        target)
+
+    if patches:
+        parent_directory = os.path.dirname(os.path.normpath(location))
+        patch_directory = os.path.join(parent_directory, os.path.basename(patches))
+        apply_quilt(location, __name__,  os.path.join('scripts', 'models', patches), patch_directory)
 
 
 class ExternalModelMixin(object):
@@ -26,16 +83,16 @@ class ExternalModelMixin(object):
     To make use of this Mixin, overwrite `_setup()`
     and run `setup(location)`.
     """
-    def setup(self, location):
+    def setup(self, location, *args, **kwargs):
         if location is None:
             self.location = tempfile.mkdtemp()
-            self._setup()
+            self._setup(*args, **kwargs)
         else:
             self.location = os.path.join(location, self.__modelname__)
             if not os.path.exists(self.location):
-                self._setup()
+                self._setup(*args, **kwargs)
 
-    def _setup(self):
+    def _setup(self, *args, **kwargs):
         raise NotImplementedError()
 
 
@@ -51,9 +108,9 @@ class AIM(ExternalModelMixin, MatlabSaliencyMapModel):
     """
     __modelname__ = 'AIM'
 
-    def __init__(self, filters='31jade950', convolve=True, location=None):
+    def __init__(self, filters='31jade950', convolve=True, location=None, **kwargs):
         self.setup(location)
-        super(AIM, self).__init__(os.path.join(self.location, 'AIM_wrapper.m'), only_color_stimuli=True)
+        super(AIM, self).__init__(os.path.join(self.location, 'AIM_wrapper.m'), only_color_stimuli=True, **kwargs)
         self.filters = filters
         self.convolve = convolve
 
@@ -95,6 +152,9 @@ class SUN(ExternalModelMixin, MatlabSaliencyMapModel):
         we convert grayscale images to color images by setting
         all color channels to the grayscale value.
 
+        This model does not work with octave due to incompabilities
+        of octave with matlab. This might change in the future.
+
     .. seealso::
         Lingyun Zhang, Matthew H. Tong, Tim K. Marks, Honghao Shan, Garrison W. Cottrell. SUN: A Bayesian framework for saliency using natural statistics [JoV 2008]
 
@@ -102,9 +162,9 @@ class SUN(ExternalModelMixin, MatlabSaliencyMapModel):
     """
     __modelname__ = 'SUN'
 
-    def __init__(self, scale=1.0, location=None):
+    def __init__(self, scale=1.0, location=None, **kwargs):
         self.setup(location)
-        super(SUN, self).__init__(os.path.join(self.location, 'SUN_wrapper.m'))
+        super(SUN, self).__init__(os.path.join(self.location, 'SUN_wrapper.m'), **kwargs)
         self.scale = scale
 
     def matlab_command(self, stimulus):
@@ -141,9 +201,9 @@ class ContextAwareSaliency(ExternalModelMixin, MatlabSaliencyMapModel):
     """
     __modelname__ = 'ContextAwareSaliency'
 
-    def __init__(self, location=None):
+    def __init__(self, location=None, **kwargs):
         self.setup(location)
-        super(ContextAwareSaliency, self).__init__(os.path.join(self.location, 'ContextAwareSaliency_wrapper.m'))
+        super(ContextAwareSaliency, self).__init__(os.path.join(self.location, 'ContextAwareSaliency_wrapper.m'), **kwargs)
 
     def _setup(self):
         with TemporaryDirectory() as temp_dir:
@@ -188,9 +248,9 @@ class BMS(ExternalModelMixin, MatlabSaliencyMapModel):
     """
     __modelname__ = 'BMS'
 
-    def __init__(self, location=None):
+    def __init__(self, location=None, **kwargs):
         self.setup(location)
-        super(BMS, self).__init__(os.path.join(self.location, 'BMS_wrapper.m'))
+        super(BMS, self).__init__(os.path.join(self.location, 'BMS_wrapper.m'), **kwargs)
 
     def _setup(self):
         with TemporaryDirectory() as temp_dir:
@@ -200,27 +260,15 @@ class BMS(ExternalModelMixin, MatlabSaliencyMapModel):
                                os.path.join(temp_dir, 'BMS.zip'),
                                '056fa962993c3083f7977ee18432dd8c')
 
-            z = zipfile.ZipFile(os.path.join(temp_dir, 'BMS.zip'))
             source_location = os.path.join(self.location, 'source')
-            os.makedirs(source_location)
-            z.extractall(source_location)
+            extract_zipfile(os.path.join(temp_dir, 'BMS.zip'),
+                            source_location)
 
-            def unpack_directory(package, resource_name, location):
-                files = resource_listdir(package, resource_name)
-                for file in files:
-                    with open(os.path.join(location, file), 'wb') as f:
-                        f.write(resource_string(package, os.path.join(resource_name, file)))
-
-            patch_dir = os.path.join(self.location, 'patches')
-            os.makedirs(patch_dir)
-            unpack_directory(__name__, os.path.join('scripts',
-                                                    'models',
-                                                    'BMS',
-                                                    'patches'),
-                             patch_dir)
-
-            series = QuiltSeries(patch_dir)
-            series.apply(source_location, verbose=True)
+            apply_quilt(source_location, __name__, os.path.join('scripts',
+                                                                'models',
+                                                                'BMS',
+                                                                'patches'),
+                        os.path.join(self.location, 'patches'))
 
             run_matlab_cmd('compile', cwd=os.path.join(source_location, 'mex'))
 
@@ -235,21 +283,18 @@ class GBVS(ExternalModelMixin, MatlabSaliencyMapModel):
 
     .. note::
         The original code is slightly patched to work from other directories.
-        Also, their code uses OpenCV for performance. The original compile script
-        had hardcoded Windows paths for the location of OpenCV. The compile script
-        is patched to use the path of OpenCV in Ubuntu. If you want to use the BMS
-        model in other systems, you might have to adapt the compile script and run
-        it yourself.
+
+        This model does not work with octave due to incompabilities
+        of octave with matlab. This might change in the future.
 
     .. seealso::
-        Jianming Zhang, Stan Sclaroff. Saliency detection: a boolean map approach [ICCV 2013]
-        [http://cs-people.bu.edu/jmzhang/BMS/BMS_iccv13_preprint.pdf]
+        Jonathan Harel, Christof Koch, Pietro Perona. Graph-Based Visual Saliency [NIPS 2006]
 
-        http://cs-people.bu.edu/jmzhang/BMS/BMS.html
+        http://www.vision.caltech.edu/~harel/share/gbvs.php
     """
     __modelname__ = 'GBVS'
 
-    def __init__(self, location=None):
+    def __init__(self, location=None, **kwargs):
         """
         The parameter explanation have been adopted from the original code.
 
@@ -298,43 +343,136 @@ class GBVS(ExternalModelMixin, MatlabSaliencyMapModel):
         @param contrastwidth: fraction of image width = length of square side over which luminance variance is
                               computed for 'contrast' feature map. LARGER values will give SMOOTHER contrast maps.
 
-        @type
-
 
         """
         self.setup(location)
-        super(GBVS, self).__init__(os.path.join(self.location, 'GBVS_wrapper.m'))
+        super(GBVS, self).__init__(os.path.join(self.location, 'GBVS_wrapper.m'), **kwargs)
 
     def _setup(self):
-        with TemporaryDirectory() as temp_dir:
-            if not os.path.isdir(temp_dir):
-                os.makedirs(temp_dir)
-            download_and_check('http://www.vision.caltech.edu/~harel/share/gbvs.zip',
-                               os.path.join(temp_dir, 'gbvs.zip'),
-                               'c5a86b9549c2c0bbd1b7f7e5b663b031')
+        source_location = os.path.join(self.location, 'gbvs')
+        download_extract_patch('http://www.vision.caltech.edu/~harel/share/gbvs.zip',
+                               'c5a86b9549c2c0bbd1b7f7e5b663b031',
+                               source_location,
+                               location_in_archive=True,
+                               patches=os.path.join('GBVS', 'patches'))
 
-            z = zipfile.ZipFile(os.path.join(temp_dir, 'gbvs.zip'))
-            source_location = os.path.join(self.location, 'gbvs')
-            z.extractall(self.location)
+        run_matlab_cmd("addpath('compile');gbvs_compile", cwd=source_location)
 
-            def unpack_directory(package, resource_name, location):
-                files = resource_listdir(package, resource_name)
-                for file in files:
-                    with open(os.path.join(location, file), 'wb') as f:
-                        f.write(resource_string(package, os.path.join(resource_name, file)))
+        with open(os.path.join(self.location, 'GBVS_wrapper.m'), 'wb') as f:
+            f.write(resource_string(__name__, 'scripts/models/GBVS/GBVS_wrapper.m'))
 
-            patch_dir = os.path.join(self.location, 'patches')
-            os.makedirs(patch_dir)
-            unpack_directory(__name__, os.path.join('scripts',
-                                                    'models',
-                                                    'GBVS',
-                                                    'patches'),
-                             patch_dir)
 
-            series = QuiltSeries(patch_dir)
-            series.apply(source_location, verbose=True)
+class GBVSIttiKoch(ExternalModelMixin, MatlabSaliencyMapModel):
+    """
+    IttiKoch as implemented in "Graph Based Visual Saliency (GBVS)" by Zhang and Sclaroff.
+    The original matlab code is used.
 
-            #run_matlab_cmd('compile', cwd=os.path.join(source_location, 'mex'))
+    .. note::
+        The original code is slightly patched to work from other directories.
 
-            with open(os.path.join(self.location, 'GBVS_wrapper.m'), 'wb') as f:
-                f.write(resource_string(__name__, 'scripts/models/GBVS/GBVS_wrapper.m'))
+        This model does not work with octave due to incompabilities
+        of octave with matlab. This might change in the future.
+
+    .. seealso::
+        Jonathan Harel, Christof Koch, Pietro Perona. Graph-Based Visual Saliency [NIPS 2006]
+
+        http://www.vision.caltech.edu/~harel/share/gbvs.php
+    """
+    __modelname__ = 'GBVSIttiKoch'
+
+    def __init__(self, location=None, **kwargs):
+        self.setup(location)
+        super(GBVSIttiKoch, self).__init__(os.path.join(self.location, 'GBVSIttiKoch_wrapper.m'), **kwargs)
+
+    def _setup(self):
+        source_location = os.path.join(self.location, 'gbvs')
+        download_extract_patch('http://www.vision.caltech.edu/~harel/share/gbvs.zip',
+                               'c5a86b9549c2c0bbd1b7f7e5b663b031',
+                               source_location,
+                               location_in_archive=True,
+                               patches=os.path.join('GBVS', 'patches'))
+
+        run_matlab_cmd("addpath('compile');gbvs_compile", cwd=source_location)
+
+        with open(os.path.join(self.location, 'GBVSIttiKoch_wrapper.m'), 'wb') as f:
+            f.write(resource_string(__name__, 'scripts/models/GBVS/GBVSIttiKoch_wrapper.m'))
+
+
+class Judd(ExternalModelMixin, MatlabSaliencyMapModel):
+    """
+    Judd model by Judd et al.
+    The original matlab code is used.
+
+    .. note::
+        The original code is patched to work from other directories.
+
+        The model makes use of the [SaliencyToolbox](http://www.saliencytoolbox.net/). Due
+        to licence restrictions the Toolbox cannot be downloaded automatically. You have to
+        download it yourself and provide the location of the zipfile via the
+        `saliency_toolbox_archive`-keyword to the constructor.
+
+        This model does not work with octave due to incompabilities
+        of octave with matlab. This might change in the future.
+
+    .. seealso::
+        Tilke Judd, Krista Ehinger, Fredo Durand, Antonio Torralba. Learning to predict where humans look [ICCV 2009]
+
+        http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
+    """
+    __modelname__ = 'Judd'
+
+    def __init__(self, location=None, saliency_toolbox_archive=None, **kwargs):
+        self.setup(location, saliency_toolbox_archive=saliency_toolbox_archive)
+        super(Judd, self).__init__(os.path.join(self.location, 'Judd_wrapper.m'), only_color_stimuli=True, **kwargs)
+
+    def _setup(self, saliency_toolbox_archive):
+        if not saliency_toolbox_archive:
+            raise Exception('You have to provide the zipfile containing the Itti and Koch Saliency Toolbox!')
+
+        source_location = os.path.join(self.location, 'source')
+        print('Downloading Judd Model...')
+        download_extract_patch('http://people.csail.mit.edu/tjudd/WherePeopleLook/Code/JuddSaliencyModel.zip',
+                               '03e56c6f37c0ef3605c4c476f8a35b6b',
+                               os.path.join(source_location, 'JuddSaliencyModel'),
+                               location_in_archive=True,
+                               patches=os.path.join('Judd', 'JuddSaliencyModel_patches'))
+
+        print('Downloading matlabPyrTools...')
+        download_extract_patch('http://www.cns.nyu.edu/pub/eero/matlabPyrTools.tar.gz',
+                               'da53c02c843ed636bb35e20dac68a1b2',
+                               os.path.join(source_location, 'matlabPyrTools'),
+                               location_in_archive=True,
+                               patches=None)
+
+        print('Downloading voc')
+        download_extract_patch('http://cs.brown.edu/~pff/latent-release3/voc-release3.1.tgz',
+                               '20502f8a40f1122e00f81dcc0d11a843',
+                               os.path.join(source_location, 'voc-release3.1'),
+                               location_in_archive=True,
+                               patches=os.path.join('Judd', 'voc_patches'))
+        run_matlab_cmd("compile;quit;", cwd=os.path.join(source_location, 'voc-release3.1'))
+
+        print('Extracting Saliency Toolbox')
+        extract_zipfile(saliency_toolbox_archive, source_location)
+        apply_quilt(os.path.join(source_location, 'SaliencyToolbox'),
+                    __name__, os.path.join('scripts', 'models', 'Judd', 'SaliencyToolbox_patches'),
+                    os.path.join(source_location, 'SaliencyToolbox_patches'))
+
+        print('Downloading Viola Jones Face Detection')
+        download_extract_patch('http://www.mathworks.com/matlabcentral/fileexchange/19912-open-cv-viola-jones-face-detection-in-matlab?download=true',
+                               '26d3f6bc6641d959661afedadff8b479',
+                               os.path.join(source_location, 'FaceDetect'),
+                               location_in_archive=False,
+                               patches=os.path.join('Judd', 'FaceDetect_patches'))
+        run_matlab_cmd("mex FaceDetect.cpp -I/usr/include/opencv2 -L/usr/lib/x86_64-linux-gnu/  -lopencv_core -lopencv_objdetect -lopencv_imgproc -lopencv_highgui -outdir .",
+                       cwd=os.path.join(source_location, 'FaceDetect', 'src'))
+
+        print('Downloading LabelMe Toolbox')
+        download_extract_patch('http://labelme.csail.mit.edu/LabelMeToolbox/LabelMeToolbox.zip',
+                               '66d982aae539149eff09ce26b7278f4d',
+                               os.path.join(source_location, 'LabelMeToolbox'),
+                               location_in_archive=True,
+                               patches=None)
+
+        with open(os.path.join(self.location, 'Judd_wrapper.m'), 'wb') as f:
+            f.write(resource_string(__name__, 'scripts/models/Judd/Judd_wrapper.m'))

@@ -33,6 +33,7 @@ def setUp():
 
 class ModelTemplate(object):
     data_path = 'test_data'
+    matlab_names = ['matlab', 'octave']
 
     def setUp(self):
         if os.path.isdir(self.data_path):
@@ -58,7 +59,7 @@ class ModelTemplate(object):
 
     @property
     def params(self):
-        return product([None, self.data_path], ['matlab', 'octave'])
+        return product([None, self.data_path], self.matlab_names)
 
     def test_saliency_maps(self):
         for location, matlab in self.params:
@@ -66,10 +67,12 @@ class ModelTemplate(object):
 
     def check_saliency_maps(self, location, matlab):
         model = self.get_model(location, matlab)
+        print('Testing color')
         color_stimulus = DataStore.ds.color_stimulus
         saliency_map = model.saliency_map(color_stimulus)
         np.testing.assert_allclose(saliency_map,
                                    np.load(os.path.join('tests', 'external_models', '{}_color_stimulus.npy'.format(model.__modelname__))))
+        print('Testing Grayscale')
         grayscale_stimulus = DataStore.ds.grayscale_stimulus
         saliency_map = model.saliency_map(grayscale_stimulus)
         np.testing.assert_allclose(saliency_map,
@@ -82,6 +85,8 @@ class TestAIM(ModelTemplate):
 
 
 class TestSUN(ModelTemplate):
+    matlab_names = ['matlab']
+
     def create_model(self, location):
         return pysaliency.SUN(location=location)
 
@@ -95,6 +100,25 @@ class TestContextAwareSaliency(ModelTemplate):
 #    def create_model(self, location):
 #        return pysaliency.BMS(location=location)
 
+class TestGBVS(ModelTemplate):
+    matlab_names = ['matlab']
+
+    def create_model(self, location):
+        return pysaliency.GBVS(location=location)
+
+
+class TestGBVSIttiKoch(ModelTemplate):
+    matlab_names = ['matlab']
+
+    def create_model(self, location):
+        return pysaliency.GBVSIttiKoch(location=location)
+
+
+class TestJudd(ModelTemplate):
+    matlab_names = ['matlab']
+
+    def create_model(self, location):
+        return pysaliency.Judd(location=location, saliency_toolbox_archive='SaliencyToolbox2.3.zip')
 
 if __name__ == '__main__':
     unittest.main()
