@@ -534,7 +534,7 @@ class Stimulus(object):
     def size(self):
         if self._size is None:
             self._size = self.stimulus_data.shape[0], self.stimulus_data.shape[1]
-        return self._shape
+        return self._size
 
 
 class StimuliStimulus(Stimulus):
