@@ -11,7 +11,7 @@ from scipy.misc import imsave
 import generics
 from .roc import general_roc
 
-from .utils import TemporaryDirectory, run_matlab_cmd
+from .utils import TemporaryDirectory, run_matlab_cmd, Cache
 from .datasets import Stimulus
 
 
@@ -40,7 +40,7 @@ class GeneralSaliencyMapModel(object):
         """
         raise NotImplementedError()
 
-    def AUCs(self, stimuli, fixations, nonfixations='uniform'):
+    def AUCs(self, stimuli, fixations, nonfixations='uniform', verbose=False):
         """
         Calulate AUC scores for fixations
 
@@ -88,7 +88,7 @@ class GeneralSaliencyMapModel(object):
 
                 nonfix_xs.append(xs.astype(int))
                 nonfix_ys.append(ys.astype(int))
-        for i in generics.progressinfo(range(len(fixations.x))):
+        for i in generics.progressinfo(range(len(fixations.x)), verbose=verbose):
             out = self.conditional_saliency_map(stimuli.stimulus_objects[fixations.n[i]], fixations.x_hist[i], fixations.y_hist[i],
                                                 fixations.t_hist[i], out=out)
             positives = np.asarray([out[fixations.y[i], fixations.x[i]]])
@@ -108,7 +108,7 @@ class GeneralSaliencyMapModel(object):
 #        else:
         return rocs_per_fixation
 
-    def AUC(self, stimuli, fixations, nonfixations='uniform', average='fixation'):
+    def AUC(self, stimuli, fixations, nonfixations='uniform', average='fixation', verbose=False):
         """
         Calulate AUC scores for fixations
 
@@ -137,8 +137,17 @@ class GeneralSaliencyMapModel(object):
         """
         if average != 'fixation':
             raise NotImplementedError()
-        aucs = self.AUCs(stimuli, fixations, nonfixations=nonfixations)
+        aucs = self.AUCs(stimuli, fixations, nonfixations=nonfixations, verbose=verbose)
         return np.mean(aucs)
+
+    def set_params(self, **kwargs):
+        """
+        Set model parameters, if the model has parameters
+
+        This method has to reset caches etc., if the depend on the parameters
+        """
+        if kwargs:
+            raise ValueError('Unkown parameters!', kwargs)
 
 
 class SaliencyMapModel(GeneralSaliencyMapModel):
@@ -148,8 +157,16 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
     but the model is not explicitly a probabilistic model.
     """
 
-    def __init__(self):
-        self._saliency_map_cache = {}
+    def __init__(self, cache_location = None):
+        self._saliency_map_cache = Cache(cache_location)
+
+    @property
+    def cache_location(self):
+        return self.cache.cache_location
+
+    @cache_location.setter
+    def cache_location(self, value):
+        self.cache.cache_location = value
 
     def saliency_map(self, stimulus):
         """
@@ -264,7 +281,7 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
     which takes the fields `stimulus` and `saliency_map` for the stimulus file
     and the saliency map file.
     """
-    def __init__(self, script_file, stimulus_ext = '.png', saliency_map_ext='.mat', only_color_stimuli=False):
+    def __init__(self, script_file, stimulus_ext = '.png', saliency_map_ext='.mat', only_color_stimuli=False, **kwargs):
         """
         Initialize MatlabSaliencyModel
 
@@ -286,7 +303,7 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
                                    Grayscale stimuli will be converted to color stimuli by setting all
                                    RGB channels to the same value.
         """
-        super(MatlabSaliencyMapModel, self).__init__()
+        super(MatlabSaliencyMapModel, self).__init__(**kwargs)
         self.script_file = script_file
         self.stimulus_ext = stimulus_ext
         self.saliency_map_ext = saliency_map_ext
