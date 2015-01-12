@@ -153,6 +153,11 @@ class Fixations(object):
     def subject_count(self):
         return self.subjects.max()+1
 
+    def copy(self):
+        return Fixations(self.x.copy(), self.y.copy(), self.t.copy(),
+                         self.x_hist.copy(), self.y_hist.copy(), self.t_hist.copy(),
+                         self.n.copy(), self.subjects.copy())
+
 
 class FixationTrains(Fixations):
     """
