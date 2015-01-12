@@ -299,9 +299,14 @@ class Cache(MutableMapping):
         be saved to files!
 
     """
-    def __init__(self, cache_location=None):
+    def __init__(self, cache_location=None, pickle_cache=False):
         self._cache = {}
         self.cache_location = cache_location
+        self.pickle_cache = pickle_cache
+
+    def clear(self):
+        """ Clear memory cache"""
+        self._cache = {}
 
     def filename(self, key):
         return os.path.join(self.cache_location, '{}.npy'.format(key))
@@ -346,3 +351,15 @@ class Cache(MutableMapping):
     def __len__(self):
         i = iter(self)
         return len(list(i))
+
+    def __getstate__(self):
+        # we don't want to save the cache
+        state = dict(self.__dict__)
+        if not self.pickle_cache:
+            state.pop('_cache')
+        return state
+
+    def __setstate__(self, state):
+        if not '_cache' in state:
+            state['_cache'] = {}
+        self.__dict__ = dict(state)

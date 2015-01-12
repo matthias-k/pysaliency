@@ -133,6 +133,41 @@ class TestCache(TestWithData):
         self.assertEqual(glob.glob(os.path.join(cache_location, '*.*')),
                          [])
 
+    def test_pickle_cache(self):
+        cache = Cache()
+
+        self.assertEqual(len(cache), 0)
+
+        data = np.random.randn(10, 10, 3)
+        cache['foo'] = data
+
+        self.assertEqual(list(cache.keys()), ['foo'])
+        np.testing.assert_allclose(cache['foo'], data)
+
+        cache2 = self.pickle_and_reload(cache)
+        self.assertEqual(cache2._cache, {})
+        self.assertEqual(len(cache2), 0)
+
+
+    def test_pickle_cache_with_location(self):
+        cache = Cache(cache_location = self.data_path)
+
+        self.assertEqual(len(cache), 0)
+
+        data = np.random.randn(10, 10, 3)
+        cache['foo'] = data
+
+        self.assertEqual(glob.glob(os.path.join(self.data_path, '*.*')),
+                         [os.path.join(self.data_path, 'foo.npy')])
+
+        self.assertEqual(list(cache.keys()), ['foo'])
+        np.testing.assert_allclose(cache['foo'], data)
+
+        cache2 = self.pickle_and_reload(cache)
+        self.assertEqual(cache2._cache, {})
+        self.assertEqual(len(cache2), 1)
+        np.testing.assert_allclose(cache2['foo'], data)
+
 
 if __name__ == '__main__':
     unittest.main()
