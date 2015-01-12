@@ -1,0 +1,16 @@
+Index: voc-release3.1/compile.m
+===================================================================
+--- voc-release3.1.orig/compile.m	2015-01-07 22:06:26.797893000 +0100
++++ voc-release3.1/compile.m	2015-01-07 22:07:09.316640000 +0100
+@@ -6,8 +6,8 @@
+ % 1 is fastest, 3 is slowest 
+ 
+ % 1) multithreaded convolution using blas
+-% mex -O fconvblas.cc -lmwblas -o fconv
++% mex -O fconvblas.cc -lmwblas -output fconv
+ % 2) mulththreaded convolution without blas
+-% mex -O fconvMT.cc -o fconv
++% mex -O fconvMT.cc -output fconv
+ % 3) basic convolution, very compatible
+-mex -O fconv.cc -o fconv
++mex -O fconv.cc -output fconv

@@ -1,0 +1,28 @@
+Index: src/algsrc/initGBVS.m
+===================================================================
+--- src.orig/algsrc/initGBVS.m	2013-08-19 15:25:41.513971846 +0200
++++ src/algsrc/initGBVS.m	2013-08-19 15:25:41.505971965 +0200
+@@ -27,7 +27,8 @@
+ 
+ % weight matrix
+ if ( ~param.useIttiKochInsteadOfGBVS )
+-  load mypath;
++  [directory name ext] = fileparts(mfilename('fullpath'));
++  [pathroot name ext] = fileparts(directory);
+   ufile = sprintf('%s__m%s__%s.mat',num2str(salmapsize),num2str(param.multilevels),num2str(param.cyclic_type));
+   ufile(ufile==' ') = '_';
+   ufile = fullfile( pathroot , 'initcache' ,  ufile );
+Index: src/util/getFeatureMaps.m
+===================================================================
+--- src.orig/util/getFeatureMaps.m	2013-08-19 15:25:41.513971846 +0200
++++ src/util/getFeatureMaps.m	2013-08-19 15:25:41.509971905 +0200
+@@ -4,7 +4,8 @@
+ % this computes feature maps for each cannnel in featureChannels/
+ %
+ 
+-load mypath;
++[directory name ext] = fileparts(mfilename('fullpath'));
++[pathroot name ext] = fileparts(directory);
+ 
+ %%%%
+ %%%% STEP 1 : form image pyramid and prune levels if pyramid levels get too small.

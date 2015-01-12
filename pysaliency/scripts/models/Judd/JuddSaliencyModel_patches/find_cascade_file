@@ -1,0 +1,13 @@
+Index: JuddSaliencyModel/findObjectFeatures.m
+===================================================================
+--- JuddSaliencyModel.orig/findObjectFeatures.m	2013-08-13 17:43:04.087668365 +0200
++++ JuddSaliencyModel/findObjectFeatures.m	2013-08-13 17:50:50.604698538 +0200
+@@ -71,7 +71,7 @@
+ Img = double(rgb2gray(img));
+ 
+ % Run face detector
+-cascade='haarcascade_frontalface_alt2.xml'; % a little noisy a few misses
++cascade=fullfile(directory,'haarcascade_frontalface_alt2.xml'); % a little noisy a few misses
+ FaceData = FaceDetect(cascade,Img); 
+ 
+ if find(FaceData==0)

@@ -1,0 +1,33 @@
+Index: JuddSaliencyModel/findObjectFeatures.m
+===================================================================
+--- JuddSaliencyModel.orig/findObjectFeatures.m	2010-02-26 21:12:28.000000000 +0100
++++ JuddSaliencyModel/findObjectFeatures.m	2013-08-13 17:51:27.536146740 +0200
+@@ -14,6 +14,10 @@
+ % Contact: Tilke Judd at <tjudd@csail.mit.edu>
+ % ----------------------------------------------------------------------
+ 
++[directory name ext] = fileparts(mfilename('fullpath'));
++carfilename = fullfile(directory, 'FelzenszwalbDetectors', 'car_final.mat');
++personfilename = fullfile(directory, 'FelzenszwalbDetectors', 'person_final.mat');
++
+ [w h c] = size(img);
+ Cars=zeros(w, h);
+ People=zeros(w, h);
+@@ -23,7 +27,7 @@
+ % Find Cars      
+ %-----------------%
+ fprintf('Finding cars...'); tic;
+-load FelzenszwalbDetectors/car_final.mat; % loads a car model
++load(carfilename); % loads a car model
+ boxes = detect(img, model, 0);
+ top = nms(boxes, 0.4);
+ 
+@@ -44,7 +48,7 @@
+ % Find People      
+ %-----------------%
+ fprintf('Finding people...'); tic;
+-load FelzenszwalbDetectors/person_final.mat; % loads a person model
++load(personfilename); % loads a person model
+ boxes = detect(img, model, 0);
+ top = nms(boxes, 0.4);
+ 

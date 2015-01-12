@@ -1,0 +1,69 @@
+Index: SaliencyToolbox/centerSurround.m
+===================================================================
+--- SaliencyToolbox.orig/centerSurround.m	2013-07-03 17:30:40.000000000 +0200
++++ SaliencyToolbox/centerSurround.m	2013-08-13 16:50:58.958392479 +0200
+@@ -33,7 +33,7 @@
+     switch class(params.exclusionMask)
+       case 'struct'
+         exclusionIdx = (imresize(params.exclusionMask.data,siz,'nearest') ~= 0);
+-      case {'double','uint8'}
++      case {'double','uint8','uint16'}
+         exclusionIdx = (imresize(params.exclusionMask,siz,'nearest') ~= 0);
+       case 'logical'
+         exclusionIdx = imresize(params.exclusionMask,siz,'nearest');
+Index: SaliencyToolbox/guiSaliency.m
+===================================================================
+--- SaliencyToolbox.orig/guiSaliency.m	2013-07-03 17:30:40.000000000 +0200
++++ SaliencyToolbox/guiSaliency.m	2013-08-13 16:51:20.074076565 +0200
+@@ -67,7 +67,7 @@
+       newImg = varargin{1};
+       err = '';
+       state = 'ImageLoaded';
+-    case {'char','uint8','double'}
++    case {'char','uint8','uint16','double'}
+       [newImg,err] = initializeImage(varargin{1});
+     otherwise
+       err = 1;
+Index: SaliencyToolbox/initializeImage.m
+===================================================================
+--- SaliencyToolbox.orig/initializeImage.m	2013-07-03 17:30:40.000000000 +0200
++++ SaliencyToolbox/initializeImage.m	2013-08-13 16:56:03.041842803 +0200
+@@ -47,7 +47,7 @@
+       Img.filename = varargin{1};
+       Img.data = NaN;
+       Img.type = 'unknown';
+-    case {'uint8','double'}
++    case {'uint8','uint16','double'}
+       Img.filename = NaN;
+       Img.data = varargin{1};
+       Img.type = 'unknown';
+@@ -62,14 +62,14 @@
+         case 'char'
+           Img.data = NaN;
+           Img.type = varargin{2};
+-        case {'uint8','double'}
++        case {'uint8','uint16','double'}
+           Img.data = varargin{2};
+           Img.type = 'unknown';
+         otherwise
+           error('Don''t know how to handle image data of class %s.',class(varargin{2}));  
+       end
+       
+-    case {'uint8','double'}
++    case {'uint8','uint16','double'}
+       Img.filename = NaN;
+       Img.data = varargin{1};
+       Img.type = varargin{2};
+Index: SaliencyToolbox/loadImage.m
+===================================================================
+--- SaliencyToolbox.orig/loadImage.m	2013-07-03 17:30:40.000000000 +0200
++++ SaliencyToolbox/loadImage.m	2013-08-13 16:52:33.556977143 +0200
+@@ -19,6 +19,8 @@
+ 
+ if isa(Image.data,'uint8')
+   imgData = im2double(Image.data);
++elseif isa(Image.data,'uint16')
++  imgData = im2double(Image.data);
+ elseif isnan(Image.data)
+   imgData = im2double(imread(Image.filename));
+ else
