@@ -517,3 +517,54 @@ class IttiKoch(ExternalModelMixin, MatlabSaliencyMapModel):
 
         with open(os.path.join(self.location, 'IttiKoch_wrapper.m'), 'wb') as f:
             f.write(resource_string(__name__, 'scripts/models/IttiKoch_wrapper.m'))
+
+
+class RARE2012(ExternalModelMixin, MatlabSaliencyMapModel):
+    """
+    RARE2012 by Margolin et al.
+    The original matlab code is used.
+
+    .. note::
+        The original code is patched to work from other directories.
+
+        The model makes use of the [SaliencyToolbox](http://www.saliencytoolbox.net/). Due
+        to licence restrictions the Toolbox cannot be downloaded automatically. You have to
+        download it yourself and provide the location of the zipfile via the
+        `saliency_toolbox_archive`-keyword to the constructor.
+
+        This model does not work with octave due to incompabilities
+        of octave with matlab (RARE2012 comes as precompiled matlab file).
+        This might change in the future.
+
+    .. seealso::
+        Nicolas Riche, Matei Mancas, Matthieu Duvinage, Makiese Mibulumukini,
+        Bernard Gosselin, Thierry Dutoit. RARE2012: A multi-scale rarity-based
+        saliency detection with its comparative statistical analysis
+        [Signal Processing: Image Communication, 2013]
+
+        http://www.tcts.fpms.ac.be/attention/?categorie16/what-and-why
+    """
+    __modelname__ = 'RARE2012'
+
+    def __init__(self, location=None, **kwargs):
+        self.setup(location)
+        super(RARE2012, self).__init__(os.path.join(self.location, 'RARE2012_wrapper.m'), only_color_stimuli=True, **kwargs)
+
+    def _setup(self):
+        source_location = os.path.join(self.location, 'source')
+        print('Downloading RARE2012 Model...')
+        download_extract_patch('http://www.tcts.fpms.ac.be/attention/data/documents/data/rare2012.zip',
+                               '5a0a0de83e82b46fa70cea8b0a6bae55',
+                               os.path.join(source_location, 'Rare2012'),
+                               location_in_archive=True,
+                               patches=None)
+
+        print('Downloading simplegabortb-v1.0.0')
+        download_extract_patch('http://www2.it.lut.fi/project/simplegabor/downloads/src/simplegabortb/simplegabortb-v1.0.0.tar.gz',
+                               '92bc6ae7178a7b1301fad52489f5d677',
+                               os.path.join(source_location, 'simplegabortb-v1.0.0'),
+                               location_in_archive=True,
+                               patches=None)
+
+        with open(os.path.join(self.location, 'RARE2012_wrapper.m'), 'wb') as f:
+            f.write(resource_string(__name__, 'scripts/models/RARE2012_wrapper.m'))
