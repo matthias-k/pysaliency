@@ -120,5 +120,12 @@ class TestJudd(ModelTemplate):
     def create_model(self, location):
         return pysaliency.Judd(location=location, saliency_toolbox_archive='SaliencyToolbox2.3.zip')
 
+
+class TestIttiKoch(ModelTemplate):
+    matlab_names = ['matlab']
+
+    def create_model(self, location):
+        return pysaliency.IttiKoch(location=location, saliency_toolbox_archive='SaliencyToolbox2.3.zip')
+
 if __name__ == '__main__':
     unittest.main()

@@ -164,7 +164,7 @@ class SUN(ExternalModelMixin, MatlabSaliencyMapModel):
 
     def __init__(self, scale=1.0, location=None, **kwargs):
         self.setup(location)
-        super(SUN, self).__init__(os.path.join(self.location, 'SUN_wrapper.m'), **kwargs)
+        super(SUN, self).__init__(os.path.join(self.location, 'SUN_wrapper.m'), only_color_stimuli=True, **kwargs)
         self.scale = scale
 
     def matlab_command(self, stimulus):
@@ -476,3 +476,44 @@ class Judd(ExternalModelMixin, MatlabSaliencyMapModel):
 
         with open(os.path.join(self.location, 'Judd_wrapper.m'), 'wb') as f:
             f.write(resource_string(__name__, 'scripts/models/Judd/Judd_wrapper.m'))
+
+
+class IttiKoch(ExternalModelMixin, MatlabSaliencyMapModel):
+    """
+    Model by Itti and Koch.
+    The original matlab code is used.
+
+    .. note::
+        The original code is patched to work from other directories.
+
+        The model makes use of the [SaliencyToolbox](http://www.saliencytoolbox.net/). Due
+        to licence restrictions the Toolbox cannot be downloaded automatically. You have to
+        download it yourself and provide the location of the zipfile via the
+        `saliency_toolbox_archive`-keyword to the constructor.
+
+        This model does not work with octave due to incompabilities
+        of octave with matlab. This might change in the future.
+
+    .. seealso::
+        Saliency Toolbox by: Dirk Walther, Christof Koch. Modeling attention to salient proto-objects [Neural Networks 2006]
+
+        http://www.saliencytoolbox.net/
+    """
+    __modelname__ = 'IttiKoch'
+
+    def __init__(self, location=None, saliency_toolbox_archive=None, **kwargs):
+        self.setup(location, saliency_toolbox_archive=saliency_toolbox_archive)
+        super(IttiKoch, self).__init__(os.path.join(self.location, 'IttiKoch_wrapper.m'), only_color_stimuli=True, **kwargs)
+
+    def _setup(self, saliency_toolbox_archive):
+        if not saliency_toolbox_archive:
+            raise Exception('You have to provide the zipfile containing the Itti and Koch Saliency Toolbox!')
+
+        print('Extracting Saliency Toolbox')
+        extract_zipfile(saliency_toolbox_archive, self.location)
+        apply_quilt(os.path.join(self.location, 'SaliencyToolbox'),
+                    __name__, os.path.join('scripts', 'models', 'Judd', 'SaliencyToolbox_patches'),
+                    os.path.join(self.location, 'SaliencyToolbox_patches'))
+
+        with open(os.path.join(self.location, 'IttiKoch_wrapper.m'), 'wb') as f:
+            f.write(resource_string(__name__, 'scripts/models/IttiKoch_wrapper.m'))
