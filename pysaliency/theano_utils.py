@@ -143,6 +143,9 @@ class AverageLogLikelihood(object):
 class SaliencyMapProcessing(object):
     def __init__(self, saliency_map, x_inds = None, y_inds = None,
                  sigma = 0.0, window_radius = 80, nonlinearity_ys = None, centerbias = None, alpha = 1.0):
+
+        self.saliency_map = saliency_map
+
         if x_inds is None:
             x_inds = T.lvector('x_inds')
         if y_inds is None:
