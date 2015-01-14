@@ -6,11 +6,6 @@ function [ ] = SUN(filename, outname, scale)
     addpath('saliency')
 
     img = imread(filename);
-	img = ensure_image_is_color_image(img);
-	% submodel names are without the decimal separator, i.e. 'scale05' for a scale of 0.5'
-	%scale_string = sprintf('%s.%s', submodel(6), submodel(7:end));
-	%scale = str2num(scale_string);
-    %disp(sprintf('Doing scale %f', scale));
     salmap = saliencyimage(img,scale);
     salmap = imresize(salmap,1/scale, 'nearest');
     height = size(salmap,1);
