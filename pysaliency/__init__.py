@@ -10,5 +10,5 @@ from .models import GeneralModel, Model, UniformModel
 from .saliency_map_conversion import SaliencyMapConvertor
 
 #from .stationary_models import StationarySaliencyModel
-from .external_models import AIM, SUN, ContextAwareSaliency, BMS, GBVS, GBVSIttiKoch, Judd, IttiKoch, RARE2012
+from .external_models import AIM, SUN, ContextAwareSaliency, BMS, GBVS, GBVSIttiKoch, Judd, IttiKoch, RARE2012, CovSal
 from .external_datasets import get_mit1003, get_mit1003_onesize, get_toronto

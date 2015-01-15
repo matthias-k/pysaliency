@@ -134,5 +134,12 @@ class TestRARE2012(ModelTemplate):
     def create_model(self, location):
         return pysaliency.RARE2012(location=location)
 
+
+class TestCovSal(ModelTemplate):
+    matlab_names = ['matlab']
+
+    def create_model(self, location):
+        return pysaliency.CovSal(location=location)
+
 if __name__ == '__main__':
     unittest.main()

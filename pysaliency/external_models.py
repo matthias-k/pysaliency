@@ -568,3 +568,64 @@ class RARE2012(ExternalModelMixin, MatlabSaliencyMapModel):
 
         with open(os.path.join(self.location, 'RARE2012_wrapper.m'), 'wb') as f:
             f.write(resource_string(__name__, 'scripts/models/RARE2012_wrapper.m'))
+
+
+class CovSal(ExternalModelMixin, MatlabSaliencyMapModel):
+    """
+    CovSal by Erdem and Erdem
+    The original matlab code is used.
+
+    .. note::
+        This model does not work with octave due to incompabilities
+        of octave with matlab. This might change in the future.
+
+    .. seealso::
+        Erkut Erdem, Aykut Erdem. Visual saliency estimation by nonlinearly integrating features using region covariances [JoV 2013]
+
+        http://web.cs.hacettepe.edu.tr/~erkut/projects/CovSal/
+    """
+    __modelname__ = 'CovSal'
+
+    def __init__(self, location=None, size=512, quantile=0.1, centerbias=True, modeltype='SigmaPoints', **kwargs):
+        """
+        Parameters
+        ----------
+
+        @type  size: int
+        @param size: size of rescaled image
+
+        @type  quantile: float
+        @param quantile: parameter specifying the most similar regions in the neighborhood
+
+        @type  centerbias: bool
+        @param centerbias: True for center bias and False for no center bias
+
+        @type  modeltype: string
+        @param modeltype: 'CovariancesOnly' and 'SigmaPoints' to denote whether
+                          first-order statistics will be incorporated or not
+
+        """
+        self.setup(location)
+        super(CovSal, self).__init__(os.path.join(self.location, 'CovSal_wrapper.m'), only_color_stimuli=True, **kwargs)
+        self.size = size
+        self.quantile = quantile
+        self.centerbias = centerbias
+        if modeltype not in ['CovariancesOnly', 'SigmaPoints']:
+            raise ValueError('Unkown modeltype', modeltype)
+        self.modeltype = modeltype
+
+    def matlab_command(self, stimulus):
+        return "CovSal_wrapper('{{stimulus}}', '{{saliency_map}}', {}, {}, {}, '{}');".format(self.size,
+                                                                                              self.quantile,
+                                                                                              1 if self.centerbias else 0,
+                                                                                              self.modeltype)
+
+    def _setup(self):
+        download_extract_patch('http://web.cs.hacettepe.edu.tr/~erkut/projects/CovSal/saliency.zip',
+                               '5c1bcdce438a08051968b085f72b2fdc',
+                               os.path.join(self.location, 'saliency'),
+                               location_in_archive=True,
+                               patches=None)
+
+        with open(os.path.join(self.location, 'CovSal_wrapper.m'), 'wb') as f:
+            f.write(resource_string(__name__, 'scripts/models/CovSal_wrapper.m'))
