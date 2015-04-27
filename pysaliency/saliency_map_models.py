@@ -158,15 +158,15 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
     """
 
     def __init__(self, cache_location = None):
-        self._saliency_map_cache = Cache(cache_location)
+        self._cache = Cache(cache_location)
 
     @property
     def cache_location(self):
-        return self.cache.cache_location
+        return self._cache.cache_location
 
     @cache_location.setter
     def cache_location(self, value):
-        self.cache.cache_location = value
+        self._cache.cache_location = value
 
     def saliency_map(self, stimulus):
         """
@@ -177,9 +177,9 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         """
         stimulus = handle_stimulus(stimulus)
         stimulus_id = stimulus.stimulus_id
-        if not stimulus_id in self._saliency_map_cache:
-            self._saliency_map_cache[stimulus_id] = self._saliency_map(stimulus.stimulus_data)
-        return self._saliency_map_cache[stimulus_id]
+        if not stimulus_id in self._cache:
+            self._cache[stimulus_id] = self._saliency_map(stimulus.stimulus_data)
+        return self._cache[stimulus_id]
 
     @abstractmethod
     def _saliency_map(self, stimulus):
@@ -357,3 +357,24 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
                 raise ValueError(self.saliency_map_ext)
 
             return saliency_map
+
+
+class FixationMap(SaliencyMapModel):
+    def __init__(self, stimuli, fixations, *args, **kwargs):
+        super(FixationMap, self).__init__(*args, **kwargs)
+
+        self.xs = {}
+        self.ys = {}
+        for n in range(len(stimuli)):
+            f = fixations[fixations.n == n]
+            self.xs[stimuli.stimulus_ids[n]] = f.x.copy()
+            self.ys[stimuli.stimulus_ids[n]] = f.y.copy()
+
+    def _saliency_map(self, stimulus):
+        stimulus = Stimulus(stimulus)
+        stimulus_id = stimulus.stimulus_id
+        if stimulus.stimulus_id not in self.xs:
+            raise ValueError('No Fixations known for this stimulus!')
+        saliency_map = np.zeros(stimulus.size)
+        saliency_map[self.ys[stimulus_id].astype(int), self.xs[stimulus_id].astype(int)] = 1.0
+        return saliency_map

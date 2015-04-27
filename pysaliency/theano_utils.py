@@ -1,4 +1,4 @@
-from __future__ import absolute_import, print_function, division, unicode_literals
+from __future__ import absolute_import, print_function, division#, unicode_literals
 
 import numpy as np
 
@@ -93,7 +93,8 @@ class Nonlinearity(object):
         #self.num_nonlinearity = num_nonlinearity
         if nonlinearity_ys is None:
             nonlinearity_ys = np.linspace(0, 1, num=20)
-        self.nonlinearity_xs = theano.shared(value=np.linspace(0, 1, len(nonlinearity_ys)), name='nonlinearity_xs')
+        nonlinearity_ys = nonlinearity_ys.astype(theano.config.floatX)
+        self.nonlinearity_xs = theano.shared(value=np.linspace(0, 1, len(nonlinearity_ys)).astype(theano.config.floatX), name='nonlinearity_xs')
         self.nonlinearity_ys = theano.shared(value=nonlinearity_ys, name='nonlinearity_ys')
         self.output = nonlinearity(input, self.nonlinearity_xs, self.nonlinearity_ys, len(nonlinearity_ys))
         self.params = [self.nonlinearity_ys]
@@ -104,12 +105,12 @@ class CenterBias(object):
         self.input = input
         if centerbias is None:
             centerbias = np.ones(12)
-        self.alpha = theano.shared(value = np.array(alpha), name='alpha')
+        self.alpha = theano.shared(value = np.array(alpha).astype(theano.config.floatX), name='alpha')
         self.centerbias_ys = theano.shared(value=np.array(centerbias, dtype=theano.config.floatX), name='centerbias_ys')
         self.centerbias_xs = theano.shared(value=np.linspace(0, 1, len(centerbias), dtype=theano.config.floatX), name='centerbias_xs')
 
-        height = T.cast(input.shape[0], 'float64')
-        width = T.cast(input.shape[1], 'float64')
+        height = T.cast(input.shape[0], theano.config.floatX)
+        width = T.cast(input.shape[1], theano.xonfig.floatX)
         x_coords = (T.arange(width) - 0.5*width) / (0.5*width)
         y_coords = (T.arange(height) - 0.5*height) / (0.5*height) + 0.0001  # We cannot have zeros in there because of grad
 
@@ -127,10 +128,44 @@ class CenterBias(object):
         self.params = [self.centerbias_ys, self.alpha]
 
 
+class AdditiveCenterBias(object):
+    def __init__(self, input, centerbias = None, alpha=1.0):
+        self.input = input
+        if centerbias is None:
+            centerbias = np.ones(12)
+        self.alpha = theano.shared(value = np.array(alpha).astype(theano.config.floatX), name='alpha')
+        self.centerbias_ys = theano.shared(value=np.array(centerbias, dtype=theano.config.floatX), name='centerbias_ys')
+        self.centerbias_xs = theano.shared(value=np.linspace(0, 1, len(centerbias), dtype=theano.config.floatX), name='centerbias_xs')
+
+        height = T.cast(input.shape[0], theano.config.floatX)
+        width = T.cast(input.shape[1], theano.config.floatX)
+        x_coords = (T.arange(width) - 0.5*width) / (0.5*width)
+        y_coords = (T.arange(height) - 0.5*height) / (0.5*height) + 0.0001  # We cannot have zeros in there because of grad
+
+        x_coords = x_coords.dimshuffle('x', 0)
+        y_coords = y_coords.dimshuffle(0, 'x')
+
+        dists = T.sqrt(T.square(x_coords) + self.alpha*T.square(y_coords))
+        self.max_dist = T.sqrt(1 + self.alpha)
+        self.dists = dists/self.max_dist
+
+        self.factors = nonlinearity(self.dists, self.centerbias_xs, self.centerbias_ys, len(centerbias))
+
+        apply_centerbias = T.gt(self.centerbias_ys.shape[0], 2)
+        self.output = ifelse(apply_centerbias, self.input+self.factors, self.input)
+        self.params = [self.centerbias_ys, self.alpha]
+
+
 class LogDensity(object):
     def __init__(self, input):
         self.input = input
         self.output = T.log(input / input.sum())
+
+
+class LogDensityFromLogarithmicScale(object):
+    def __init__(self, input):
+        self.input = input
+        self.output = input - T.log(T.exp(input).sum())
 
 
 class AverageLogLikelihood(object):
@@ -180,3 +215,43 @@ class SaliencyMapProcessing(object):
         self.centerbias_ys = self.theano_objects.centerbias.centerbias_ys
         self.alpha = self.theano_objects.centerbias.alpha
 
+
+class SaliencyMapProcessingLogarithmic(object):
+    def __init__(self, saliency_map, x_inds = None, y_inds = None,
+                 sigma = 0.0, window_radius = 80, nonlinearity_ys = None, centerbias = None, alpha = 1.0):
+
+        self.saliency_map = saliency_map
+
+        if x_inds is None:
+            x_inds = T.lvector('x_inds')
+        if y_inds is None:
+            y_inds = T.lvector('y_inds')
+
+        class TheanoObjects(object):
+            pass
+
+        self.theano_objects = TheanoObjects()
+
+        self.x_inds = x_inds
+        self.y_inds = y_inds
+        self.theano_objects.blur = Blur(saliency_map, sigma=sigma, window_radius=window_radius)
+        self.blur = self.theano_objects.blur.output
+
+        self.theano_objects.nonlinearity = Nonlinearity(self.blur, nonlinearity_ys=nonlinearity_ys)
+        self.nonlinearity = self.theano_objects.nonlinearity.output
+
+        self.theano_objects.centerbias = AdditiveCenterBias(self.nonlinearity, centerbias=centerbias, alpha=alpha)
+        self.centerbias = self.theano_objects.centerbias.output
+
+        self.theano_objects.log_density = LogDensityFromLogarithmicScale(self.centerbias)
+        self.log_density = self.theano_objects.log_density.output
+
+        self.theano_objects.average_log_likelihood = AverageLogLikelihood(self.log_density, self.x_inds, self.y_inds)
+
+        self.average_log_likelihood = self.theano_objects.average_log_likelihood.average_log_likelihood
+        self.params = self.theano_objects.blur.params + self.theano_objects.nonlinearity.params + self.theano_objects.centerbias.params
+
+        self.blur_radius = self.theano_objects.blur.sigma
+        self.nonlinearity_ys = self.theano_objects.nonlinearity.nonlinearity_ys
+        self.centerbias_ys = self.theano_objects.centerbias.centerbias_ys
+        self.alpha = self.theano_objects.centerbias.alpha

@@ -168,10 +168,10 @@ class Model(GeneralModel, SaliencyMapModel):
     Inheriting classes have to implement `_log_density`.
     """
     def __init__(self, cache_location=None):
-        super(Model, self).__init__()
-        self._log_density_cache = Cache(cache_location)
+        super(Model, self).__init__(cache_location=cache_location)
+        #self._log_density_cache = Cache(cache_location)
         # This make the property `cache_location` work.
-        self._saliency_map_cache = self._log_density_cache
+        #self._saliency_map_cache = self._log_density_cache
 
     def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, out=None):
         return self.log_density(stimulus)
@@ -185,9 +185,9 @@ class Model(GeneralModel, SaliencyMapModel):
         """
         stimulus = handle_stimulus(stimulus)
         stimulus_id = stimulus.stimulus_id
-        if not stimulus_id in self._log_density_cache:
-            self._log_density_cache[stimulus_id] = self._log_density(stimulus.stimulus_data)
-        return self._log_density_cache[stimulus_id]
+        if not stimulus_id in self._cache:
+            self._cache[stimulus_id] = self._log_density(stimulus.stimulus_data)
+        return self._cache[stimulus_id]
 
     @abstractmethod
     def _log_density(self, stimulus):

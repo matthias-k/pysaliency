@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import absolute_import, division, print_function  # , unicode_literals
 
 import sys
 
@@ -9,13 +9,14 @@ import theano.tensor as T
 from optpy import minimize
 
 import generics
-from .theano_utils import SaliencyMapProcessing
+from .theano_utils import SaliencyMapProcessing, SaliencyMapProcessingLogarithmic
 from .models import Model, UniformModel
 from .datasets import Fixations
 
 
 def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_inds, y_inds,
-                                     baseline_model_loglikelihood, optimize=None, verbose=0, method='SLSQP'):
+                                     baseline_model_loglikelihood, optimize=None, verbose=0, method='SLSQP',
+                                     nonlinearity_min = 1e-8):
     """
     Fit the parameters of the model
 
@@ -67,7 +68,7 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
             print('centerbias:  ', centerbias)
             print('alpha:       ', alpha)
         for p, v in zip(full_params, [blur_radius, nonlinearity, centerbias, alpha]):
-            p.set_value(v)
+            p.set_value(v.astype(p.dtype))
 
         values = []
         grads = [[] for p in params]
@@ -100,23 +101,45 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
 
     centerbias_value = smp.centerbias_ys.get_value()
 
-    bounds = {'nonlinearity': [(0.0, 1000) for i in range(num_nonlinearity)],
-              'centerbias': [(1e-8, 1000) for i in range(len(centerbias_value))],
-              'alpha': [(1e-4, 1e4)],
-              'blur_radius': [(0.0, 1e3)]}
+    if isinstance(saliency_map_processing, SaliencyMapProcessing):
+        print("Using density constraints")
+        bounds = {'nonlinearity': [(nonlinearity_min, 1000) for i in range(num_nonlinearity)],
+                  'centerbias': [(1e-8, 1000) for i in range(len(centerbias_value))],
+                  'alpha': [(1e-4, 1e4)],
+                  'blur_radius': [(0.0, 1e3)]}
 
-    constraints = []
-    constraints.append({'type': 'ineq',
-                        'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]})
+        constraints = []
+        #constraints.append({'type': 'ineq',
+        #                    'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]})
 
-    for i in range(1, num_nonlinearity):
-        constraints.append({'type': 'ineq',
-                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
+        for i in range(1, num_nonlinearity):
+            constraints.append({'type': 'ineq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
 
-    constraints.append({'type': 'eq',
-                        'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity.sum()-nonlinearity_value.sum()})
-    constraints.append({'type': 'eq',
-                        'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum()-centerbias_value.sum()})
+        constraints.append({'type': 'eq',
+                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity.sum()-nonlinearity_value.sum()})
+        constraints.append({'type': 'eq',
+                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum()-centerbias_value.sum()})
+
+    elif isinstance(saliency_map_processing, SaliencyMapProcessingLogarithmic):
+        print("Using log density constraints")
+        bounds = {'nonlinearity': [(None, None) for i in range(num_nonlinearity)],
+                  'centerbias': [(None, None) for i in range(len(centerbias_value))],
+                  'alpha': [(1e-4, 1e4)],
+                  'blur_radius': [(0.0, 1e3)]}
+
+        constraints = []
+        constraints.append({'type': 'eq',
+                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]})
+        for i in range(1, num_nonlinearity):
+            constraints.append({'type': 'ineq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
+
+        constraints.append({'type': 'eq',
+                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias[0]})
+    else:
+        raise TypeError('Unknown processing class', saliency_map_processing)
+
     if method == 'SLSQP':
         options = {'iprint': 2, 'disp': 2, 'maxiter': 1000,
                    'eps': 1e-9
@@ -142,7 +165,7 @@ class SaliencyMapConvertor(Model):
     Convert saliency map models to probabilistic models.
     """
     def __init__(self, saliency_map_model, nonlinearity = None, centerbias = None, alpha=1.0, blur_radius = 0,
-                 saliency_min = None, saliency_max = None, cache_location = None):
+                 saliency_min = None, saliency_max = None, cache_location = None, processing_class = SaliencyMapProcessing):
         """
         Parameters
         ----------
@@ -165,7 +188,10 @@ class SaliencyMapConvertor(Model):
         if nonlinearity is None:
             nonlinearity = np.linspace(0, 1.0, num=20)
         if centerbias is None:
-            centerbias = np.ones(12)
+            if processing_class == SaliencyMapProcessing:
+                centerbias = np.ones(12)
+            else:
+                centerbias = np.zeros(12)
 
         self._blur_radius = blur_radius
         self._nonlinearity = nonlinearity
@@ -174,6 +200,8 @@ class SaliencyMapConvertor(Model):
 
         self.saliency_min = saliency_min
         self.saliency_max = saliency_max
+
+        self.processing_class = processing_class
 
         self._build()
 
@@ -194,13 +222,13 @@ class SaliencyMapConvertor(Model):
 
         if no_of_kwargs != len(kwargs):
             # We used some keywords, thus we have to clear the cache
-            self._log_density_cache.clear()
+            self._cache.clear()
 
         super(SaliencyMapConvertor, self).set_params(**kwargs)
 
     def _build(self):
-        self.theano_input = T.matrix('saliency_map', dtype='float64')
-        self.saliency_map_processing = SaliencyMapProcessing(self.theano_input,
+        self.theano_input = T.matrix('saliency_map', dtype=theano.config.floatX)
+        self.saliency_map_processing = self.processing_class(self.theano_input,
                                                              sigma=self._blur_radius,
                                                              nonlinearity_ys=self._nonlinearity,
                                                              centerbias=self._centerbias,
@@ -216,6 +244,7 @@ class SaliencyMapConvertor(Model):
             smax = saliency_map.max()
 
         saliency_map = (saliency_map - smin) / (smax - smin)
+        saliency_map = saliency_map.astype(theano.config.floatX)
         return saliency_map
 
     def _log_density(self, stimulus):
@@ -224,7 +253,8 @@ class SaliencyMapConvertor(Model):
         log_density = self._f_log_density(saliency_map)
         return log_density
 
-    def fit(self, stimuli, fixations, optimize=None, verbose=0, baseline_model = None, method='SLSQP'):
+    def fit(self, stimuli, fixations, optimize=None, verbose=0, baseline_model = None, method='SLSQP',
+            nonlinearity_min = 1e-8):
         """
         Fit the parameters of the model
 
@@ -262,12 +292,17 @@ class SaliencyMapConvertor(Model):
 
         res = optimize_saliency_map_conversion(self.saliency_map_processing,
                                                saliency_maps, x_inds, y_inds, baseline,
-                                               optimize=optimize, verbose=verbose, method=method)
+                                               optimize=optimize, verbose=verbose, method=method,
+                                               nonlinearity_min=nonlinearity_min)
 
         self.set_params(nonlinearity=res.nonlinearity, centerbias=res.centerbias, alpha=res.alpha, blur_radius=res.blur_radius)
         return res
 
     def __getstate__(self):
+        self._nonlinearity = self.saliency_map_processing.nonlinearity_ys.get_value()
+        self._centerbias = self.saliency_map_processing.centerbias_ys.get_value()
+        self._alpha = self.saliency_map_processing.alpha.get_value()
+        self._blur_radius = self.saliency_map_processing.blur_radius.get_value()
         state = dict(self.__dict__)
         del state['saliency_map_processing']
         del state['theano_input']
@@ -279,9 +314,9 @@ class SaliencyMapConvertor(Model):
         self._build()
 
 
-class JointSaliencyConvertor(Model):
+class JointSaliencyMapConvertor(object):
     def __init__(self, saliency_map_models, nonlinearity = None, centerbias = None, alpha=1.0, blur_radius = 0,
-                 saliency_min = None, saliency_max = None, cache_location = None):
+                 saliency_min = None, saliency_max = None, cache_location = None, processing_class = SaliencyMapProcessing):
         """
         Parameters
         ----------
@@ -299,7 +334,6 @@ class JointSaliencyConvertor(Model):
                                            the nonlinearity. If `None`, the minimum rsp. maximum of each saliency
                                            map will be used.
         """
-        super(SaliencyMapConvertor, self).__init__(cache_location=cache_location)
         self.saliency_map_models = saliency_map_models
         if nonlinearity is None:
             nonlinearity = np.linspace(0, 1.0, num=20)
@@ -313,6 +347,8 @@ class JointSaliencyConvertor(Model):
 
         self.saliency_min = saliency_min
         self.saliency_max = saliency_max
+
+        self.processing_class = processing_class
 
         self._build()
 
@@ -333,13 +369,14 @@ class JointSaliencyConvertor(Model):
 
         if no_of_kwargs != len(kwargs):
             # We used some keywords, thus we have to clear the cache
-            self._log_density_cache.clear()
+            pass
+            #self._cache.clear()
 
         super(SaliencyMapConvertor, self).set_params(**kwargs)
 
     def _build(self):
-        self.theano_input = T.matrix('saliency_map', dtype='float64')
-        self.saliency_map_processing = SaliencyMapProcessing(self.theano_input,
+        self.theano_input = T.matrix('saliency_map', dtype=theano.config.floatX)
+        self.saliency_map_processing = self.processing_class(self.theano_input,
                                                              sigma=self._blur_radius,
                                                              nonlinearity_ys=self._nonlinearity,
                                                              centerbias=self._centerbias,
@@ -355,15 +392,11 @@ class JointSaliencyConvertor(Model):
             smax = saliency_map.max()
 
         saliency_map = (saliency_map - smin) / (smax - smin)
+        saliency_map = saliency_map.astype(theano.config.floatX)
         return saliency_map
 
-    def _log_density(self, stimulus):
-        saliency_map = self.saliency_map_model.saliency_map(stimulus)
-        saliency_map = self._prepare_saliency_map(saliency_map)
-        log_density = self._f_log_density(saliency_map)
-        return log_density
-
-    def fit(self, stimuli, fixations, optimize=None, verbose=0, baseline_model = None, method='SLSQP'):
+    def fit(self, stimuli, fixations, optimize=None, verbose=0, baseline_model = None, method='SLSQP',
+            nonlinearity_min=1e-8):
         """
         Fit the parameters of the model
 
@@ -409,7 +442,23 @@ class JointSaliencyConvertor(Model):
 
         res = optimize_saliency_map_conversion(self.saliency_map_processing,
                                                saliency_maps, x_inds, y_inds, baseline,
-                                               optimize=optimize, verbose=verbose, method=method)
+                                               optimize=optimize, verbose=verbose, method=method,
+                                               nonlinearity_min=nonlinearity_min)
 
         self.set_params(nonlinearity=res.nonlinearity, centerbias=res.centerbias, alpha=res.alpha, blur_radius=res.blur_radius)
         return res
+
+    def __getstate__(self):
+        self._nonlinearity = self.saliency_map_processing.nonlinearity_ys.get_value()
+        self._centerbias = self.saliency_map_processing.centerbias_ys.get_value()
+        self._alpha = self.saliency_map_processing.alpha.get_value()
+        self._blur_radius = self.saliency_map_processing.blur_radius.get_value()
+        state = dict(self.__dict__)
+        del state['saliency_map_processing']
+        del state['theano_input']
+        del state['_f_log_density']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__ = dict(state)
+        self._build()
