@@ -94,10 +94,8 @@ class GeneralSaliencyMapModel(object):
             positives = np.asarray([out[fixations.y[i], fixations.x[i]]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
-            elif nonfixations == 'shuffled':
-                n = fixations.n[i]
-                negatives = out[nonfix_ys[n], nonfix_xs[n]]
             else:
+                n = fixations.n[i]
                 negatives = out[nonfix_ys[n], nonfix_xs[n]]
             this_roc, _, _ = general_roc(positives, negatives)
             rocs.setdefault(fixations.n[i], []).append(this_roc)

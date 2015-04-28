@@ -49,6 +49,9 @@ class TestAUC(object):
         aucs = csmm.AUCs(stimuli, self.f, nonfixations='shuffled')
         np.testing.assert_allclose(aucs, np.ones(len(self.f.x))*0.5)
 
+        auc = csmm.AUC(stimuli, self.f, nonfixations=self.f)
+        np.testing.assert_allclose(auc, 0.5)
+
     def test_gauss(self):
         stimuli = pysaliency.Stimuli([np.random.randn(40, 40, 3),
                                       np.random.randn(40, 40, 3)])
@@ -63,6 +66,9 @@ class TestAUC(object):
         np.testing.assert_allclose(aucs, [0.0,         0.33333333,  0.33333333,  0.33333333,
                                           0.33333333,  1.,          1.,          0.2],
                                    rtol=1e-6)
+
+        auc = gsmm.AUC(stimuli, self.f, nonfixations=self.f)
+        np.testing.assert_allclose(auc, 0.5)
 
 
 class TestFixationBasedKLDivergence(object):
