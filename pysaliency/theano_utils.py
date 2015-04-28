@@ -110,7 +110,7 @@ class CenterBias(object):
         self.centerbias_xs = theano.shared(value=np.linspace(0, 1, len(centerbias), dtype=theano.config.floatX), name='centerbias_xs')
 
         height = T.cast(input.shape[0], theano.config.floatX)
-        width = T.cast(input.shape[1], theano.xonfig.floatX)
+        width = T.cast(input.shape[1], theano.config.floatX)
         x_coords = (T.arange(width) - 0.5*width) / (0.5*width)
         y_coords = (T.arange(height) - 0.5*height) / (0.5*height) + 0.0001  # We cannot have zeros in there because of grad
 
