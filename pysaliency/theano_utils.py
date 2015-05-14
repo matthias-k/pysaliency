@@ -57,24 +57,27 @@ def gaussian_filter(input, sigma, window_radius = 40):
     blur_input_end = blur_input[:, :, -1:, :]
     padded_input = T.concatenate([blur_input_start]*window_radius+[blur_input]+[blur_input_end]*window_radius, axis=2)
 
-    blur_op = T.nnet.conv2d(padded_input, filter_W, border_mode='full', filter_shape=[1, 1, None, None])
-    x_min = (W.shape[1]-1)//2
-    x_max = input.shape[2]+(W.shape[1]-1)//2
-    y_min = (W.shape[0]-1)//2+window_radius
-    y_max = input.shape[1]+(W.shape[0]-1)//2+window_radius
-    cropped_output1 = blur_op[:, :, y_min:y_max, x_min:x_max]
+    blur_op = T.nnet.conv2d(padded_input, filter_W, border_mode='valid', filter_shape=[1, 1, None, None])
+    #x_min = (W.shape[1]-1)//2
+    #x_max = input.shape[2]+(W.shape[1]-1)//2
+    #y_min = (W.shape[0]-1)//2+window_radius
+    #y_max = input.shape[1]+(W.shape[0]-1)//2+window_radius
+    #cropped_output1 = blur_op[:, :, y_min:y_max, x_min:x_max]
+    #cropped_output1_start = blur_op[:, :, y_min:y_max, x_min:x_min+1]
+    #cropped_output1_end = blur_op[:, :, y_min:y_max, x_max-1:x_max]
 
-    cropped_output1_start = blur_op[:, :, y_min:y_max, x_min:x_min+1]
-    cropped_output1_end = blur_op[:, :, y_min:y_max, x_max-1:x_max]
+    cropped_output1 = blur_op
+    cropped_output1_start = blur_op[:, :, :, :1]
+    cropped_output1_end = blur_op[:, :, :, -1:]
     padded_cropped_input = T.concatenate([cropped_output1_start]*window_radius
                                          + [cropped_output1]
                                          + [cropped_output1_end] * window_radius, axis=3)
-    blur_op2 = T.nnet.conv2d(padded_cropped_input, filter_W2, border_mode='full', filter_shape=[1, 1, None, None])
-    x_min2 = (W2.shape[1]-1)//2+window_radius
-    x_max2 = input.shape[2]+(W2.shape[1]-1)//2+window_radius
-    y_min2 = (W2.shape[0]-1)//2
-    y_max2 = input.shape[1]+(W2.shape[0]-1)//2
-    cropped_output2 = blur_op2[0, :, y_min2:y_max2, x_min2:x_max2]
+    blur_op2 = T.nnet.conv2d(padded_cropped_input, filter_W2, border_mode='valid', filter_shape=[1, 1, None, None])
+    #x_min2 = (W2.shape[1]-1)//2+window_radius
+    #x_max2 = input.shape[2]+(W2.shape[1]-1)//2+window_radius
+    #y_min2 = (W2.shape[0]-1)//2
+    #y_max2 = input.shape[1]+(W2.shape[0]-1)//2
+    cropped_output2 = blur_op2[0, :, :, :]  # [0, :, y_min2:y_max2, x_min2:x_max2]
     return cropped_output2
 
 
