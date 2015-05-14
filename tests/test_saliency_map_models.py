@@ -20,6 +20,21 @@ class GaussianSaliencyMapModel(pysaliency.SaliencyMapModel):
         return np.ones((stimulus.shape[0], stimulus.shape[1]))*np.exp(-0.5*(r_squared/size))
 
 
+class MixedSaliencyMapModel(pysaliency.SaliencyMapModel):
+    def __init__(self, *args, **kwargs):
+        super(MixedSaliencyMapModel, self).__init__(*args, **kwargs)
+        self.count = 0
+        self.constant_model = ConstantSaliencyMapModel()
+        self.gaussian_model = GaussianSaliencyMapModel()
+
+    def _saliency_map(self, stimulus):
+        self.count += 1
+        if self.count % 2 == 1:
+            return self.constant_model.saliency_map(stimulus)
+        else:
+            return self.gaussian_model.saliency_map(stimulus)
+
+
 class TestAUC(object):
     def setUp(self):
         xs_trains = [
@@ -100,6 +115,9 @@ class TestFixationBasedKLDivergence(object):
         fb_kl = csmm.fixation_based_KL_divergence(stimuli, self.f, nonfixations='shuffled')
         np.testing.assert_allclose(fb_kl, 0.0)
 
+        fb_kl = csmm.fixation_based_KL_divergence(stimuli, self.f, nonfixations=self.f)
+        np.testing.assert_allclose(fb_kl, 0.0)
+
     def test_gauss(self):
         stimuli = pysaliency.Stimuli([np.random.randn(40, 40, 3),
                                       np.random.randn(40, 40, 3)])
@@ -109,4 +127,21 @@ class TestFixationBasedKLDivergence(object):
         np.testing.assert_allclose(fb_kl, 0.4787711930295902)
 
         fb_kl = gsmm.fixation_based_KL_divergence(stimuli, self.f, nonfixations='shuffled')
+        np.testing.assert_allclose(fb_kl, 0.0)
+
+        fb_kl = gsmm.fixation_based_KL_divergence(stimuli, self.f, nonfixations=self.f)
+        np.testing.assert_allclose(fb_kl, 0.0)
+
+    def test_mixed(self):
+        stimuli = pysaliency.Stimuli([np.random.randn(40, 40, 3),
+                                      np.random.randn(40, 40, 3)])
+        gsmm = MixedSaliencyMapModel()
+
+        fb_kl = gsmm.fixation_based_KL_divergence(stimuli, self.f, nonfixations='uniform')
+        np.testing.assert_allclose(fb_kl, 0.19700844437943388)
+
+        fb_kl = gsmm.fixation_based_KL_divergence(stimuli, self.f, nonfixations='shuffled')
+        np.testing.assert_allclose(fb_kl, 5.874655219107867)
+
+        fb_kl = gsmm.fixation_based_KL_divergence(stimuli, self.f, nonfixations=self.f)
         np.testing.assert_allclose(fb_kl, 0.0)

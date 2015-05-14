@@ -250,7 +250,8 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
                 nonfixation_values.append(saliency_map[ys.astype(int), xs.astype(int)])
             else:
-                nonfixation_values.append(saliency_map[nonfixations.y_int, nonfixations.x_int])
+                nonfix = nonfixations[nonfixations.n == n]
+                nonfixation_values.append(saliency_map[nonfix.y_int, nonfix.x_int])
 
         fixation_values = np.hstack(fixation_values)
         nonfixation_values = np.hstack(nonfixation_values)
