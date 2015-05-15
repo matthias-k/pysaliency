@@ -7,6 +7,7 @@ from six import add_metaclass
 import numpy as np
 from scipy.io import loadmat
 from scipy.misc import imsave
+from scipy.ndimage import gaussian_filter
 
 import generics
 from .roc import general_roc
@@ -359,7 +360,15 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
 
 
 class FixationMap(SaliencyMapModel):
+    """
+    Fixation maps for given stimuli and fixations.
+
+    With the keyword `kernel_size`, you can control whether
+    the fixation map should be blured or just contain
+    the actual fixations.
+    """
     def __init__(self, stimuli, fixations, *args, **kwargs):
+        kernel_size = kwargs.pop('kernel_size', None)
         super(FixationMap, self).__init__(*args, **kwargs)
 
         self.xs = {}
@@ -369,6 +378,8 @@ class FixationMap(SaliencyMapModel):
             self.xs[stimuli.stimulus_ids[n]] = f.x.copy()
             self.ys[stimuli.stimulus_ids[n]] = f.y.copy()
 
+        self.kernel_size = kernel_size
+
     def _saliency_map(self, stimulus):
         stimulus = Stimulus(stimulus)
         stimulus_id = stimulus.stimulus_id
@@ -376,4 +387,7 @@ class FixationMap(SaliencyMapModel):
             raise ValueError('No Fixations known for this stimulus!')
         saliency_map = np.zeros(stimulus.size)
         saliency_map[self.ys[stimulus_id].astype(int), self.xs[stimulus_id].astype(int)] = 1.0
+
+        if self.kernel_size:
+            saliency_map = gaussian_filter(saliency_map, self.kernel_size)
         return saliency_map
