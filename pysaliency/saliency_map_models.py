@@ -286,6 +286,9 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                 model_min = min(model_min, smap.min())
                 model_max = max(model_max, smap.max())
             new_min = model_min / model_max
+            if new_min == 1.0:
+                # constant saliency map model
+                new_min = 0.0
             new_min = max(new_min, minimum_value)
             new_max = 1.0
 

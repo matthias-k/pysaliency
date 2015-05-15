@@ -175,6 +175,9 @@ class TestImageBasedKLDivergence(object):
         ib_kl = gsmm.image_based_kl_divergence(stimuli, gsmm)
         np.testing.assert_allclose(ib_kl, 0.0)
 
+        ib_kl = gsmm.image_based_kl_divergence(stimuli, constant_gold)
+        np.testing.assert_allclose(ib_kl, 0.8152272380729648)
+
         ib_kl = gsmm.image_based_kl_divergence(stimuli, gold)
         np.testing.assert_allclose(ib_kl, 1.961124862592289)
 
