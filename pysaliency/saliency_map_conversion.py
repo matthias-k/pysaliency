@@ -193,6 +193,9 @@ class SaliencyMapConvertor(Model):
             else:
                 centerbias = np.zeros(12)
 
+        nonlinearity = np.asarray(nonlinearity)
+        centerbias = np.asarray(centerbias)
+
         self._blur_radius = blur_radius
         self._nonlinearity = nonlinearity
         self._centerbias = centerbias
@@ -372,7 +375,7 @@ class JointSaliencyMapConvertor(object):
             pass
             #self._cache.clear()
 
-        super(SaliencyMapConvertor, self).set_params(**kwargs)
+        super(JointSaliencyMapConvertor, self).set_params(**kwargs)
 
     def _build(self):
         self.theano_input = T.matrix('saliency_map', dtype=theano.config.floatX)
