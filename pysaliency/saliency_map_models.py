@@ -268,6 +268,61 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
         return (p_fix * (np.log(p_fix) - np.log(p_nonfix))).sum()
 
+    def image_based_kl_divergences(self, stimuli, gold_standard, minimum_value=1e-20, convert_gold_standard=True):
+        """Calculate image-based KL-Divergences between model and gold standard for each stimulus
+
+        This metric converts the model to a probabilistic saliency model by treating the
+        saliency maps as probability densities (compare Wilming et al.) and calculates
+        the KL Divergences between model and gold standard per stimulus.
+
+        If the gold standard is already a probabilistic model that should be be converted in a
+        new (different!) probabilistic model, set `convert_gold_standard` to False.
+        """
+        def convert_model(model, minimum_value):
+            model_min = np.inf
+            model_max = -np.inf
+            for s in stimuli:
+                smap = model.saliency_map(s)
+                model_min = min(model_min, smap.min())
+                model_max = max(model_max, smap.max())
+            new_min = model_min / model_max
+            new_min = max(new_min, minimum_value)
+            new_max = 1.0
+
+            from .models import Model
+
+            class SimpleProbabilisticModel(Model):
+                def __init__(self, model, new_min, new_max):
+                    self.model = model
+                    self.new_min = new_min
+                    self.new_max = new_max
+                    super(SimpleProbabilisticModel, self).__init__()
+
+                def _log_density(self, stimulus):
+                    smap = self.model.saliency_map(stimulus)
+                    smap = new_min + smap / (new_max - new_min)
+                    smap /= np.sum(smap)
+                    return np.log(smap)
+
+            return SimpleProbabilisticModel(model, new_min, new_max)
+
+        prob_model = convert_model(self, minimum_value)
+        if convert_gold_standard:
+            prob_gold_standard = convert_model(gold_standard, minimum_value)
+        else:
+            prob_gold_standard = gold_standard
+
+        return prob_model.kl_divergences(stimuli, prob_gold_standard)
+
+    def image_based_kl_divergence(self, stimuli, gold_standard, minimum_value=1e-20, convert_gold_standard=True):
+        """Calculate image-based KL-Divergences between model and gold standard averaged over stimuli
+
+        for more details, see `image_based_kl_divergences`.
+        """
+        return np.mean(self.image_based_kl_divergences(stimuli, gold_standard,
+                                                       minimum_value=minimum_value,
+                                                       convert_gold_standard=convert_gold_standard))
+
 
 class MatlabSaliencyMapModel(SaliencyMapModel):
     """

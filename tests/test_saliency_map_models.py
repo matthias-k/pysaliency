@@ -145,3 +145,39 @@ class TestFixationBasedKLDivergence(object):
 
         fb_kl = gsmm.fixation_based_KL_divergence(stimuli, self.f, nonfixations=self.f)
         np.testing.assert_allclose(fb_kl, 0.0)
+
+
+class TestImageBasedKLDivergence(object):
+    def setUp(self):
+        xs_trains = [
+            [0, 1, 2],
+            [2, 2],
+            [1, 5, 3]]
+        ys_trains = [
+            [10, 11, 12],
+            [12, 12],
+            [21, 25, 33]]
+        ts_trains = [
+            [0, 200, 600],
+            [100, 400],
+            [50, 500, 900]]
+        ns = [0, 0, 1]
+        subjects = [0, 1, 1]
+        self.f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+
+    def test_gauss(self):
+        stimuli = pysaliency.Stimuli([np.random.randn(40, 40, 3),
+                                      np.random.randn(40, 40, 3)])
+        gsmm = GaussianSaliencyMapModel()
+        constant_gold = ConstantSaliencyMapModel()
+        gold = pysaliency.FixationMap(stimuli, self.f, kernel_size = 10)
+
+        ib_kl = gsmm.image_based_kl_divergence(stimuli, gsmm)
+        np.testing.assert_allclose(ib_kl, 0.0)
+
+        ib_kl = gsmm.image_based_kl_divergence(stimuli, gold)
+        np.testing.assert_allclose(ib_kl, 1.961124862592289)
+
+        ib_kl = gold.image_based_kl_divergence(stimuli, gold)
+        np.testing.assert_allclose(ib_kl, 0.0)
+
