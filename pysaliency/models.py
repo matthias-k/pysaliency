@@ -218,6 +218,31 @@ class Model(GeneralModel, SaliencyMapModel):
         ts = np.arange(len(xs))
         return xs, ys, ts
 
+    def pixel_space_information_gain(self, baseline, gold_standard, stimulus, eps=1e-20):
+        log_p_gold = gold_standard.log_density(stimulus)
+        log_p_baseline = baseline.log_density(stimulus)
+        log_p_model = self.log_density(stimulus)
+        p_gold = np.exp(log_p_gold)
+        p_gold[p_gold == 0] = p_gold[p_gold > 0].min()
+        ig = (p_gold)*(np.logaddexp(log_p_model, np.log(eps))-np.logaddexp(log_p_baseline, np.log(eps)))
+        return ig
+
+    def kl_divergences(self, stimuli, gold_standard):
+        """Calculate KL Divergence between model and gold standard for each stimulus.
+
+        This metric works only for probabilistic models.
+        For the existing saliency metrics known as KL Divergence, see
+        `image_based_kl_divergence` and `fixation_based_kl_divergence`.
+        """
+        assert isinstance(self, Model)
+        assert isinstance(gold_standard, Model)
+        kl_divs = []
+        for s in stimuli:
+            logp_model = self.log_density(s)
+            logp_gold = gold_standard.log_density(s)
+            kl_divs.append((np.exp(logp_gold)*(logp_gold - logp_model)).sum())
+        return kl_divs
+
 
 class UniformModel(Model):
     """Saliency model assuming uniform fixation distribution over space
