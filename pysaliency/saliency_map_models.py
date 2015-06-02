@@ -9,7 +9,7 @@ from scipy.io import loadmat
 from scipy.misc import imsave
 from scipy.ndimage import gaussian_filter
 
-import generics
+import .generics
 from .roc import general_roc
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache

@@ -644,3 +644,108 @@ def get_cat2000_train(location=None):
         dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
         dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
     return stimuli, fixations
+
+
+def get_iSUN(location=None):
+    """
+    Loads or downloads and caches the iSUN dataset.
+    @type  location: string, defaults to `None`
+    @param location: If and where to cache the dataset. The dataset
+                     will be stored in the subdirectory `iSUN` of
+                     location and read from there, if already present.
+    @return: Training stimuli, validation stimuli, testing stimuli, training fixation trains, validation fixation trains
+
+    .. seealso::
+
+        P. Xu, K. A. Ehinger, Y. Zhang, A. Finkelstein, S. R. Kulkarni, and J. Xiao.: TurkerGaze: Crowdsourcing Saliency with Webcam based Eye Tracking
+
+        http://lsun.cs.princeton.edu/
+
+        http://vision.princeton.edu/projects/2014/iSUN/
+    """
+    if location:
+        location = os.path.join(location, 'iSUN')
+        if os.path.exists(location):
+            raise NotImplementedError()
+            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
+            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            return stimuli, fixations
+        os.makedirs(location)
+    with TemporaryDirectory(cleanup=True) as temp_dir:
+        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/training.mat',
+                           os.path.join(temp_dir, 'training.mat'),
+                           '5a8b15134b17c7a3f69b087845db1363')
+        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/validation.mat',
+                           os.path.join(temp_dir, 'validation.mat'),
+                           'f68e9b011576e48d2460b883854fd86c')
+        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/testing.mat',
+                           os.path.join(temp_dir, 'testing.mat'),
+                           'be008ef0330467dcb9c9cd9cc96a8546')
+        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/fixation.zip',
+                           os.path.join(temp_dir, 'fixation.zip'),
+                           'aadc15784e1b0023cda4536335b7839c')
+        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/image.zip',
+                           os.path.join(temp_dir, 'image.zip'),
+                           '0a3af01c5307f1d44f5dd309f71ea963')
+
+        # Stimuli
+        print('Creating stimuli')
+        f = zipfile.ZipFile(os.path.join(temp_dir, 'image.zip'))
+        namelist = f.namelist()
+        namelist = filter_files(namelist, ['.DS_Store'])
+        f.extractall(temp_dir, namelist)
+
+        def get_stimuli_names(name):
+            data_file = 'iSUN/{}.mat'.format(name)
+            data = loadmat(data_file)[name]
+            stimuli_names = [d[0] for d in data['image'][:, 0]]
+            stimuli_names = ['{}.jpg'.format(n) for n in stimuli_names]
+            return stimuli_names
+
+        stimulis = []
+        stimuli_src_location = os.path.join(temp_dir, 'images')
+        for name in ['training', 'validation', 'testing']:
+            print("Creating {} stimuli".format(name))
+            stimuli_target_location = os.path.join(location, 'stimuli_{}'.format(name)) if location else None
+            images = get_stimuli_names(name)
+            stimulis.append(create_stimuli(stimuli_src_location, images, stimuli_target_location))
+
+        # FixationTrains
+        print('Creating fixations')
+
+        def get_fixations(name):
+            data_file = 'iSUN/{}.mat'.format(name)
+            data = loadmat(data_file)[name]
+            gaze = data['gaze'][:, 0]
+            ns = []
+            train_xs = []
+            train_ys = []
+            train_ts = []
+            train_subjects = []
+            for n in range(len(gaze)):
+                fixation_trains = gaze[n]['fixation'][0, :]
+                for train in fixation_trains:
+                    xs = train[:, 0]
+                    ys = train[:, 1]
+                    ns.append(n)
+                    train_xs.append(xs)
+                    train_ys.append(ys)
+                    train_ts.append(range(len(xs)))
+                    train_subjects.append(0)
+            fixations = FixationTrains.from_fixation_trains(train_xs, train_ys, train_ts, ns, train_subjects)
+            return fixations
+
+        fixations = []
+        for name in ['training', 'validation']:
+            print("Creating {} fixations".format(name))
+            fixations.append(get_fixations(name))
+
+    if location:
+        dill.dump(stimulis[0], open(os.path.join(location, 'stimuli_training.pydat'), 'wb'))
+        dill.dump(stimulis[1], open(os.path.join(location, 'stimuli_validation.pydat'), 'wb'))
+        dill.dump(stimulis[2], open(os.path.join(location, 'stimuli_testing.pydat'), 'wb'))
+        dill.dump(fixations[0], open(os.path.join(location, 'fixations_training.pydat'), 'wb'))
+        dill.dump(fixations[1], open(os.path.join(location, 'fixations_validation.pydat'), 'wb'))
+
+    return stimulis + fixations
+
