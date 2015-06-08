@@ -13,8 +13,9 @@ import dill
 from pkg_resources import resource_string
 from PIL import Image
 
-from .datasets import FileStimuli, Stimuli, FixationTrains
+from .datasets import FileStimuli, Stimuli, FixationTrains, Fixations
 from .utils import TemporaryDirectory, filter_files, run_matlab_cmd, download_and_check
+from .generics import progressinfo
 
 
 def create_memory_stimuli(filenames):
@@ -749,3 +750,164 @@ def get_iSUN(location=None):
 
     return stimulis + fixations
 
+
+def _get_SALICON(data_type, stimuli_url, stimuli_hash, fixation_url, fixation_hash, location):
+    from salicon.salicon import SALICON
+    with TemporaryDirectory(cleanup=True) as temp_dir:
+        download_and_check(stimuli_url,
+                           os.path.join(temp_dir, 'stimuli.zip'),
+                           stimuli_hash)
+        if fixation_url is not None:
+            download_and_check(fixation_url,
+                               os.path.join(temp_dir, 'fixations.json'),
+                               fixation_hash)
+        # Stimuli
+
+        annFile = os.path.join(temp_dir, 'fixations.json')
+        salicon = SALICON(annFile)
+
+        # get all images
+        imgIds = salicon.getImgIds()
+        images = salicon.loadImgs(imgIds)
+
+        print('Creating stimuli')
+        f = zipfile.ZipFile(os.path.join(temp_dir, 'stimuli.zip'))
+        namelist = f.namelist()
+        f.extractall(temp_dir, namelist)
+        del f
+
+        stimuli_src_location = os.path.join(temp_dir, data_type)
+        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+        filenames = [img['file_name'] for img in images]
+        stimuli = create_stimuli(stimuli_src_location, filenames, stimuli_target_location)
+
+        if fixation_url is not None:
+            # FixationTrains
+            print('Creating fixations')
+
+            ns = []
+            train_xs = []
+            train_ys = []
+            train_ts = []
+            train_subjects = []
+
+            for n, imgId in progressinfo(enumerate(imgIds)):
+                annIds = salicon.getAnnIds(imgIds=imgId)
+                anns = salicon.loadAnns(annIds)
+                for ann in anns:
+                    fs = ann['fixations']
+                    xs = np.array([f[1]-1 for f in fs])
+                    ys = np.array([f[0]-1 for f in fs])
+                    ns.append(np.ones(len(xs), dtype=int)*n)
+                    train_xs.append(xs)
+                    train_ys.append(ys)
+                    train_ts.append(range(len(xs)))
+                    train_subjects.append(np.ones(len(xs), dtype=int)*ann['worker_id'])
+
+            xs = np.hstack(train_xs)
+            ys = np.hstack(train_ys)
+            ts = np.hstack(train_ts)
+
+            ns = np.hstack(ns)
+            subjects = np.hstack(train_subjects)
+
+            fixations = Fixations.FixationsWithoutHistory(xs, ys, ts, ns, subjects)
+        else:
+            fixations = None
+
+    if location:
+        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
+        if fixations is not None:
+            dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+    return stimuli, fixations
+
+
+def get_SALICON_train(location=None):
+    """
+    Loads or downloads and caches the SALICON training dataset. For memory reasons no fixation trains
+    are provided.
+    @type  location: string, defaults to `None`
+    @param location: If and where to cache the dataset. The dataset
+                     will be stored in the subdirectory `SALICON_train` of
+                     location and read from there, if already present.
+    @return: Training stimuli, validation stimuli, testing stimuli, training fixation trains, validation fixation trains
+
+    .. seealso::
+        Ming Jiang, Shengsheng Huang, Juanyong Duan*, Qi Zhao: SALICON: Saliency in Context, CVPR 2015
+
+        http://salicon.net/
+    """
+    if location:
+        location = os.path.join(location, 'SALICON_train')
+        if os.path.exists(location):
+            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
+            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            return stimuli, fixations
+        os.makedirs(location)
+    stimuli, fixations = _get_SALICON('train',
+                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/train.zip',
+                                      'd549761c16e59b80cd5981373ada5e98',
+                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/fixations_train2014.json',
+                                      'ab60a090ee31642fbb4aa41f4953b8bd',
+                                      location)
+    return stimuli, fixations
+
+
+def get_SALICON_val(location=None):
+    """
+    Loads or downloads and caches the SALICON validation dataset. For memory reasons no fixation trains
+    are provided.
+    @type  location: string, defaults to `None`
+    @param location: If and where to cache the dataset. The dataset
+                     will be stored in the subdirectory `SALICON_train` of
+                     location and read from there, if already present.
+    @return: Training stimuli, validation stimuli, testing stimuli, training fixation trains, validation fixation trains
+
+    .. seealso::
+        Ming Jiang, Shengsheng Huang, Juanyong Duan*, Qi Zhao: SALICON: Saliency in Context, CVPR 2015
+
+        http://salicon.net/
+    """
+    if location:
+        location = os.path.join(location, 'SALICON_val')
+        if os.path.exists(location):
+            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
+            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            return stimuli, fixations
+        os.makedirs(location)
+    stimuli, fixations = _get_SALICON('val',
+                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/val.zip',
+                                      '62cd6641a5354d3099a693ff90cb6dab',
+                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/fixations_val2014.json',
+                                      '3224f8cf86ea8d248d93583866b60c5f',
+                                      location)
+    return stimuli, fixations
+
+
+def get_SALICON_test(location=None):
+    """
+    Loads or downloads and caches the SALICON test stimuli
+    @type  location: string, defaults to `None`
+    @param location: If and where to cache the dataset. The dataset
+                     will be stored in the subdirectory `SALICON_train` of
+                     location and read from there, if already present.
+    @return: Test stimuli
+
+    .. seealso::
+        Ming Jiang, Shengsheng Huang, Juanyong Duan*, Qi Zhao: SALICON: Saliency in Context, CVPR 2015
+
+        http://salicon.net/
+    """
+    if location:
+        location = os.path.join(location, 'SALICON_test')
+        if os.path.exists(location):
+            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
+            return stimuli
+        os.makedirs(location)
+    stimuli, fixations = _get_SALICON('val',
+                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/val.zip',
+                                      '62cd6641a5354d3099a693ff90cb6dab',
+                                      None,
+                                      None,
+                                      location)
+    return stimuli
