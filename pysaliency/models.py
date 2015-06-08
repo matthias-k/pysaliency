@@ -4,7 +4,7 @@ from abc import abstractmethod
 
 import numpy as np
 
-import generics
+from .generics import progressinfo
 from .saliency_map_models import GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus
 from .datasets import FixationTrains
 from .utils import Cache
@@ -50,7 +50,7 @@ class GeneralModel(GeneralSaliencyMapModel):
 
     def log_likelihoods(self, stimuli, fixations):
         log_likelihoods = np.empty(len(fixations.x))
-        for i in generics.progressinfo(range(len(fixations.x))):
+        for i in progressinfo(range(len(fixations.x))):
             conditional_log_density = self.conditional_log_density(stimuli.stimulus_objects[fixations.n[i]],
                                                                    fixations.x_hist[i],
                                                                    fixations.y_hist[i],
@@ -135,7 +135,7 @@ class GeneralModel(GeneralSaliencyMapModel):
         ts = []
         ns = []
         subjects = []
-        for stimulus_index, ls in generics.progressinfo(zip(stimulus_indices, lengths)):
+        for stimulus_index, ls in progressinfo(zip(stimulus_indices, lengths)):
             stimulus = stimuli[stimulus_index]
             for l in ls:
                 this_xs, this_ys, this_ts = self._sample_fixation_train(stimulus, l)

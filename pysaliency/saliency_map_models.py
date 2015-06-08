@@ -9,7 +9,7 @@ from scipy.io import loadmat
 from scipy.misc import imsave
 from scipy.ndimage import gaussian_filter
 
-import .generics
+from .generics import progressinfo
 from .roc import general_roc
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache
@@ -89,7 +89,7 @@ class GeneralSaliencyMapModel(object):
 
                 nonfix_xs.append(xs.astype(int))
                 nonfix_ys.append(ys.astype(int))
-        for i in generics.progressinfo(range(len(fixations.x)), verbose=verbose):
+        for i in progressinfo(range(len(fixations.x)), verbose=verbose):
             out = self.conditional_saliency_map(stimuli.stimulus_objects[fixations.n[i]], fixations.x_hist[i], fixations.y_hist[i],
                                                 fixations.t_hist[i], out=out)
             positives = np.asarray([out[fixations.y[i], fixations.x[i]]])
