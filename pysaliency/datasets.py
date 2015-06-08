@@ -158,6 +158,13 @@ class Fixations(object):
                          self.x_hist.copy(), self.y_hist.copy(), self.t_hist.copy(),
                          self.n.copy(), self.subjects.copy())
 
+    @classmethod
+    def FixationsWithoutHistory(cls, x, y, t, n, subjects):
+        x_hist = np.empty((len(x), 1))*np.nan
+        y_hist = np.empty((len(x), 1))*np.nan
+        t_hist = np.empty((len(x), 1))*np.nan
+        return cls(x, y, t, x_hist, y_hist, t_hist, n, subjects)
+
 
 class FixationTrains(Fixations):
     """
