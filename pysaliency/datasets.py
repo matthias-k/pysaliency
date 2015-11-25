@@ -687,6 +687,22 @@ class FileStimuli(Stimuli):
         return imread(self.filenames[n])
 
 
+def create_subset(stimuli, fixations, stimuli_indices):
+    """Create subset of stimuli and fixatins using only stimuli
+    with given indices.
+    """
+    new_stimuli = stimuli[stimuli_indices]
+    fix_inds = np.in1d(fixations.n, stimuli_indices)
+    new_fixations = fixations[fix_inds]
+
+    index_list = list(stimuli_indices)
+    new_pos = {i: index_list.index(i) for i in index_list}
+    new_fixation_ns = [new_pos[i] for i in new_fixations.n]
+    new_fixations.n = np.array(new_fixation_ns)
+
+    return new_stimuli, new_fixations
+
+
 def calculate_nonfixation_factors(stimuli, index):
     widths = np.asarray([s[1] for s in stimuli.sizes]).astype(float)
     heights = np.asarray([s[0] for s in stimuli.sizes]).astype(float)
