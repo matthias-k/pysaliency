@@ -1,35 +1,30 @@
+# -*- coding: utf-8 -*-
+
 from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Build import cythonize
 
-#import sys
+import numpy as np
 
-#if sys.version_info < (2, 7):
-#    version_ext = '_26'
-#else:
-#    version_ext = '_27'
+PACKAGE_NAME = 'pysaliency'
+VERSION = '0.1.0'
+DESCRIPTION = 'A Python Framework for Saliency Modeling and Evaluation'
+AUTHOR = 'Matthias Kümmerer'
+EMAIL = 'matthias.kuemmerer@bethgelab.org'
+URL = "https://github.com/matthiask/pysaliency"
 
-#roc_module = Extension(
-#    "roc",
-#    ["roc.pyx"],
-#    #extra_compile_args=['-fopenmp', '-O3'],
-#    #extra_link_args=['-fopenmp'],
-#)
+extensions = [
+    Extension("roc", ['pysaliency/*.pyx'],
+              include_dirs = [np.get_include()],
+              extra_compile_args = ['-fopenmp', '-O3'],
+              extra_link_args=["-fopenmp"]),
+]
 
-def enable_openmp(ext):
-    #ext.extra_compile_args.extend(['-fopenmp', '-O3'])
-    #ext.extra_link_args.extend(['-fopenmp'])
-    ext.extra_compile_args = ['-fopenmp', '-O3']
-    ext.extra_link_args = ['-fopenmp']
-    return ext
-
-def openmp_cythonize(*args, **kwargs):
-    exts = cythonize(*args, **kwargs)
-    for e in exts:
-        enable_openmp(e)
-    return exts
 
 setup(
-    name = 'pysaliency',
-    ext_modules = openmp_cythonize("pysaliency/*.pyx"),
+    name = PACKAGE_NAME,
+    version = VERSION,
+    packages = [PACKAGE_NAME],
+    include_package_data = True,
+    ext_modules = cythonize(extensions),
 )

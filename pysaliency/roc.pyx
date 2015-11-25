@@ -1,7 +1,7 @@
 #%%cython
 # Circumvents a bug(?) in cython:
 # http://stackoverflow.com/a/13976504
-# STUFF = "Hi"
+STUFF = "Hi"
 
 
 import numpy as np
