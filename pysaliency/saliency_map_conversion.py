@@ -9,7 +9,7 @@ import theano.tensor as T
 from optpy import minimize
 
 from .generics import progressinfo
-from .theano_utils import SaliencyMapProcessing, SaliencyMapProcessingLogarithmic
+from .theano_utils import SaliencyMapProcessing, SaliencyMapProcessingLogarithmic, SaliencyMapProcessingLogNonlinearity
 from .models import Model, UniformModel
 from .datasets import Fixations
 
@@ -61,9 +61,6 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
 
         print('Compiling theano function')
         sys.stdout.flush()
-        #f_ll_with_grad = theano.function([smp.saliency_map, smp.x_inds,
-        #                                smp.y_inds],
-        #                                [negative_log_likelihood]+grads)
 
         full_params = smp.params
 
@@ -109,7 +106,10 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
                  saliency_map_processing.alpha.get_value(),
                  saliency_map_processing.theano_objects.nonlinearity.nonlinearity_xs.get_value(),
                  optimize).wait_interactive()
-
+    else:
+        f_ll_with_grad = theano.function([smp.saliency_map, smp.x_inds,
+                                          smp.y_inds],
+                                         [negative_log_likelihood]+grads)
 
     def func(blur_radius, nonlinearity, centerbias, alpha, optimize=None):
         if verbose > 1:
@@ -186,6 +186,25 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
                             'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity.sum()-nonlinearity_value.sum()})
         constraints.append({'type': 'eq',
                             'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum()-centerbias_value.sum()})
+    if isinstance(saliency_map_processing, SaliencyMapProcessingLogNonlinearity):
+        print("Using density constraints on log scale")
+        bounds = {'nonlinearity': [(-100, 100) for i in range(num_nonlinearity)],
+                  'centerbias': [(1e-7, 1000) for i in range(len(centerbias_value))],
+                  'alpha': [(1e-4, 1e4)],
+                  'blur_radius': [(0.0, 1e3)]}
+
+        constraints = []
+        #constraints.append({'type': 'ineq',
+        #                    'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]})
+
+        for i in range(1, num_nonlinearity):
+            constraints.append({'type': 'ineq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
+
+        constraints.append({'type': 'eq',
+                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: np.exp(nonlinearity).sum()-np.exp(nonlinearity_value).sum()})
+        constraints.append({'type': 'eq',
+                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum()-centerbias_value.sum()})
 
     elif isinstance(saliency_map_processing, SaliencyMapProcessingLogarithmic):
         print("Using log density constraints")
@@ -254,7 +273,7 @@ class SaliencyMapConvertor(Model):
         if nonlinearity is None:
             nonlinearity = np.linspace(0, 1.0, num=20)
         if centerbias is None:
-            if processing_class == SaliencyMapProcessing:
+            if processing_class == SaliencyMapProcessing or processing_class == SaliencyMapProcessingLogNonlinearity:
                 centerbias = np.ones(12)
             else:
                 centerbias = np.zeros(12)
@@ -444,7 +463,7 @@ class JointSaliencyMapConvertor(object):
             pass
             #self._cache.clear()
 
-        super(JointSaliencyMapConvertor, self).set_params(**kwargs)
+        #super(JointSaliencyMapConvertor, self).set_params(**kwargs)
 
     def _build(self):
         self.theano_input = T.matrix('saliency_map', dtype=theano.config.floatX)

@@ -10,7 +10,7 @@ from scipy.misc import imsave
 from scipy.ndimage import gaussian_filter
 
 from .generics import progressinfo
-from .roc import general_roc
+from roc import general_roc
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache
 from .datasets import Stimulus
