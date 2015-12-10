@@ -26,5 +26,9 @@ setup(
     version = VERSION,
     packages = [PACKAGE_NAME],
     include_package_data = True,
+    package_data={'pysaliency': ['scripts/*.m',
+                                 'scripts/models/*.m',
+                                 'scripts/models/*/*.m'
+                                 ]},
     ext_modules = cythonize(extensions),
 )
