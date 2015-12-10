@@ -959,7 +959,7 @@ def get_SALICON_test(location=None):
     Loads or downloads and caches the SALICON test stimuli
     @type  location: string, defaults to `None`
     @param location: If and where to cache the dataset. The dataset
-                     will be stored in the subdirectory `SALICON_train` of
+                     will be stored in the subdirectory `SALICON_test` of
                      location and read from there, if already present.
     @return: Test stimuli
 
@@ -974,8 +974,8 @@ def get_SALICON_test(location=None):
             stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
             return stimuli
         os.makedirs(location)
-    stimuli, fixations = _get_SALICON('val',
-                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/val.zip',
+    stimuli, fixations = _get_SALICON('test',
+                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/test.zip',
                                       '62cd6641a5354d3099a693ff90cb6dab',
                                       None,
                                       None,
