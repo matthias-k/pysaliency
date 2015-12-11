@@ -820,6 +820,33 @@ def get_iSUN(location=None):
     return stimulis + fixations
 
 
+def get_iSUN_training(location=None):
+    """
+    @return: Training stimuli, training fixation trains
+
+    See `get_iSUN` for more information"""
+    training_stimuli, validation_stimuli, test_stimuli, training_fixations, validation_fixations = get_iSUN(location=location)
+    return training_stimuli, training_fixations
+
+
+def get_iSUN_validation(location=None):
+    """
+    @return: validation stimuli, validation fixation trains
+
+    See `get_iSUN` for more information"""
+    training_stimuli, validation_stimuli, test_stimuli, training_fixations, validation_fixations = get_iSUN(location=location)
+    return validation_stimuli, validation_fixations
+
+
+def get_iSUN_testing(location=None):
+    """
+    @return: testing stimuli
+
+    See `get_iSUN` for more information"""
+    training_stimuli, validation_stimuli, test_stimuli, training_fixations, validation_fixations = get_iSUN(location=location)
+    return test_stimuli
+
+
 def _get_SALICON(data_type, stimuli_url, stimuli_hash, fixation_url, fixation_hash, location):
     from salicon.salicon import SALICON
     with TemporaryDirectory(cleanup=True) as temp_dir:
