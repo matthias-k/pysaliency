@@ -28,10 +28,11 @@ setup(
     include_package_data = True,
     package_data={'pysaliency': ['scripts/*.m',
                                  'scripts/models/*.m',
-                                 'scripts/models/*/*.m'
-                                 'scripts/models/BMS/patches/*'
-                                 'scripts/models/GBVS/patches/*'
-                                 'scripts/models/Judd/patches/*'
+                                 'scripts/models/*/*.m',
+                                 'scripts/models/*/*/*',
+                                 'scripts/models/BMS/patches/*',
+                                 'scripts/models/GBVS/patches/*',
+                                 'scripts/models/Judd/patches/*',
                                  ]},
     ext_modules = cythonize(extensions),
 )
