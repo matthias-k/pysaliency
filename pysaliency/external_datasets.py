@@ -533,6 +533,57 @@ def get_mit1003_onesize(location=None):
     return stimuli, fixations
 
 
+def get_mit300(location=None):
+    """
+    Loads or downloads and caches the MIT300 test stimuli for
+    the MIT saliency benchmark. The dataset
+    consists of 300 stimuli
+    and the fixations of 40 subjects under
+    free viewing conditions with 3 seconds presentation time.
+
+    @type  location: string, defaults to `None`
+    @param location: If and where to cache the dataset. The dataset
+                     will be stored in the subdirectory `toronto` of
+                     location and read from there, if already present.
+    @return: Stimuli
+
+    .. seealso::
+
+        Zoya Bylinskii and Tilke Judd and Ali Borji and Laurent Itti and Fr{\'e}do Durand and Aude Oliva and Antonio Torralba. MIT Saliency Benchmark
+
+        http://saliency.mit.edu
+    """
+    if location:
+        location = os.path.join(location, 'MIT300')
+        if os.path.exists(location):
+            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
+            return stimuli
+        os.makedirs(location)
+    with TemporaryDirectory(cleanup=True) as temp_dir:
+        download_and_check('http://saliency.mit.edu/BenchmarkIMAGES.zip',
+                           os.path.join(temp_dir, 'BenchmarkIMAGES.zip'),
+                           '03ed32bdf5e4289950cd28df89451260')
+
+        # Stimuli
+        print('Creating stimuli')
+        f = zipfile.ZipFile(os.path.join(temp_dir, 'BenchmarkIMAGES.zip'))
+        namelist = f.namelist()
+        namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
+        f.extractall(temp_dir, namelist)
+
+        stimuli_src_location = os.path.join(temp_dir, 'BenchmarkIMAGES')
+        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+        images = glob.glob(os.path.join(stimuli_src_location, '*.jpg'))
+        images = [os.path.split(img)[1] for img in images]
+        stimuli_filenames = natsorted(images)
+
+        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+
+    if location:
+        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
+    return stimuli
+
+
 def get_cat2000_test(location=None):
     """
     Loads or downloads and caches the CAT2000 test dataset. The dataset
