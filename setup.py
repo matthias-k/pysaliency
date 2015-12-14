@@ -14,7 +14,7 @@ EMAIL = 'matthias.kuemmerer@bethgelab.org'
 URL = "https://github.com/matthiask/pysaliency"
 
 extensions = [
-    Extension("roc", ['pysaliency/*.pyx'],
+    Extension("pysaliency.roc", ['pysaliency/*.pyx'],
               include_dirs = [np.get_include()],
               extra_compile_args = ['-fopenmp', '-O3'],
               extra_link_args=["-fopenmp"]),
