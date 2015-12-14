@@ -766,7 +766,7 @@ def get_iSUN(location=None):
         f.extractall(temp_dir, namelist)
 
         def get_stimuli_names(name):
-            data_file = '{}/{}.mat'.format(temp_dir, name)
+            data_file = os.path.join(temp_dir, '{}.mat'.format(name))
             data = loadmat(data_file)[name]
             stimuli_names = [d[0] for d in data['image'][:, 0]]
             stimuli_names = ['{}.jpg'.format(n) for n in stimuli_names]
@@ -784,7 +784,7 @@ def get_iSUN(location=None):
         print('Creating fixations')
 
         def get_fixations(name):
-            data_file = 'iSUN/{}.mat'.format(name)
+            data_file = os.path.join(temp_dir,'{}.mat'.format(name))
             data = loadmat(data_file)[name]
             gaze = data['gaze'][:, 0]
             ns = []
