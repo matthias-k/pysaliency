@@ -12,9 +12,11 @@ work with octave, too (see below).
 Installation
 ------------
 
-As usual, the package is installed by
+Make sure all packages from requirements.txt are installed. Then as usual, the package is installed by
 
     python setup.py install
+
+If you want to use the SALICON dataset you have to install the [salicon python api](https://github.com/NUS-VIP/salicon-api).
 
 
 Quickstart
@@ -39,5 +41,16 @@ Using Octave
 ------------
 
 pysaliency will fall back to octave if no matlab is installed.
-Some models might work with octave, e.g. AIM. In Debian/Ubuntu you need to install
-`octave`, `octave-image`, 'octave-statistics'.
+Some models might work with octave, e.g. AIM and GBVSIttiKoch. In Debian/Ubuntu you need to install
+`octave`, `octave-image`, `octave-statistics`, `liboctave-dev`.
+
+These models and dataset seem to work with octave:
+
+- models
+  - AIM
+  - GBVSIttiKoch
+- datasets
+  - Toronto
+  - MIT1003
+  - MIT300
+  - SALICON
