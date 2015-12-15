@@ -36,6 +36,11 @@ Quickstart
 
     auc = aim.AUC(mit_stimuli, mit_fixations)
 
+If you already have saliency maps for some dataset, you can import them into pysaliency easily:
+
+    my_model = pysaliency.SaliencyMapModelFromDirectory(mit_stimuli, '/path/to/my/saliency_maps')
+    auc = my_model.AUC(mit_stimuli, mit_fixations)
+
 
 Using Octave
 ------------
