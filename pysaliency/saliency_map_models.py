@@ -196,6 +196,103 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
     def conditional_saliency_map(self, stimulus, *args, **kwargs):
         return self.saliency_map(stimulus)
 
+    def AUC_per_image(self, stimuli, fixations, nonfixations='uniform', verbose=False):
+        """
+        Calulate AUC scores per image for fixations
+
+        :type fixations : Fixations
+        :param fixations : Fixation object to calculate the AUC scores for.
+
+        :type nonfixations : string or Fixations
+        :param nonfixations : Nonfixations to use for calculating AUC scores.
+                              Possible values are:
+                                  'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
+                                              all pixels from the saliency map.
+                                  'shuffled': Use all fixations from other images as nonfixations.
+                                  fixations-object: For each image, use the fixations in this fixation
+                                                    object as nonfixations
+
+        :rtype : ndarray
+        :return : list of AUC scores for each image,
+                  or by image numbers (average=='image')
+        """
+        rocs_per_image = []
+        rocs = {}
+        out = None
+        if nonfixations not in ['uniform', 'shuffled']:
+            nonfix_xs = []
+            nonfix_ys = []
+            for n in range(fixations.n.max()+1):
+                inds = nonfixations.n == n
+                nonfix_xs.append(nonfixations.x_int[inds].copy())
+                nonfix_ys.append(nonfixations.y_int[inds].copy())
+
+        if nonfixations == 'shuffled':
+            nonfix_ys = []
+            nonfix_xs = []
+            widths = np.asarray([s[1] for s in stimuli.sizes]).astype(float)
+            heights = np.asarray([s[0] for s in stimuli.sizes]).astype(float)
+            for n in range(fixations.n.max()+1):
+                inds = ~(fixations.n == n)
+                xs = (fixations.x[inds].copy())
+                ys = (fixations.y[inds].copy())
+
+                other_ns = fixations.n[inds]
+                xs *= stimuli.sizes[n][1]/widths[other_ns]
+                ys *= stimuli.sizes[n][0]/heights[other_ns]
+
+                nonfix_xs.append(xs.astype(int))
+                nonfix_ys.append(ys.astype(int))
+        for n in progressinfo(range(len(stimuli)), verbose=verbose):
+            out = self.saliency_map(stimuli.stimulus_objects[n])
+            inds = fixations.n == n
+            positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
+            if nonfixations == 'uniform':
+                negatives = out.flatten()
+            else:
+                negatives = out[nonfix_ys[n], nonfix_xs[n]]
+            this_roc, _, _ = general_roc(positives, negatives)
+            rocs_per_image.append(this_roc)
+        return rocs_per_image
+
+    def AUC(self, stimuli, fixations, nonfixations='uniform', average='fixation', verbose=False):
+        """
+        Calulate AUC scores for fixations
+
+        :type fixations : Fixations
+        :param fixations : Fixation object to calculate the AUC scores for.
+
+        :type nonfixations : string or Fixations
+        :param nonfixations : Nonfixations to use for calculating AUC scores.
+                              Possible values are:
+                                  'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
+                                              all pixels from the saliency map.
+                                  'shuffled': Use all fixations from other images as nonfixations.
+                                  fixations-object: For each image, use the fixations in this fixation
+                                                    object as nonfixations
+
+        :type average : string
+        :param average : How to average the AUC scores for each fixation.
+                         Possible values are:
+                             'image': average over images
+                             'fixation' or None: Return AUC score for each fixation separately
+
+        :rtype : ndarray
+        :return : list of AUC scores for each fixation,
+                  ordered as in `fixations.x` (average=='fixation' or None)
+                  or by image numbers (average=='image')
+        """
+        if average not in ['fixation', 'image']:
+            raise NotImplementedError()
+        aucs = self.AUC_per_image(stimuli, fixations, nonfixations=nonfixations, verbose=verbose)
+        if average == 'fixation':
+            weights = [(fixations.n == n).mean() for n in range(len(stimuli))]
+            return np.average(aucs, weights=weights)
+        elif average == 'image':
+            return np.mean(aucs)
+        else:
+            raise ValueError(average)
+
     def fixation_based_KL_divergence(self, stimuli, fixations, nonfixations='shuffled', bins=10, eps=1e-20):
         """
         Calulate fixation-based KL-divergences for fixations

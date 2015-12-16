@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function  # , unicode_literals
 
 import sys
+import warnings
 
 import numpy as np
 import theano
@@ -18,7 +19,8 @@ from .datasets import Fixations
 def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_inds, y_inds,
                                      baseline_model_loglikelihood, optimize=None, verbose=0, method='SLSQP',
                                      nonlinearity_min = 1e-8,
-                                     view=None):
+                                     view=None,
+                                     tol=None):
     """
     Fit the parameters of the model
 
@@ -229,12 +231,14 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
         options = {'iprint': 2, 'disp': 2, 'maxiter': 1000,
                    'eps': 1e-9
                    }
-        tol = 1e-9
+        tol = tol or 1e-9
     elif method == 'IPOPT':
-        tol = 1e-7
+        tol = tol or 1e-7
         options = {'disp': 5, 'maxiter': 1000,
                    'tol': tol
                    }
+    else:
+        options =  {}
 
     x0 = {'blur_radius': full_params[0].get_value(),
           'nonlinearity': full_params[1].get_value(),
@@ -343,7 +347,7 @@ class SaliencyMapConvertor(Model):
 
     def fit(self, stimuli, fixations, optimize=None, verbose=0, baseline_model = None, method='SLSQP',
             nonlinearity_min = 1e-8,
-            view=None,):
+            view=None, tol=None):
         """
         Fit the parameters of the model
 
@@ -384,7 +388,8 @@ class SaliencyMapConvertor(Model):
                                                saliency_maps, x_inds, y_inds, baseline,
                                                optimize=optimize, verbose=verbose, method=method,
                                                nonlinearity_min=nonlinearity_min,
-                                               view=view)
+                                               view=view,
+                                               tol=tol)
 
         self.set_params(nonlinearity=res.nonlinearity, centerbias=res.centerbias, alpha=res.alpha, blur_radius=res.blur_radius)
         return res
@@ -487,7 +492,7 @@ class JointSaliencyMapConvertor(object):
         return saliency_map
 
     def fit(self, stimuli, fixations, optimize=None, verbose=0, baseline_model = None, method='SLSQP',
-            nonlinearity_min=1e-8, view=None):
+            nonlinearity_min=1e-8, view=None, tol=None):
         """
         Fit the parameters of the model
 
@@ -536,7 +541,8 @@ class JointSaliencyMapConvertor(object):
                                                saliency_maps, x_inds, y_inds, baseline,
                                                optimize=optimize, verbose=verbose, method=method,
                                                nonlinearity_min=nonlinearity_min,
-                                               view=view)
+                                               view=view,
+                                               tol=tol)
 
         self.set_params(nonlinearity=res.nonlinearity, centerbias=res.centerbias, alpha=res.alpha, blur_radius=res.blur_radius)
         return res
@@ -555,3 +561,35 @@ class JointSaliencyMapConvertor(object):
     def __setstate__(self, state):
         self.__dict__ = dict(state)
         self._build()
+
+
+def convert_saliency_map_model(saliency_map_model, stimuli, fixations, verbose=0, tol=None, method='SLSQP', optimize=None):
+    """Performs default conversion of a saliency mapmodel into a probablistic model"""
+
+    if optimize is None:
+        optimize = ['nonlinearity', 'centerbias', 'alpha']
+
+    if verbose:
+        print("Calculating saliency maximum and minimum")
+    smin, smax = np.inf, -np.inf
+    for s in progressinfo(stimuli, verbose=verbose):
+        smap = saliency_map_model.saliency_map(s)
+        smin = min(smin, smap.min())
+        smax = max(smax, smap.max())
+
+    probablistic_model = SaliencyMapConvertor(saliency_map_model, nonlinearity = np.linspace(-8, 1, num=20),
+                                              saliency_min=smin,
+                                              saliency_max=smax,
+                                              processing_class=SaliencyMapProcessingLogNonlinearity)
+
+    res = probablistic_model.fit(stimuli, fixations,
+                                 optimize=optimize,
+                                 verbose=4,
+                                 tol=tol,
+                                 method=method)
+
+    if not res.success:
+        warnings.warn('The optimization did not converge successfully!')
+
+    return probablistic_model
+
