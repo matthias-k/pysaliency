@@ -63,3 +63,36 @@ class SaliencyMapModelFromDirectory(SaliencyMapModelFromFiles):
         files = [files[i] for i in indices]
 
         super(SaliencyMapModelFromDirectory, self).__init__(stimuli, files)
+
+
+class SaliencyMapModelFromFile(SaliencyMapModel):
+    """
+    This class exposes a list of saliency maps stored in a .mat file
+    as a pysaliency SaliencyMapModel. Especially, it can be used
+    to import LSUN submissions into pysaliency.
+    """
+    def __init__(self, stimuli, filename):
+        super(SaliencyMapModelFromFile, self).__init__()
+        self.stimuli = stimuli
+        self.filename = filename
+        _, ext = os.path.splitext(filename)
+        if ext.lower() == '.mat':
+            self.load_matlab(filename)
+        else:
+            raise ValueError('Unkown filetype', filename)
+
+    def load_matlab(self, filename, key='results'):
+        import hdf5storage
+        data = hdf5storage.loadmat(filename)[key]
+        expected_shape = (len(self.stimuli), 1)
+        if not data.shape == expected_shape:
+            raise ValueError('Wrong number of saliency maps! Expected {}, got {}'.format(expected_shape, data.shape))
+        self._saliency_maps = [data[i, 0] for i in range(len(self.stimuli))]
+
+    def _saliency_map(self, stimulus):
+        stimulus_id = get_image_hash(stimulus)
+        stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
+        smap = self._saliency_maps[stimulus_index]
+        if smap.shape != (stimulus.shape[0], stimulus.shape[1]):
+            raise ValueError('Wrong shape!')
+        return smap

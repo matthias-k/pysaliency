@@ -8,7 +8,7 @@ from .datasets import Fixations, FixationTrains, Stimuli, FileStimuli, create_no
 from .saliency_map_models import SaliencyMapModel, GeneralSaliencyMapModel, FixationMap
 from .models import GeneralModel, Model, UniformModel
 from .saliency_map_conversion import SaliencyMapConvertor, JointSaliencyMapConvertor
-from .precomputed_models import SaliencyMapModelFromFiles, SaliencyMapModelFromDirectory
+from .precomputed_models import SaliencyMapModelFromFiles, SaliencyMapModelFromDirectory, SaliencyMapModelFromFile
 
 #from .stationary_models import StationarySaliencyModel
 from .external_models import AIM, SUN, ContextAwareSaliency, BMS, GBVS, GBVSIttiKoch, Judd, IttiKoch, RARE2012, CovSal
