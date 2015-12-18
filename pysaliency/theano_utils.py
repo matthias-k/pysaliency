@@ -86,7 +86,8 @@ class Blur(object):
         self.input = input
         self.sigma = theano.shared(value=np.array(sigma, dtype=theano.config.floatX), name='sigma')
         apply_blur = T.gt(self.sigma, 0.0)
-        self.output = ifelse(apply_blur, gaussian_filter(input.dimshuffle('x', 0, 1), self.sigma, window_radius)[0, :, :], input)
+        no_blur = T.le(self.sigma, 0.0)
+        self.output = ifelse(no_blur, input, gaussian_filter(input.dimshuffle('x', 0, 1), self.sigma, window_radius)[0, :, :])
         self.params = [self.sigma]
 
 
