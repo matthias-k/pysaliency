@@ -62,6 +62,10 @@ class Fixations(object):
         `FixationTrains`.
     """
     def __init__(self, x, y, t, x_hist, y_hist, t_hist, n, subjects):
+        x = np.asarray(x)
+        y = np.asarray(y)
+        t = np.asarray(t)
+        n = np.asarray(n)
         self.x = x
         self.y = y
         self.t = t
