@@ -76,6 +76,53 @@ class Fixations(object):
         self.subjects = subjects
         self.lengths = (1 - np.isnan(self.x_hist)).sum(axis=-1)
 
+    @classmethod
+    def create_without_history(cls, x, y, n, subjects=None):
+        """ Create new fixation object from fixation data without time and optionally
+            without subject information
+        """
+        N = len(x)
+        t = np.zeros(N)
+        x_hist = np.empty((N, 1))*np.nan
+        y_hist = np.empty((N, 1))*np.nan
+        t_hist = np.empty((N, 1))*np.nan
+        if subjects is None:
+            subjects = np.ones(N)
+        return cls(x, y,  t, x_hist, y_hist, t_hist, n, subjects)
+
+    @classmethod
+    def from_fixation_matrices(cls, matrices):
+        """
+        create new Fixation object with fixations from fixation matrices
+
+        Often, fixations are stored in fixation matrices: For each stimulus, there
+        is a matrix of the same size as the image which ones in each fixated location
+        and zero everywhere else. This method allows to construct a `Fixation` instance
+        from such fixation matrices.
+
+        >>> matrix1 = np.zeros((10,10))
+        >>> matrix1[5, 2] = 1
+        >>> matrix1[3, 3] = 1
+        >>> matrix2  = np.zeros((20, 30))
+        >>> matrix2[10, 20] = 1
+        >>> fixations = pysaliency.Fixation.from_fixation_matrices(
+                [matrix1,
+                 matrix2])
+        """
+        xs = []
+        ys = []
+        ns = []
+        for _n, matrix in enumerate(matrices):
+            y, x = np.nonzero(matrix)
+            n = [_n] * len(y)
+            xs.append(x)
+            ys.append(y)
+            ns.append(n)
+        x = np.hstack(xs).astype(float)
+        y = np.hstack(ys).astype(float)
+        n = np.hstack(ns)
+        return cls.create_without_history(x, y, n)
+
     def __getitem__(self, indices):
         return self.filter(indices)
 
