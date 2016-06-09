@@ -48,9 +48,9 @@ class GeneralModel(GeneralSaliencyMapModel):
     def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, out=None):
         return self.conditional_log_density(stimulus, x_hist, y_hist, t_hist, out=out)
 
-    def log_likelihoods(self, stimuli, fixations):
+    def log_likelihoods(self, stimuli, fixations, verbose=False):
         log_likelihoods = np.empty(len(fixations.x))
-        for i in progressinfo(range(len(fixations.x))):
+        for i in progressinfo(range(len(fixations.x)), verbose=verbose):
             conditional_log_density = self.conditional_log_density(stimuli.stimulus_objects[fixations.n[i]],
                                                                    fixations.x_hist[i],
                                                                    fixations.y_hist[i],
@@ -59,8 +59,8 @@ class GeneralModel(GeneralSaliencyMapModel):
 
         return log_likelihoods
 
-    def log_likelihood(self, stimuli, fixations):
-        return np.mean(self.log_likelihoods(stimuli, fixations))
+    def log_likelihood(self, stimuli, fixations, verbose=False):
+        return np.mean(self.log_likelihoods(stimuli, fixations, verbose=verbose))
 
     def _expand_sample_arguments(self, stimuli, train_counts, lengths=None, stimulus_indices=None):
         if isinstance(train_counts, int):
@@ -250,7 +250,7 @@ class UniformModel(Model):
     def _log_density(self, stimulus):
         return np.zeros((stimulus.shape[0], stimulus.shape[1])) - np.log(stimulus.shape[0]) - np.log(stimulus.shape[1])
 
-    def log_likelihoods(self, stimuli, fixations):
+    def log_likelihoods(self, stimuli, fixations, verbose=False):
         lls = []
         for n in fixations.n:
             lls.append(-np.log(stimuli.shapes[n][0]) - np.log(stimuli.shapes[n][1]))
