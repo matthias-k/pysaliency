@@ -251,6 +251,8 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                 negatives = out.flatten()
             else:
                 negatives = out[nonfix_ys[n], nonfix_xs[n]]
+            positives = positives.astype(float)
+            negatives = negatives.astype(float)
             this_roc, _, _ = general_roc(positives, negatives)
             rocs_per_image.append(this_roc)
         return rocs_per_image
