@@ -45,7 +45,7 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
     if optimize is None:
         optimize = ['blur_radius', 'nonlinearity', 'centerbias', 'alpha']
 
-    weights = np.array([len(inds) for inds in x_inds], dtype=float)
+    weights = np.array([len(inds) for inds in x_inds], dtype=theano.config.floatX)
     weights /= weights.sum()
     x_inds = [x.copy() for x in x_inds]
     y_inds = [y.copy() for y in y_inds]
@@ -80,7 +80,7 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
                                    centerbias=centerbias,
                                    alpha=alpha
                                    )
-            smp.theano_objects.nonlinearity.nonlinearity_xs.set_value(nonlinearity_xs)
+            smp.theano_objects.nonlinearity.nonlinearity_xs.set_value(np.array(nonlinearity_xs, dtype=theano.config.floatX))
             negative_log_likelihood = -smp.average_log_likelihood / np.log(2)
             param_dict = {'blur_radius': smp.blur_radius,
                           'nonlinearity': smp.nonlinearity_ys,
@@ -146,7 +146,7 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
                 values.append(rets[0])
                 assert len(rets) == len(params)+1
                 for l, g in zip(grads, rets[1:]):
-                    l.append(g)
+                    l.append(np.array(g))
             else:
                 # No fixations for this image. The theano functions will return
                 # NaN which would screw up the weighted average
@@ -300,13 +300,13 @@ class SaliencyMapConvertor(Model):
     def set_params(self, **kwargs):
         no_of_kwargs = len(kwargs)
         if 'nonlinearity' in kwargs:
-            self.saliency_map_processing.nonlinearity_ys.set_value(kwargs.pop('nonlinearity'))
+            self.saliency_map_processing.nonlinearity_ys.set_value(kwargs.pop('nonlinearity').astype(theano.config.floatX))
         if 'centerbias' in kwargs:
-            self.saliency_map_processing.centerbias_ys.set_value(kwargs.pop('centerbias'))
+            self.saliency_map_processing.centerbias_ys.set_value(kwargs.pop('centerbias').astype(theano.config.floatX))
         if 'alpha' in kwargs:
-            self.saliency_map_processing.alpha.set_value(kwargs.pop('alpha'))
+            self.saliency_map_processing.alpha.set_value(np.array(kwargs.pop('alpha'), dtype=theano.config.floatX))
         if 'blur_radius' in kwargs:
-            self.saliency_map_processing.blur_radius.set_value(kwargs.pop('blur_radius'))
+            self.saliency_map_processing.blur_radius.set_value(np.array(kwargs.pop('blur_radius'), theano.config.floatX))
         if 'saliency_min' in kwargs:
             self.saliency_min = kwargs.pop('saliency_min')
         if 'saliency_max' in kwargs:
@@ -326,7 +326,8 @@ class SaliencyMapConvertor(Model):
                                                              centerbias=self._centerbias,
                                                              alpha=self._alpha
                                                              )
-        self._f_log_density = theano.function([self.theano_input], self.saliency_map_processing.log_density)
+        self._f_log_density = theano.function([self.theano_input], self.saliency_map_processing.log_density,
+                                              allow_input_downcast=True)
 
     def _prepare_saliency_map(self, saliency_map):
         smin, smax = self.saliency_min, self.saliency_max
