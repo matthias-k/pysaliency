@@ -9,6 +9,8 @@ from scipy.io import loadmat
 from scipy.misc import imsave
 from scipy.ndimage import gaussian_filter
 
+from tqdm import tqdm
+
 from .generics import progressinfo
 from .roc import general_roc
 
@@ -374,7 +376,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         saliency maps as probability densities (compare Wilming et al.) and calculates
         the KL Divergences between model and gold standard per stimulus.
 
-        If the gold standard is already a probabilistic model that should be be converted in a
+        If the gold standard is already a probabilistic model that should not be converted in a
         new (different!) probabilistic model, set `convert_gold_standard` to False.
         """
         def convert_model(model, minimum_value):
@@ -424,6 +426,47 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         return np.mean(self.image_based_kl_divergences(stimuli, gold_standard,
                                                        minimum_value=minimum_value,
                                                        convert_gold_standard=convert_gold_standard))
+
+    def CCs(self, stimuli, other, verbose=False):
+        """ Calculate Correlation Coefficient Metric against some other model
+
+        Returns performances for each stimulus. For performance over dataset,
+        see `CC`
+        """
+        coeffs = []
+        for s in tqdm(stimuli, disable=not verbose):
+            smap1 = self.saliency_map(s).copy()
+            smap1 -= smap1.mean()
+            smap1 /= smap1.std()
+
+            smap2 = other.saliency_map(s).copy()
+            smap2 -= smap2.mean()
+            smap2 /= smap2.std()
+
+            coeffs.append(np.corrcoef(smap1.flatten(), smap2.flatten())[0, 1])
+        return np.asarray(coeffs)
+
+    def CC(self, stimuli, other, verbose=False):
+        return self.CCs(stimuli, other, verbose=verbose).mean()
+
+    def NSSs(self, stimuli, fixations, verbose=False):
+        values = []
+        for n, s in enumerate(tqdm(stimuli, disable=not verbose)):
+            smap = self.saliency_map(s).copy()
+            mean = smap.mean()
+            std = smap.std()
+
+            inds = fixations.n == n
+
+            _values = smap[fixations.n[inds], fixations.y_int[inds], fixations.x_int[inds]]
+            _values -= mean
+            _values /= std
+
+            values.append(_values)
+        return np.hstack(values)
+
+    def NSS(self, stimuli, fixations, verbose=False):
+        return self.NSSs(stimuli, fixations, verbose=verbose).mean()
 
 
 class MatlabSaliencyMapModel(SaliencyMapModel):
