@@ -244,7 +244,7 @@ class Model(GeneralModel, SaliencyMapModel):
         return kl_divs
 
 
-class CachedModel(SaliencyMapModel):
+class CachedModel(Model):
     """Density model which uses only precached densities
     """
     def __init__(self, cache_location, **kwargs):
