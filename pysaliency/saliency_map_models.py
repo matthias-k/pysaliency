@@ -469,6 +469,18 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         return self.NSSs(stimuli, fixations, verbose=verbose).mean()
 
 
+class CachedSaliencyMapModel(SaliencyMapModel):
+    """Saliency map model which uses only precached saliency maps
+    """
+    def __init__(self, cache_location, **kwargs):
+        if cache_location is None:
+            raise ValueError("CachedSaliencyMapModel needs a cache location!")
+        super(CachedSaliencyMapModel, self).__init__(cache_location=cache_location, **kwargs)
+
+    def _saliency_map(self, stimulus):
+        raise NotImplementedError()
+
+
 class MatlabSaliencyMapModel(SaliencyMapModel):
     """
     A model that creates it's saliency maps from a matlab script.

@@ -244,6 +244,18 @@ class Model(GeneralModel, SaliencyMapModel):
         return kl_divs
 
 
+class CachedModel(SaliencyMapModel):
+    """Density model which uses only precached densities
+    """
+    def __init__(self, cache_location, **kwargs):
+        if cache_location is None:
+            raise ValueError("CachedModel needs a cache location!")
+        super(CachedModel, self).__init__(cache_location=cache_location, **kwargs)
+
+    def _log_density(self, stimulus):
+        raise NotImplementedError()
+
+
 class UniformModel(Model):
     """Saliency model assuming uniform fixation distribution over space
     """
