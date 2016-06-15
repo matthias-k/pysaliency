@@ -1052,10 +1052,28 @@ def get_SALICON_test(location=None):
             stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
             return stimuli
         os.makedirs(location)
-    stimuli, fixations = _get_SALICON('test',
-                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/test.zip',
-                                      '62cd6641a5354d3099a693ff90cb6dab',
-                                      None,
-                                      None,
-                                      location)
+
+    stimuli_url = 'https://s3.amazonaws.com/salicon-dataset/2015r1/test.zip'
+    stimuli_hash = '746897f099d72b4b74861ee00917a3f2'
+
+    from salicon.salicon import SALICON
+    with TemporaryDirectory(cleanup=True) as temp_dir:
+        download_and_check(stimuli_url,
+                           os.path.join(temp_dir, 'stimuli.zip'),
+                           stimuli_hash)
+        print('Creating stimuli')
+        f = zipfile.ZipFile(os.path.join(temp_dir, 'stimuli.zip'))
+        namelist = f.namelist()
+        f.extractall(temp_dir, namelist)
+        del f
+
+        # Let's hope that that is the right order.
+        namelist = [f for f in namelist if f.lower().endswith('.jpg')]
+        stimuli_filenames = natsorted(namelist)
+        stimuli_src_location = os.path.join(temp_dir)
+        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+
+    if location:
+        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
     return stimuli
