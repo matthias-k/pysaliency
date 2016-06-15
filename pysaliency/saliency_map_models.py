@@ -234,7 +234,14 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             nonfix_xs = []
             widths = np.asarray([s[1] for s in stimuli.sizes]).astype(float)
             heights = np.asarray([s[0] for s in stimuli.sizes]).astype(float)
-            for n in range(fixations.n.max()+1):
+
+        for n in progressinfo(range(len(stimuli)), verbose=verbose):
+            out = self.saliency_map(stimuli.stimulus_objects[n])
+            inds = fixations.n == n
+            positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
+            if nonfixations == 'uniform':
+                negatives = out.flatten()
+            elif nonfixations == 'shuffled':
                 inds = ~(fixations.n == n)
                 xs = (fixations.x[inds].copy())
                 ys = (fixations.y[inds].copy())
@@ -242,15 +249,9 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                 other_ns = fixations.n[inds]
                 xs *= stimuli.sizes[n][1]/widths[other_ns]
                 ys *= stimuli.sizes[n][0]/heights[other_ns]
-
-                nonfix_xs.append(xs.astype(int))
-                nonfix_ys.append(ys.astype(int))
-        for n in progressinfo(range(len(stimuli)), verbose=verbose):
-            out = self.saliency_map(stimuli.stimulus_objects[n])
-            inds = fixations.n == n
-            positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
-            if nonfixations == 'uniform':
-                negatives = out.flatten()
+                xs = xs.astype(int)
+                ys = ys.astype(int)
+                negatives = out[ys, xs]
             else:
                 negatives = out[nonfix_ys[n], nonfix_xs[n]]
             positives = positives.astype(float)
