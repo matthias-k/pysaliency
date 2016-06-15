@@ -71,13 +71,13 @@ class SaliencyMapModelFromFile(SaliencyMapModel):
     as a pysaliency SaliencyMapModel. Especially, it can be used
     to import LSUN submissions into pysaliency.
     """
-    def __init__(self, stimuli, filename):
+    def __init__(self, stimuli, filename, key='results'):
         super(SaliencyMapModelFromFile, self).__init__()
         self.stimuli = stimuli
         self.filename = filename
         _, ext = os.path.splitext(filename)
         if ext.lower() == '.mat':
-            self.load_matlab(filename)
+            self.load_matlab(filename, key=key)
         else:
             raise ValueError('Unkown filetype', filename)
 
