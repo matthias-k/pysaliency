@@ -7,6 +7,8 @@ import numpy as np
 import theano
 import theano.tensor as T
 
+from tqdm import tqdm
+
 from optpy import minimize
 
 from .generics import progressinfo
@@ -376,10 +378,10 @@ class SaliencyMapConvertor(Model):
 
         x_inds = []
         y_inds = []
-        for n in range(len(stimuli)):
-            f = fixations[fixations.n == n]
-            x_inds.append(f.x_int)
-            y_inds.append(f.y_int)
+        for n in tqdm(list(range(len(stimuli))), desc='Preparing fixations', disable=verbose<2):
+            inds = fixations.n == n
+            x_inds.append(fixations.x_int[inds].copy())
+            y_inds.append(fixations.y_int[inds].copy())
 
         if baseline_model is None:
             baseline_model = UniformModel()
