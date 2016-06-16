@@ -25,6 +25,7 @@ def optimize_for_information_gain(
         optimize=None,
         verbose=0,
         return_optimization_result=False,
+        maxiter=1000,
         ):
 
     smax = -np.inf
@@ -43,7 +44,7 @@ def optimize_for_information_gain(
                                processing_class=processing_class,
                                saliency_max=smax,
                                saliency_min=smin)
-    res = smc.fit(fit_stimuli, fit_fixations, optimize=optimize, verbose=verbose)
+    res = smc.fit(fit_stimuli, fit_fixations, optimize=optimize, verbose=verbose, maxiter=maxiter)
     if return_optimization_result:
         return smc, res
     else:
@@ -54,7 +55,8 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
                                      baseline_model_loglikelihood, optimize=None, verbose=0, method='SLSQP',
                                      nonlinearity_min = 1e-8,
                                      view=None,
-                                     tol=None):
+                                     tol=None,
+                                     maxiter=1000):
     """
     Fit the parameters of the model
 
@@ -262,17 +264,17 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
         raise TypeError('Unknown processing class', saliency_map_processing)
 
     if method == 'SLSQP':
-        options = {'iprint': 2, 'disp': 2, 'maxiter': 1000,
+        options = {'iprint': 2, 'disp': 2, 'maxiter': maxiter,
                    'eps': 1e-9
                    }
         tol = tol or 1e-9
     elif method == 'IPOPT':
         tol = tol or 1e-7
-        options = {'disp': 5, 'maxiter': 1000,
+        options = {'disp': 5, 'maxiter': maxiter,
                    'tol': tol
                    }
     else:
-        options =  {}
+        options =  {'maxiter': maxiter}
 
     x0 = {'blur_radius': full_params[0].get_value(),
           'nonlinearity': full_params[1].get_value(),
@@ -382,7 +384,8 @@ class SaliencyMapConvertor(Model):
 
     def fit(self, stimuli, fixations, optimize=None, verbose=0, baseline_model = None, method='SLSQP',
             nonlinearity_min = 1e-8,
-            view=None, tol=None):
+            view=None, tol=None,
+            maxiter=1000):
         """
         Fit the parameters of the model
 
@@ -424,7 +427,8 @@ class SaliencyMapConvertor(Model):
                                                optimize=optimize, verbose=verbose, method=method,
                                                nonlinearity_min=nonlinearity_min,
                                                view=view,
-                                               tol=tol)
+                                               tol=tol,
+                                               maxiter=maxiter)
 
         self.set_params(nonlinearity=res.nonlinearity, centerbias=res.centerbias, alpha=res.alpha, blur_radius=res.blur_radius)
         return res
@@ -527,7 +531,7 @@ class JointSaliencyMapConvertor(object):
         return saliency_map
 
     def fit(self, stimuli, fixations, optimize=None, verbose=0, baseline_model = None, method='SLSQP',
-            nonlinearity_min=1e-8, view=None, tol=None):
+            nonlinearity_min=1e-8, view=None, tol=None, maxiter=maxiter):
         """
         Fit the parameters of the model
 
@@ -577,7 +581,8 @@ class JointSaliencyMapConvertor(object):
                                                optimize=optimize, verbose=verbose, method=method,
                                                nonlinearity_min=nonlinearity_min,
                                                view=view,
-                                               tol=tol)
+                                               tol=tol,
+                                               maxiter=maxiter)
 
         self.set_params(nonlinearity=res.nonlinearity, centerbias=res.centerbias, alpha=res.alpha, blur_radius=res.blur_radius)
         return res
