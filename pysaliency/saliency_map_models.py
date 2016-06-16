@@ -291,7 +291,9 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             raise NotImplementedError()
         aucs = self.AUC_per_image(stimuli, fixations, nonfixations=nonfixations, verbose=verbose)
         if average == 'fixation':
-            weights = [(fixations.n == n).mean() for n in range(len(stimuli))]
+            indices, weights = np.unique(fixations.n, return_counts = True)
+            weights = weights[np.argsort(indices)].astype(float)
+            weights /= weights.sum()
             return np.average(aucs, weights=weights)
         elif average == 'image':
             return np.mean(aucs)
