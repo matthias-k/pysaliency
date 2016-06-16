@@ -17,6 +17,38 @@ from .models import Model, UniformModel
 from .datasets import Fixations
 
 
+def optimize_for_information_gain(
+        model, fit_stimuli, fit_fixations,
+        num_nonlinearity=20,
+        num_centerbias=12,
+        blur_radius=0,
+        optimize=None,
+        verbose=0,
+        return_optimization_result=False,
+        ):
+
+    smax = -np.inf
+    smin = np.inf
+    for s in tqdm(fit_stimuli):
+        smap = model.saliency_map(s)
+        smax = np.max([smax, smap.max()])
+        smin = np.min([smin, smap.min()])
+
+    processing_class = SaliencyMapProcessingLogNonlinearity
+    nonlinearity_ys = np.linspace(-8, 0, num=num_nonlinearity)
+    smc = SaliencyMapConvertor(model,
+                               nonlinearity=nonlinearity_ys,
+                               centerbias = np.linspace(1.1, 0.9, num=num_centerbias),
+                               blur_radius=blur_radius,
+                               processing_class=processing_class,
+                               saliency_max=smax,
+                               saliency_min=smin)
+    res = smc.fit(fit_stimuli, fit_fixations, optimize=optimize, verbose=verbose)
+    if return_optimization_result:
+        return smc, res
+    else:
+        return smc
+
 
 def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_inds, y_inds,
                                      baseline_model_loglikelihood, optimize=None, verbose=0, method='SLSQP',

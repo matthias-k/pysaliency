@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from .datasets import Fixations, FixationTrains, Stimuli, FileStimuli, create_nonfixations, create_subset
 from .saliency_map_models import SaliencyMapModel, GeneralSaliencyMapModel, FixationMap, CachedSaliencyMapModel
 from .models import GeneralModel, Model, UniformModel, CachedModel
-from .saliency_map_conversion import SaliencyMapConvertor, JointSaliencyMapConvertor
+from .saliency_map_conversion import SaliencyMapConvertor, JointSaliencyMapConvertor, optimize_for_information_gain
 from .precomputed_models import SaliencyMapModelFromFiles, SaliencyMapModelFromDirectory, SaliencyMapModelFromFile
 
 #from .stationary_models import StationarySaliencyModel
