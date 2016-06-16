@@ -531,7 +531,7 @@ class JointSaliencyMapConvertor(object):
         return saliency_map
 
     def fit(self, stimuli, fixations, optimize=None, verbose=0, baseline_model = None, method='SLSQP',
-            nonlinearity_min=1e-8, view=None, tol=None, maxiter=maxiter):
+            nonlinearity_min=1e-8, view=None, tol=None, maxiter=1000):
         """
         Fit the parameters of the model
 
