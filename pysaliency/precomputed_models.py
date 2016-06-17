@@ -84,10 +84,19 @@ class SaliencyMapModelFromFile(SaliencyMapModel):
     def load_matlab(self, filename, key='results'):
         import hdf5storage
         data = hdf5storage.loadmat(filename)[key]
-        expected_shape = (len(self.stimuli), 1)
+        if len(data.shape) == 2 and len(self.stimuli) > 1:
+            if data.shape[0] == 1:
+                data = data[0]
+            elif data.shape[1] == 1:
+                data = data[:, 0]
+            else:
+                raise ValueError('Data has wrong shape: {} (need 1xN, Nx1 or N)'.format(data.shape))
+        if len(data.shape) > 2:
+            raise ValueError('Data has wrong shape: {} (need 1xN, Nx1 or N)'.format(data.shape))
+        expected_shape = (len(self.stimuli),)
         if not data.shape == expected_shape:
             raise ValueError('Wrong number of saliency maps! Expected {}, got {}'.format(expected_shape, data.shape))
-        self._saliency_maps = [data[i, 0] for i in range(len(self.stimuli))]
+        self._saliency_maps = [data[i] for i in range(len(self.stimuli))]
 
     def _saliency_map(self, stimulus):
         stimulus_id = get_image_hash(stimulus)
