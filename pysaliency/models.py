@@ -217,7 +217,7 @@ class Model(GeneralModel, SaliencyMapModel):
             if not inds.sum():
                 continue
             log_density = self.log_density(stimuli.stimulus_objects[n])
-            this_log_likelihoods = log_density[n, fixations.y_int[inds], fixations.x_int[inds]]
+            this_log_likelihoods = log_density[fixations.y_int[inds], fixations.x_int[inds]]
             log_likelihoods[inds] = this_log_likelihoods
 
         return log_likelihoods
