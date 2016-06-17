@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from abc import abstractmethod
 
 import numpy as np
+from tqdm import tqdm
 
 from .generics import progressinfo
 from .saliency_map_models import GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus
@@ -208,6 +209,18 @@ class Model(GeneralModel, SaliencyMapModel):
     def _saliency_map(self, stimulus):
         # We have to implement this abstract method
         pass
+
+    def log_likelihoods(self, stimuli, fixations, verbose=False):
+        log_likelihoods = np.empty(len(fixations.x))
+        for n in tqdm(range(len(stimuli)), disable=not verbose):
+            inds = fixations.n == n
+            if not inds.sum():
+                continue
+            log_density = self.log_density(stimuli.stimulus_objects[n])
+            this_log_likelihoods = log_density[n, fixations.y_int[inds], fixations.x_int[inds]]
+            log_likelihoods[inds] = this_log_likelihoods
+
+        return log_likelihoods
 
     def _sample_fixation_train(self, stimulus, length):
         """Sample one fixation train of given length from stimulus"""
