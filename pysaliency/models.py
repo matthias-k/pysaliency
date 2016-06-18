@@ -168,8 +168,8 @@ class Model(GeneralModel, SaliencyMapModel):
 
     Inheriting classes have to implement `_log_density`.
     """
-    def __init__(self, cache_location=None):
-        super(Model, self).__init__(cache_location=cache_location)
+    def __init__(self, cache_location=None, caching=True):
+        super(Model, self).__init__(cache_location=cache_location, caching=caching)
         #self._log_density_cache = Cache(cache_location)
         # This make the property `cache_location` work.
         #self._saliency_map_cache = self._log_density_cache
@@ -185,6 +185,8 @@ class Model(GeneralModel, SaliencyMapModel):
         the caching mechanism is disabled.
         """
         stimulus = handle_stimulus(stimulus)
+        if not self.caching:
+            return self._log_density(stimulus.stimulus_data)
         stimulus_id = stimulus.stimulus_id
         if not stimulus_id in self._cache:
             self._cache[stimulus_id] = self._log_density(stimulus.stimulus_data)

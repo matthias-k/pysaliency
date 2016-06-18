@@ -158,8 +158,9 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
     but the model is not explicitly a probabilistic model.
     """
 
-    def __init__(self, cache_location = None):
+    def __init__(self, cache_location = None, caching=True):
         self._cache = Cache(cache_location)
+        self.caching = caching
 
     @property
     def cache_location(self):
@@ -177,6 +178,8 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         the caching mechanism is disabled.
         """
         stimulus = handle_stimulus(stimulus)
+        if not self.caching:
+            return self._saliency_map(stimulus.stimulus_data)
         stimulus_id = stimulus.stimulus_id
         if not stimulus_id in self._cache:
             self._cache[stimulus_id] = self._saliency_map(stimulus.stimulus_data)
