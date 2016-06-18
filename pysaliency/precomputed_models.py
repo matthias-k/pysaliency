@@ -12,8 +12,8 @@ from .datasets import get_image_hash, FileStimuli
 
 
 class SaliencyMapModelFromFiles(SaliencyMapModel):
-    def __init__(self, stimuli, files):
-        super(SaliencyMapModelFromFiles, self).__init__()
+    def __init__(self, stimuli, files, **kwargs):
+        super(SaliencyMapModelFromFiles, self).__init__(**kwargs)
         self.stimuli = stimuli
         self.stimulus_ids = list(stimuli.stimulus_ids)
         self.files = files
@@ -44,7 +44,7 @@ class SaliencyMapModelFromFiles(SaliencyMapModel):
 
 
 class SaliencyMapModelFromDirectory(SaliencyMapModelFromFiles):
-    def __init__(self, stimuli, directory):
+    def __init__(self, stimuli, directory, **kwargs):
         if not isinstance(stimuli, FileStimuli):
             raise TypeError('SaliencyMapModelFromDirectory works only with FileStimuli!')
 
@@ -62,7 +62,7 @@ class SaliencyMapModelFromDirectory(SaliencyMapModelFromFiles):
         files = [os.path.join(directory, f) for f in files]
         files = [files[i] for i in indices]
 
-        super(SaliencyMapModelFromDirectory, self).__init__(stimuli, files)
+        super(SaliencyMapModelFromDirectory, self).__init__(stimuli, files, **kwargs)
 
 
 class SaliencyMapModelFromFile(SaliencyMapModel):
@@ -71,8 +71,8 @@ class SaliencyMapModelFromFile(SaliencyMapModel):
     as a pysaliency SaliencyMapModel. Especially, it can be used
     to import LSUN submissions into pysaliency.
     """
-    def __init__(self, stimuli, filename, key='results'):
-        super(SaliencyMapModelFromFile, self).__init__()
+    def __init__(self, stimuli, filename, key='results', **kwargs):
+        super(SaliencyMapModelFromFile, self).__init__(**kwargs)
         self.stimuli = stimuli
         self.filename = filename
         _, ext = os.path.splitext(filename)
