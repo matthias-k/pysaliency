@@ -3,13 +3,12 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from abc import abstractmethod
 
 import numpy as np
+from scipy.misc import logsumexp
 from tqdm import tqdm
 
 from .generics import progressinfo
 from .saliency_map_models import GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus
 from .datasets import FixationTrains
-from .utils import Cache
-#from .saliency_map_conversion import JointSaliencyConvertor
 
 
 def sample_from_image(densities, count=None):
@@ -283,15 +282,35 @@ class UniformModel(Model):
             lls.append(-np.log(stimuli.shapes[n][0]) - np.log(stimuli.shapes[n][1]))
         return np.array(lls)
 
-    #TODO: AUC, etc.
 
-#class JointGoldStandard(JointSaliencyConvertor):
-#    """
-#    A gold standard model including blur, centerbias and nonlinearity, jointly optimized in cross validation
-#    """
-#    def __init__(self, *args, **kwargs):
-#        super(self, JointSaliencyConvertor).__init__([], *args, **kwargs)
-#
-#    def fit(self, stimuli, fixations, crossvalidation_fold = 10):
-#        pass
+class MixtureModel(Model):
+    """ A saliency model being a weighted mixture of a number of other models
+    """
+    def __init__(self, models, weights=None, **kwargs):
+        """Create a mixture model from a list of models and a list of weights
 
+           :param models: list of `Model` instances
+           :param weights: list of weights for the different models. Do not have
+                           to sum up to one, they will be normalized.
+                           If `None`, will be set to a uniform mixture.
+        """
+        super(MixtureModel, self).__init__(**kwargs)
+        self.models = models
+        if not weights:
+            weights = np.ones(len(self.models))
+        weights /= weights.sum()
+        if not len(weights) == len(models):
+            raise ValueError('models and weights must have same length!')
+        self.weights = weights
+
+    def _log_density(self, stimulus):
+        log_densities = []
+        for i, model in enumerate(self.models):
+            log_density = model.log_density(stimulus)
+            log_density += np.log(self.weights[i])
+            log_densities.append(log_density)
+
+        log_density = logsumexp(log_densities, axis=0)
+        np.testing.assert_allclose(np.exp(log_density).sum(), 1.0, rtol=1e-7)
+        assert log_density.shape == (stimulus.shape[0], stimulus.shape[1])
+        return log_density
