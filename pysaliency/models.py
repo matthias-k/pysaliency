@@ -296,8 +296,9 @@ class MixtureModel(Model):
         """
         super(MixtureModel, self).__init__(**kwargs)
         self.models = models
-        if not weights:
+        if weights is None:
             weights = np.ones(len(self.models))
+        weights = np.asarray(weights, dtype=float)
         weights /= weights.sum()
         if not len(weights) == len(models):
             raise ValueError('models and weights must have same length!')
@@ -306,7 +307,7 @@ class MixtureModel(Model):
     def _log_density(self, stimulus):
         log_densities = []
         for i, model in enumerate(self.models):
-            log_density = model.log_density(stimulus)
+            log_density = model.log_density(stimulus).copy()
             log_density += np.log(self.weights[i])
             log_densities.append(log_density)
 
