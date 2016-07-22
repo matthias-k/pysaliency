@@ -754,6 +754,19 @@ def create_subset(stimuli, fixations, stimuli_indices):
     return new_stimuli, new_fixations
 
 
+def remove_out_of_stimulus_fixations(stimuli, fixations):
+    """ Return all fixations which do not occour outside the stimulus
+    """
+    widths = np.array([s[1] for s in stimuli.sizes])
+    heights = np.array([s[0] for s in stimuli.sizes])
+
+    inds = ((fixations.x >= 0) & (fixations.y >= 0) &
+            (fixations.x < widths[fixations.n]) &
+            (fixations.y < heights[fixations.n])
+            )
+    return fixations[inds]
+
+
 def calculate_nonfixation_factors(stimuli, index):
     widths = np.asarray([s[1] for s in stimuli.sizes]).astype(float)
     heights = np.asarray([s[0] for s in stimuli.sizes]).astype(float)
