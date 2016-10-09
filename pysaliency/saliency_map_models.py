@@ -464,7 +464,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
             inds = fixations.n == n
 
-            _values = smap[fixations.n[inds], fixations.y_int[inds], fixations.x_int[inds]]
+            _values = smap[fixations.y_int[inds], fixations.x_int[inds]]
             _values -= mean
             _values /= std
 
