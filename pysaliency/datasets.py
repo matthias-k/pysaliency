@@ -61,6 +61,7 @@ class Fixations(object):
         saccade lengths). If you need fixation trains, use the subclass
         `FixationTrains`.
     """
+    __attributes__ = ['subjects']
     def __init__(self, x, y, t, x_hist, y_hist, t_hist, n, subjects):
         x = np.asarray(x)
         y = np.asarray(y)
@@ -141,12 +142,22 @@ class Fixations(object):
         """
 
         kwargs = {}
+        other_attributes = {}
 
         def filter_array(name):
             kwargs[name] = getattr(self, name)[inds].copy()
-        for name in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']:
+        for name in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n']:
             filter_array(name)
-        return Fixations(**kwargs)
+        for name in self.__attributes__:
+            filter_array(name)
+            if name != 'subjects':
+                other_attributes[name] = kwargs.pop(name)
+
+        new_fix = Fixations(**kwargs)
+        for key, value in other_attributes.items():
+            setattr(new_fix, key, value)
+        new_fix.__attributes__ = list(self.__attributes__)
+        return new_fix
 
     def _get_previous_values(self, name, index):
         """return fixations.name[np.arange(len(fixations.name)),index]"""
@@ -205,9 +216,13 @@ class Fixations(object):
         return self.subjects.max()+1
 
     def copy(self):
-        return Fixations(self.x.copy(), self.y.copy(), self.t.copy(),
+        cfix = Fixations(self.x.copy(), self.y.copy(), self.t.copy(),
                          self.x_hist.copy(), self.y_hist.copy(), self.t_hist.copy(),
                          self.n.copy(), self.subjects.copy())
+        cfix.__attributes = list(self.__attributes__)
+        for name in self.__attributes__:
+            setattr(cfix, name, getattr(self, name).copy())
+        return cfix
 
     @classmethod
     def FixationsWithoutHistory(cls, x, y, t, n, subjects):
@@ -272,6 +287,8 @@ class FixationTrains(Fixations):
         """
         Create new fixations object which contains only the fixation trains indicated.
         """
+        if self.__attributes__ != ['subjects']:
+            raise NotImplementedError('Filtering fixation trains with additional attributes is not yet implemented!')
         train_xs = self.train_xs[indices]
         train_ys = self.train_ys[indices]
         train_ts = self.train_ts[indices]
