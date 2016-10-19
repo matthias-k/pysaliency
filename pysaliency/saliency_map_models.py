@@ -148,6 +148,30 @@ class GeneralSaliencyMapModel(object):
         aucs = self.AUCs(stimuli, fixations, nonfixations=nonfixations, verbose=verbose)
         return np.mean(aucs)
 
+    def NSSs(self, stimuli, fixations, verbose=False):
+        values = np.empty(len(fixations.x))
+        out = None
+
+        for i in tqdm(range(len(fixations.x)), disable=not verbose, total=len(fixations.x)):
+            out = self.conditional_saliency_map(stimuli.stimulus_objects[fixations.n[i]], fixations.x_hist[i], fixations.y_hist[i],
+                                                fixations.t_hist[i], out=out)
+
+            smap = out
+            mean = smap.mean()
+            std = smap.std()
+
+            inds = fixations.n == n
+
+            value = smap[fixations.y_int[i], fixations.x_int[i]].copy()
+            value -= mean
+            value /= std
+
+            values[i] = value
+        return values
+
+    def NSS(self, stimuli, fixations, verbose=False):
+        return self.NSSs(stimuli, fixations, verbose=verbose).mean()
+
     def set_params(self, **kwargs):
         """
         Set model parameters, if the model has parameters
@@ -468,7 +492,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         return self.CCs(stimuli, other, verbose=verbose).mean()
 
     def NSSs(self, stimuli, fixations, verbose=False):
-        values = []
+        values = np.empty(len(fixations.x))
         for n, s in enumerate(tqdm(stimuli, disable=not verbose)):
             smap = self.saliency_map(s).copy()
             mean = smap.mean()
@@ -479,12 +503,9 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             _values = smap[fixations.y_int[inds], fixations.x_int[inds]]
             _values -= mean
             _values /= std
+            values[inds] = _values
 
-            values.append(_values)
-        return np.hstack(values)
-
-    def NSS(self, stimuli, fixations, verbose=False):
-        return self.NSSs(stimuli, fixations, verbose=verbose).mean()
+        return values
 
 
 class CachedSaliencyMapModel(SaliencyMapModel):
