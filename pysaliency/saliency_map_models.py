@@ -15,7 +15,7 @@ from .generics import progressinfo
 from .roc import general_roc
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache
-from .datasets import Stimulus
+from .datasets import Stimulus, Fixations
 
 
 def handle_stimulus(stimulus):
@@ -67,7 +67,11 @@ class GeneralSaliencyMapModel(object):
         rocs_per_fixation = []
         rocs = {}
         out = None
-        if nonfixations not in ['uniform', 'shuffled']:
+
+        nonfix_ys = None
+        nonfix_xs = None
+
+        if isinstance(nonfixations, Fixations):
             nonfix_xs = []
             nonfix_ys = []
             for n in range(fixations.n.max()+1):
@@ -97,9 +101,12 @@ class GeneralSaliencyMapModel(object):
             positives = np.asarray([out[fixations.y_int[i], fixations.x_int[i]]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
-            else:
+            elif nonfix_xs is not None:
                 n = fixations.n[i]
                 negatives = out[nonfix_ys[n], nonfix_xs[n]]
+            else:
+                _nonfix_xs, _nonfix_ys = nonfixations(stimuli, fixations, i)
+                negatives = out[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
             this_roc, _, _ = general_roc(positives, negatives)
             rocs.setdefault(fixations.n[i], []).append(this_roc)
             rocs_per_fixation.append(this_roc)
