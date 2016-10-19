@@ -184,3 +184,38 @@ class TestImageBasedKLDivergence(object):
         ib_kl = gold.image_based_kl_divergence(stimuli, gold)
         np.testing.assert_allclose(ib_kl, 0.0)
 
+
+class TestFullShuffledNonfixationProvider(object):
+    def setUp(self):
+        xs_trains = [
+            [0, 1, 2],
+            [2, 2],
+            [1, 10, 3],
+            [4, 5, 33, 7]]
+        ys_trains = [
+            [10, 11, 12],
+            [12, 12],
+            [21, 25, 33],
+            [41, 42, 43, 44]]
+        ts_trains = [
+            [0, 200, 600],
+            [100, 400],
+            [50, 500, 900],
+            [0, 1, 2, 3]]
+        ns = [0, 0, 1, 2]
+        subjects = [0, 1, 1, 0]
+        self.f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+        self.stimuli = pysaliency.Stimuli([np.random.randn(50, 50, 3),
+                                           np.random.randn(50, 50, 3),
+                                           np.random.randn(100, 200, 3)])
+
+    def test_shuffled(self):
+        from pysaliency.saliency_map_models import FullShuffledNonfixationProvider
+        prov = FullShuffledNonfixationProvider(self.stimuli, self.f)
+
+
+        xs, ys = prov(self.stimuli, self.f, 0)
+        assert len(xs) == (self.f.n != 0).sum()
+        np.testing.assert_allclose(xs, [1, 10, 3, 1, 1, 8, 1])
+        np.testing.assert_allclose(ys, [21, 25, 33, 20, 21, 21, 22])
+

@@ -10,6 +10,7 @@ from scipy.misc import imsave
 from scipy.ndimage import gaussian_filter
 
 from tqdm import tqdm
+from boltons.cacheutils import cached, LRU
 
 from .generics import progressinfo
 from .roc import general_roc
@@ -25,6 +26,34 @@ def handle_stimulus(stimulus):
     if not isinstance(stimulus, Stimulus):
         stimulus = Stimulus(stimulus)
     return stimulus
+
+
+class FullShuffledNonfixationProvider(object):
+    def __init__(self, stimuli, fixations, max_fixations_in_cache=500*1000*1000):
+        self.stimuli = stimuli
+        self.fixations = fixations
+        cache_size = int(max_fixations_in_cache / len(self.fixations.x))
+        self.cache = LRU(cache_size)
+        self.nonfixations_for_image = cached(self.cache)(self._nonfixations_for_image)
+        self.widths = np.asarray([s[1] for s in stimuli.sizes]).astype(float)
+        self.heights = np.asarray([s[0] for s in stimuli.sizes]).astype(float)
+
+    def _nonfixations_for_image(self, n):
+        inds = ~(self.fixations.n == n)
+        xs = (self.fixations.x[inds].copy()).astype(float)
+        ys = (self.fixations.y[inds].copy()).astype(float)
+
+        other_ns = self.fixations.n[inds]
+        xs *= self.stimuli.sizes[n][1]/self.widths[other_ns]
+        ys *= self.stimuli.sizes[n][0]/self.heights[other_ns]
+
+        return xs.astype(int), ys.astype(int)
+
+    def __call__(self, stimuli, fixations, i):
+        assert stimuli is self.stimuli
+        n = fixations.n[i]
+        return self.nonfixations_for_image(n)
+
 
 
 @add_metaclass(ABCMeta)
@@ -110,11 +139,7 @@ class GeneralSaliencyMapModel(object):
             this_roc, _, _ = general_roc(positives, negatives)
             rocs.setdefault(fixations.n[i], []).append(this_roc)
             rocs_per_fixation.append(this_roc)
-#        if average is 'image':
-#            rocs_per_image = [np.mean(rocs.get(n, [])) for n in range(fixations.n.max()+1)]
-#            return rocs_per_image
-#        else:
-        return rocs_per_fixation
+        return np.asarray(rocs_per_fixation)
 
     def AUC(self, stimuli, fixations, nonfixations='uniform', average='fixation', verbose=False):
         """
@@ -255,7 +280,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         rocs_per_image = []
         rocs = {}
         out = None
-        if nonfixations not in ['uniform', 'shuffled']:
+        if isinstance(nonfixations, Fixations):
             nonfix_xs = []
             nonfix_ys = []
             for n in range(fixations.n.max()+1):
