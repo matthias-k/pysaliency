@@ -94,7 +94,7 @@ class GeneralSaliencyMapModel(object):
         for i in progressinfo(range(len(fixations.x)), verbose=verbose):
             out = self.conditional_saliency_map(stimuli.stimulus_objects[fixations.n[i]], fixations.x_hist[i], fixations.y_hist[i],
                                                 fixations.t_hist[i], out=out)
-            positives = np.asarray([out[fixations.y[i], fixations.x[i]]])
+            positives = np.asarray([out[fixations.y_int[i], fixations.x_int[i]]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
             else:
@@ -294,9 +294,13 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             raise NotImplementedError()
         aucs = self.AUC_per_image(stimuli, fixations, nonfixations=nonfixations, verbose=verbose)
         if average == 'fixation':
-            indices, weights = np.unique(fixations.n, return_counts = True)
-            weights = weights[np.argsort(indices)].astype(float)
+            weights = np.zeros_like(aucs)
+            for n in set(fixations.n):
+                weights[n] = (fixations.n == n).mean()
             weights /= weights.sum()
+            #indices, weights = np.unique(fixations.n, return_counts = True)
+            #weights = weights[np.argsort(indices)].astype(float)
+            #weights /= weights.sum()
             return np.average(aucs, weights=weights)
         elif average == 'image':
             return np.mean(aucs)
