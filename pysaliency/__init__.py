@@ -5,10 +5,13 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 #import .utils
 
 from .datasets import Fixations, FixationTrains, Stimuli, FileStimuli, create_nonfixations, create_subset, remove_out_of_stimulus_fixations
-from .saliency_map_models import SaliencyMapModel, GeneralSaliencyMapModel, FixationMap, CachedSaliencyMapModel
-from .models import GeneralModel, Model, UniformModel, CachedModel, MixtureModel
+from .saliency_map_models import (SaliencyMapModel, GeneralSaliencyMapModel, FixationMap, CachedSaliencyMapModel, ExpSaliencyMapModel,
+                                  DisjointUnionSaliencyMapModel, SubjectDependentSaliencyMapModel, ResizingSaliencyMapModel)
+from .models import (GeneralModel, Model, UniformModel, CachedModel, MixtureModel,
+                     DisjointUnionModel, SubjectDependentModel, ShuffledAUCSaliencyMapModel, ResizingModel,
+                     )
 from .saliency_map_conversion import SaliencyMapConvertor, JointSaliencyMapConvertor, optimize_for_information_gain
-from .precomputed_models import SaliencyMapModelFromFiles, SaliencyMapModelFromDirectory, SaliencyMapModelFromFile
+from .precomputed_models import SaliencyMapModelFromFiles, SaliencyMapModelFromDirectory, SaliencyMapModelFromFile, ModelFromDirectory
 
 #from .stationary_models import StationarySaliencyModel
 from .external_models import AIM, SUN, ContextAwareSaliency, BMS, GBVS, GBVSIttiKoch, Judd, IttiKoch, RARE2012, CovSal

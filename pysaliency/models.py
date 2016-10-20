@@ -3,11 +3,14 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from abc import abstractmethod
 
 import numpy as np
+from scipy.ndimage import zoom
 from scipy.misc import logsumexp
 from tqdm import tqdm
 
 from .generics import progressinfo
-from .saliency_map_models import GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus
+from .saliency_map_models import (GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus,
+                                  SubjectDependentSaliencyMapModel,
+                                  ExpSaliencyMapModel)
 from .datasets import FixationTrains
 
 
@@ -315,3 +318,60 @@ class MixtureModel(Model):
         np.testing.assert_allclose(np.exp(log_density).sum(), 1.0, rtol=1e-7)
         assert log_density.shape == (stimulus.shape[0], stimulus.shape[1])
         return log_density
+
+
+class ResizingModel(Model):
+    def __init__(self, parent_model, **kwargs):
+        if 'caching' not in kwargs:
+            kwargs['caching'] = False
+        super(ResizingModel, self).__init__(**kwargs)
+        self.parent_model = parent_model
+
+    def _log_density(self, stimulus):
+        smap = self.parent_model.log_density(stimulus)
+
+        target_shape = (stimulus.shape[0],
+                        stimulus.shape[1])
+
+        if smap.shape != target_shape:
+            print("Resizing saliency map", smap.shape, target_shape)
+            x_factor = target_shape[1] / smap.shape[1]
+            y_factor = target_shape[0] / smap.shape[0]
+
+            smap = zoom(smap, [y_factor, x_factor], order=1)
+
+            smap -= logsumexp(smap)
+
+            assert smap.shape == target_shape
+
+        return smap
+
+
+class DisjointUnionModel(GeneralModel):
+    def conditional_log_density(self, stimulus, *args, **kwargs):
+        raise
+
+    def log_likelihoods(self, stimuli, fixations, **kwargs):
+        return self.eval_metric('log_likelihoods', stimuli, fixations, **kwargs)
+
+
+class SubjectDependentModel(DisjointUnionModel, SubjectDependentSaliencyMapModel):
+    def get_saliency_map_model_for_sAUC(self, baseline_model):
+        return SubjectDependentSaliencyMapModel({
+            s: ShuffledAUCSaliencyMapModel(self.subject_models[s], baseline_model)
+            for s in self.subject_models})
+
+    def get_saliency_map_model_for_NSS(self):
+        return SubjectDependentSaliencyMapModel({
+            s: ExpSaliencyMapModel(self.subject_models[s])
+            for s in self.subject_models})
+
+
+class ShuffledAUCSaliencyMapModel(SaliencyMapModel):
+    def __init__(self, probabilistic_model, baseline_model):
+        super(ShuffledAUCSaliencyMapModel, self).__init__(caching=False)
+        self.probabilistic_model = probabilistic_model
+        self.baseline_model = baseline_model
+
+    def _saliency_map(self, stimulus):
+        return self.probabilistic_model.log_density(stimulus) - self.baseline_model.log_density(stimulus)

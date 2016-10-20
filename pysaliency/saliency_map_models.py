@@ -7,7 +7,7 @@ from six import add_metaclass
 import numpy as np
 from scipy.io import loadmat
 from scipy.misc import imsave
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, zoom
 
 from tqdm import tqdm
 from boltons.cacheutils import cached, LRU
@@ -53,7 +53,6 @@ class FullShuffledNonfixationProvider(object):
         assert stimuli is self.stimuli
         n = fixations.n[i]
         return self.nonfixations_for_image(n)
-
 
 
 @add_metaclass(ABCMeta)
@@ -111,7 +110,7 @@ class GeneralSaliencyMapModel(object):
         if nonfixations == 'shuffled':
             nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
 
-        for i in progressinfo(range(len(fixations.x)), verbose=verbose):
+        for i in tqdm(range(len(fixations.x)), total=len(fixations.x), disable=not verbose):
             out = self.conditional_saliency_map(stimuli.stimulus_objects[fixations.n[i]], fixations.x_hist[i], fixations.y_hist[i],
                                                 fixations.t_hist[i], out=out)
             positives = np.asarray([out[fixations.y_int[i], fixations.x_int[i]]])
@@ -171,8 +170,6 @@ class GeneralSaliencyMapModel(object):
             smap = out
             mean = smap.mean()
             std = smap.std()
-
-            inds = fixations.n == n
 
             value = smap[fixations.y_int[i], fixations.x_int[i]].copy()
             value -= mean
@@ -244,6 +241,68 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
     def conditional_saliency_map(self, stimulus, *args, **kwargs):
         return self.saliency_map(stimulus)
 
+#    def AUCs(self, stimuli, fixations, nonfixations='uniform', verbose=False):
+#        """
+#        Calulate AUC scores for fixations
+#
+#        :type fixations : Fixations
+#        :param fixations : Fixation object to calculate the AUC scores for.
+#
+#        :type nonfixations : string or Fixations
+#        :param nonfixations : Nonfixations to use for calculating AUC scores.
+#                              Possible values are:
+#                                  'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
+#                                              all pixels from the saliency map.
+#                                  'shuffled': Use all fixations from other images as nonfixations.
+#                                  fixations-object: For each image, use the fixations in this fixation
+#                                                    object as nonfixations
+#
+#        :rtype : ndarray
+#        :return : list of AUC scores for each fixation,
+#                  ordered as in `fixations.x` (average=='fixation' or None)
+#                  or by image numbers (average=='image')
+#        """
+#        rocs_per_fixation = np.empty(len(fixations.x))
+#
+#        nonfix_ys = None
+#        nonfix_xs = None
+#
+#        if isinstance(nonfixations, Fixations):
+#            nonfix_xs = []
+#            nonfix_ys = []
+#            for n in range(fixations.n.max()+1):
+#                inds = nonfixations.n == n
+#                nonfix_xs.append(nonfixations.x_int[inds].copy())
+#                nonfix_ys.append(nonfixations.y_int[inds].copy())
+#
+#        if nonfixations == 'shuffled':
+#            nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
+#
+#        for n in tqdm(range(len(stimuli)), total=len(stimuli), disable = not verbose):
+#            inds = fixations.n == n
+#            if not inds.sum():
+#                continue
+#            out = self.saliency_map(stimuli.stimulus_objects[n])
+#            positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
+#            if nonfixations == 'uniform':
+#                negatives = out.flatten()
+#            elif nonfix_xs is not None:
+#                negatives = out[nonfix_ys[n], nonfix_xs[n]]
+#            else:
+#                _nonfix_xs, _nonfix_ys = nonfixations(stimuli, fixations, np.nonzero(inds)[0][0])
+#                negatives = out[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
+#
+#            positives = positives.astype(float)
+#            negatives = negatives.astype(float)
+#
+#            rocs = np.empty(len(positives))
+#            for i, p in enumerate(positives):
+#                this_roc, _, _ = general_roc(np.array([p]), negatives)
+#                rocs[i] = this_roc
+#            rocs_per_fixation[inds] = rocs
+#
+#        return rocs_per_fixation
+
     def AUC_per_image(self, stimuli, fixations, nonfixations='uniform', verbose=False):
         """
         Calulate AUC scores per image for fixations
@@ -265,7 +324,6 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                   or by image numbers (average=='image')
         """
         rocs_per_image = []
-        rocs = {}
         out = None
 
         nonfix_xs = None
@@ -648,3 +706,84 @@ class FixationMap(SaliencyMapModel):
         if self.kernel_size:
             saliency_map = gaussian_filter(saliency_map, self.kernel_size)
         return saliency_map
+
+
+class ResizingSaliencyMapModel(SaliencyMapModel):
+    def __init__(self, parent_model, **kwargs):
+        if 'caching' not in kwargs:
+            kwargs['caching'] = False
+        super(ResizingSaliencyMapModel, self).__init__(**kwargs)
+        self.parent_model = parent_model
+
+    def _saliency_map(self, stimulus):
+        smap = self.parent_model.saliency_map(stimulus)
+
+        target_shape = (stimulus.shape[0],
+                        stimulus.shape[1])
+
+        if smap.shape != target_shape:
+            print("Resizing saliency map", smap.shape, target_shape)
+            x_factor = target_shape[1] / smap.shape[1]
+            y_factor = target_shape[0] / smap.shape[0]
+
+            smap = zoom(smap, [y_factor, x_factor], order=1)
+
+            assert smap.shape == target_shape
+
+        return smap
+
+
+class DisjointUnionSaliencyMapModel(GeneralSaliencyMapModel):
+    #def __init__(self):
+    #
+    def _split_fixations(self, stimuli, fixations):
+        """ return list of [(inds, model)]
+        """
+        raise NotImplementedError()
+
+    def conditional_saliency_map(self, stimulus, *args, **kwargs):
+        raise
+
+    def eval_metric(self, metric_name, stimuli, fixations, **kwargs):
+        result = np.empty(len(fixations.x))
+        done = np.zeros_like(result).astype(bool)
+        for inds, model in self._split_fixations(stimuli, fixations):
+            assert done[inds].sum() == 0
+            _f = fixations[inds]
+            this_metric = getattr(model, metric_name)
+            this_result = this_metric(stimuli, _f, **kwargs)
+            result[inds] = this_result
+            done[inds] = True
+        assert all(done)
+        return result
+
+    def AUCs(self, stimuli, fixations, **kwargs):
+        return self.eval_metric('AUCs', stimuli, fixations, **kwargs)
+
+    def AUC(self, stimuli, fixations, **kwargs):
+        if kwargs.get('nonfixations', 'uniform') == 'shuffled':
+            kwargs = dict(kwargs)
+            kwargs['nonfixations'] = FullShuffledNonfixationProvider(stimuli, fixations)
+        return super(DisjointUnionSaliencyMapModel, self).AUC(stimuli, fixations, **kwargs)
+
+    def NSSs(self, stimuli, fixations, **kwargs):
+        return self.eval_metric('NSSs', stimuli, fixations, **kwargs)
+
+
+class SubjectDependentSaliencyMapModel(DisjointUnionSaliencyMapModel):
+    def __init__(self, subject_models, **kwargs):
+        super(SubjectDependentSaliencyMapModel, self).__init__(**kwargs)
+        self.subject_models = subject_models
+
+    def _split_fixations(self, stimuli, fixations):
+        for s in self.subject_models:
+            yield fixations.subjects == s, self.subject_models[s]
+
+
+class ExpSaliencyMapModel(SaliencyMapModel):
+    def __init__(self, parent_model):
+        super(ExpSaliencyMapModel, self).__init__(caching=False)
+        self.parent_model = parent_model
+
+    def _saliency_map(self, stimulus):
+        return np.exp(self.parent_model.saliency_map(stimulus))
