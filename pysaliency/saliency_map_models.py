@@ -13,7 +13,7 @@ from tqdm import tqdm
 from boltons.cacheutils import cached, LRU
 
 from .generics import progressinfo
-from .roc import general_roc
+from .roc import general_roc, general_rocs_per_positive
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache
 from .datasets import Stimulus, Fixations
@@ -241,67 +241,64 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
     def conditional_saliency_map(self, stimulus, *args, **kwargs):
         return self.saliency_map(stimulus)
 
-#    def AUCs(self, stimuli, fixations, nonfixations='uniform', verbose=False):
-#        """
-#        Calulate AUC scores for fixations
-#
-#        :type fixations : Fixations
-#        :param fixations : Fixation object to calculate the AUC scores for.
-#
-#        :type nonfixations : string or Fixations
-#        :param nonfixations : Nonfixations to use for calculating AUC scores.
-#                              Possible values are:
-#                                  'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
-#                                              all pixels from the saliency map.
-#                                  'shuffled': Use all fixations from other images as nonfixations.
-#                                  fixations-object: For each image, use the fixations in this fixation
-#                                                    object as nonfixations
-#
-#        :rtype : ndarray
-#        :return : list of AUC scores for each fixation,
-#                  ordered as in `fixations.x` (average=='fixation' or None)
-#                  or by image numbers (average=='image')
-#        """
-#        rocs_per_fixation = np.empty(len(fixations.x))
-#
-#        nonfix_ys = None
-#        nonfix_xs = None
-#
-#        if isinstance(nonfixations, Fixations):
-#            nonfix_xs = []
-#            nonfix_ys = []
-#            for n in range(fixations.n.max()+1):
-#                inds = nonfixations.n == n
-#                nonfix_xs.append(nonfixations.x_int[inds].copy())
-#                nonfix_ys.append(nonfixations.y_int[inds].copy())
-#
-#        if nonfixations == 'shuffled':
-#            nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
-#
-#        for n in tqdm(range(len(stimuli)), total=len(stimuli), disable = not verbose):
-#            inds = fixations.n == n
-#            if not inds.sum():
-#                continue
-#            out = self.saliency_map(stimuli.stimulus_objects[n])
-#            positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
-#            if nonfixations == 'uniform':
-#                negatives = out.flatten()
-#            elif nonfix_xs is not None:
-#                negatives = out[nonfix_ys[n], nonfix_xs[n]]
-#            else:
-#                _nonfix_xs, _nonfix_ys = nonfixations(stimuli, fixations, np.nonzero(inds)[0][0])
-#                negatives = out[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
-#
-#            positives = positives.astype(float)
-#            negatives = negatives.astype(float)
-#
-#            rocs = np.empty(len(positives))
-#            for i, p in enumerate(positives):
-#                this_roc, _, _ = general_roc(np.array([p]), negatives)
-#                rocs[i] = this_roc
-#            rocs_per_fixation[inds] = rocs
-#
-#        return rocs_per_fixation
+    def AUCs(self, stimuli, fixations, nonfixations='uniform', verbose=False):
+        """
+        Calulate AUC scores for fixations
+
+        :type fixations : Fixations
+        :param fixations : Fixation object to calculate the AUC scores for.
+
+        :type nonfixations : string or Fixations
+        :param nonfixations : Nonfixations to use for calculating AUC scores.
+                              Possible values are:
+                                  'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
+                                              all pixels from the saliency map.
+                                  'shuffled': Use all fixations from other images as nonfixations.
+                                  fixations-object: For each image, use the fixations in this fixation
+                                                    object as nonfixations
+
+        :rtype : ndarray
+        :return : list of AUC scores for each fixation,
+                  ordered as in `fixations.x` (average=='fixation' or None)
+                  or by image numbers (average=='image')
+        """
+        rocs_per_fixation = np.empty(len(fixations.x))
+
+        nonfix_ys = None
+        nonfix_xs = None
+
+        if isinstance(nonfixations, Fixations):
+            nonfix_xs = []
+            nonfix_ys = []
+            for n in range(fixations.n.max()+1):
+                inds = nonfixations.n == n
+                nonfix_xs.append(nonfixations.x_int[inds].copy())
+                nonfix_ys.append(nonfixations.y_int[inds].copy())
+
+        if nonfixations == 'shuffled':
+            nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
+
+        for n in tqdm(range(len(stimuli)), total=len(stimuli), disable = not verbose):
+            inds = fixations.n == n
+            if not inds.sum():
+                continue
+            out = self.saliency_map(stimuli.stimulus_objects[n])
+            positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
+            if nonfixations == 'uniform':
+                negatives = out.flatten()
+            elif nonfix_xs is not None:
+                negatives = out[nonfix_ys[n], nonfix_xs[n]]
+            else:
+                _nonfix_xs, _nonfix_ys = nonfixations(stimuli, fixations, np.nonzero(inds)[0][0])
+                negatives = out[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
+
+            positives = positives.astype(float)
+            negatives = negatives.astype(float)
+
+            rocs = general_rocs_per_positive(positives, negatives)
+            rocs_per_fixation[inds] = rocs
+
+        return rocs_per_fixation
 
     def AUC_per_image(self, stimuli, fixations, nonfixations='uniform', verbose=False):
         """

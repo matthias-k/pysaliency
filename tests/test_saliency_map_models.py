@@ -86,6 +86,11 @@ class TestAUC(object):
         np.testing.assert_allclose(auc, 0.5)
 
 
+        aucs_single = pysaliency.GeneralSaliencyMapModel.AUCs(gsmm, stimuli, self.f)
+        aucs_combined = gsmm.AUCs(stimuli, self.f, nonfixations='uniform')
+        np.testing.assert_allclose(aucs_single, aucs_combined)
+
+
 class TestFixationBasedKLDivergence(object):
     def setUp(self):
         xs_trains = [

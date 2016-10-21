@@ -106,3 +106,51 @@ def general_roc(np.ndarray[double, ndim=1] positives, np.ndarray[double, ndim=1]
         hit_rates[i+1] = float(true_positive_count) / positive_count
     auc = np.trapz(hit_rates, false_positive_rates)
     return auc, hit_rates, false_positive_rates
+
+
+#Do not check for index errors
+@cython.boundscheck(False)
+#Do not enable negativ indices
+@cython.wraparound(False)
+#Use native c division
+@cython.cdivision(True)
+def general_rocs_per_positive(np.ndarray[double, ndim=1] positives, np.ndarray[double, ndim=1] negatives):
+    """calculate ROC scores for each positive against a list of negatives
+    distribution. The mean over the result will equal the return value of `general_roc`."""
+    cdef np.ndarray[double, ndim=1] sorted_positives = np.sort(positives)
+    cdef np.ndarray[double, ndim=1] sorted_negatives = np.sort(negatives)
+    cdef np.ndarray[long, ndim=1] sorted_inds = np.argsort(positives)
+
+    cdef np.ndarray[double, ndim=1] results = np.empty(len(positives))
+    cdef int true_positive_count = 0
+    cdef int false_positive_count = 0
+    cdef int true_negative_count = 0
+    cdef int positive_count = len(positives)
+    cdef int negative_count = len(negatives)
+    cdef int i
+    cdef double last_theta = -np.inf
+    cdef double theta
+
+    cdef int true_negatives_count = 0
+    cdef int equal_count = 0
+    for i in range(len(sorted_positives)):
+        theta = sorted_positives[i]
+        #print('theta', theta)
+        if theta == last_theta:
+            #print('same')
+            results[sorted_inds[i]] = (1.0*true_negatives_count + 0.5*equal_count) / negative_count
+            continue
+
+        true_negatives_count = true_negatives_count + equal_count
+
+        while true_negatives_count < negative_count and sorted_negatives[true_negatives_count] < theta:
+            true_negatives_count += 1
+            #print('.')
+        equal_count = 0
+        while true_negatives_count + equal_count < negative_count and sorted_negatives[true_negatives_count+equal_count] <= theta:
+            equal_count += 1
+            #print('=')
+        results[sorted_inds[i]] = (1.0*true_negatives_count + 0.5*equal_count) / negative_count
+
+        last_theta = theta
+    return results
