@@ -3,10 +3,10 @@ from __future__ import print_function, division, absolute_import
 import os.path
 
 import numpy as np
-from scipy.misc import imread
+from scipy.misc import imread, logsumexp
 from scipy.io import loadmat
 
-#from .models import Model
+from .models import Model
 from .saliency_map_models import SaliencyMapModel
 from .datasets import get_image_hash, FileStimuli
 
@@ -105,3 +105,16 @@ class SaliencyMapModelFromFile(SaliencyMapModel):
         if smap.shape != (stimulus.shape[0], stimulus.shape[1]):
             raise ValueError('Wrong shape!')
         return smap
+
+
+class ModelFromDirectory(Model):
+    def __init__(self, stimuli, directory, **kwargs):
+        super(ModelFromDirectory, self).__init__(**kwargs)
+        self.internal_model = SaliencyMapModelFromDirectory(stimuli, directory, caching=False)
+
+    def _log_density(self, stimulus):
+        smap = self.internal_model.saliency_map(stimulus)
+        if not -0.01 <= logsumexp(smap) <= 0.01:
+            raise ValueError('Not a correct log density!')
+        return smap
+

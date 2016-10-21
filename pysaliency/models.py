@@ -10,7 +10,7 @@ from tqdm import tqdm
 from .generics import progressinfo
 from .saliency_map_models import (GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus,
                                   SubjectDependentSaliencyMapModel,
-                                  ExpSaliencyMapModel)
+                                  ExpSaliencyMapModel, DisjointUnionSaliencyMapModel)
 from .datasets import FixationTrains
 
 
@@ -347,7 +347,7 @@ class ResizingModel(Model):
         return smap
 
 
-class DisjointUnionModel(GeneralModel):
+class DisjointUnionModel(GeneralModel, DisjointUnionSaliencyMapModel):
     def conditional_log_density(self, stimulus, *args, **kwargs):
         raise
 
