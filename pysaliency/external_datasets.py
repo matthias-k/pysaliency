@@ -5,6 +5,7 @@ import os
 import shutil
 import warnings
 import glob
+import itertools
 
 import numpy as np
 from scipy.io import loadmat
@@ -12,6 +13,8 @@ from natsort import natsorted
 import dill
 from pkg_resources import resource_string
 from PIL import Image
+from boltons.fileutils import mkdir_p
+from tqdm import tqdm
 
 from .datasets import FileStimuli, Stimuli, FixationTrains, Fixations
 from .utils import TemporaryDirectory, filter_files, run_matlab_cmd, download_and_check
@@ -1077,3 +1080,78 @@ def get_SALICON_test(location=None):
     if location:
         dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
     return stimuli
+
+
+def _get_koehler_fixations(data, task, n_stimuli):
+    tasks = {'freeviewing': 'freeview',
+             'objectsearch': 'objsearch',
+             'saliencysearch': 'salview'}
+    task = tasks[task]
+
+    data_x = data['{}_x'.format(task)]
+    data_y = data['{}_y'.format(task)]
+
+    # Load Fixation Data
+    xs = []
+    ys = []
+    ts = []
+    ns = []
+    subjects = []
+    subject_ids = range(data_x.shape[0])
+
+    for n, subject_id in tqdm(list(itertools.product(range(n_stimuli), subject_ids))):
+            x = data_x[subject_id, n, :] - 1
+            y = data_y[subject_id, n, :] - 1
+            inds = np.logical_not(np.isnan(x))
+            x = x[inds]
+            y = y[inds]
+            xs.append(x)
+            ys.append(y)
+            ts.append(range(len(x)))
+            ns.append(n)
+            subjects.append(subject_id)
+    return FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
+
+
+def get_koehler(location=None, datafile=None):
+    if location:
+        location = os.path.join(location, 'Koehler')
+        if os.path.exists(location):
+            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
+            fixations_freeviewing = dill.load(open(os.path.join(location, 'fixations_freeviewing.pydat'), 'rb'))
+            fixations_objectsearch = dill.load(open(os.path.join(location, 'fixations_objectsearch.pydat'), 'rb'))
+            fixations_saliencysearch = dill.load(open(os.path.join(location, 'fixations_saliencysearch.pydat'), 'rb'))
+            return stimuli, fixations_freeviewing, fixations_objectsearch, fixations_saliencysearch
+        mkdir_p(location)
+    if not datafile:
+        raise ValueError('The Koehler dataset is not freely available! You have to '
+                         'request the data file from the authors and provide it to '
+                         'this function via the datafile argument')
+    with TemporaryDirectory() as temp_dir:
+        z = zipfile.ZipFile(datafile)
+        print('Extracting')
+        z.extractall(temp_dir)
+
+        # Stimuli
+        stimuli_src_location = os.path.join(temp_dir, 'Images')
+        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+        stimuli_filenames = ['image_r_{}.jpg'.format(i) for i in range(1, 801)]
+
+        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+
+        # Fixations
+
+        data = loadmat(os.path.join(temp_dir, 'ObserverData.mat'))
+
+        fs = []
+
+        for task in ['freeviewing', 'objectsearch', 'saliencysearch']:
+            fs.append(_get_koehler_fixations(data, task, len(stimuli)))
+
+        if location:
+            dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
+            dill.dump(fs[0], open(os.path.join(location, 'fixations_freeviewing.pydat'), 'wb'))
+            dill.dump(fs[1], open(os.path.join(location, 'fixations_objectsearch.pydat'), 'wb'))
+            dill.dump(fs[2], open(os.path.join(location, 'fixations_saliencysearch.pydat'), 'wb'))
+    return [stimuli] + fs
+
