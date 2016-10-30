@@ -1114,6 +1114,31 @@ def _get_koehler_fixations(data, task, n_stimuli):
 
 
 def get_koehler(location=None, datafile=None):
+    """
+    Loads or or extracts and caches the Koehler dataset. The dataset
+    consists of 800 color images of outdoor and indoor scenes
+    of size 405x405px and the fixations for three different tasks:
+    free viewing, object search and saliency search.
+
+    @type  location: string, defaults to `None`
+    @param location: If and where to cache the dataset. The dataset
+                     will be stored in the subdirectory `koehler` of
+                     location and read from there, if already present.
+    @return: stimuli, fixations_freeviewing, fixations_objectsearch, fixations_saliencysearch
+
+    .. note:: As this dataset is only after filling a download form, pysaliency
+              cannot download it for you. Instead you have to download the file
+              `PublicData.zip` and provide it to this function via the `datafile`
+              keyword argument on the first call.
+
+    .. seealso::
+
+        Kathryn Koehler, Fei Guo, Sheng Zhang, Miguel P. Eckstein. What Do Saliency Models Predict? [JoV 2014]
+
+        http://www.journalofvision.org/content/14/3/14.full
+
+        https://labs.psych.ucsb.edu/eckstein/miguel/research_pages/saliencydata.html
+    """
     if location:
         location = os.path.join(location, 'Koehler')
         if os.path.exists(location):
