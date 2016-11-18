@@ -11,7 +11,12 @@ from .models import (GeneralModel, Model, UniformModel, CachedModel, MixtureMode
                      DisjointUnionModel, SubjectDependentModel, ShuffledAUCSaliencyMapModel, ResizingModel,
                      )
 from .saliency_map_conversion import SaliencyMapConvertor, JointSaliencyMapConvertor, optimize_for_information_gain
-from .precomputed_models import SaliencyMapModelFromFiles, SaliencyMapModelFromDirectory, SaliencyMapModelFromFile, ModelFromDirectory
+from .precomputed_models import (SaliencyMapModelFromFiles,
+                                 SaliencyMapModelFromDirectory,
+                                 SaliencyMapModelFromFile,
+                                 ModelFromDirectory,
+                                 HDF5SaliencyMapModel,
+                                 HDF5Model)
 
 #from .stationary_models import StationarySaliencyModel
 from .external_models import AIM, SUN, ContextAwareSaliency, BMS, GBVS, GBVSIttiKoch, Judd, IttiKoch, RARE2012, CovSal

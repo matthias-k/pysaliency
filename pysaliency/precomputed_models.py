@@ -1,6 +1,7 @@
 from __future__ import print_function, division, absolute_import
 
 import os.path
+import warnings
 
 import numpy as np
 from scipy.misc import imread, logsumexp
@@ -118,3 +119,46 @@ class ModelFromDirectory(Model):
             raise ValueError('Not a correct log density!')
         return smap
 
+
+class HDF5SaliencyMapModel(SaliencyMapModel):
+    """ exposes a HDF5 file with saliency maps as pysaliency model
+
+        The stimuli have to be of type `FileStimuli`. For each
+        stimulus file, the model expects a dataset with the same
+        name in the dataset.
+    """
+    def __init__(self, stimuli, filename, **kwargs):
+        super(HDF5SaliencyMapModel, self).__init__(**kwargs)
+        assert isinstance(stimuli, FileStimuli)
+        self.stimuli = stimuli
+        self.filename = filename
+        import h5py
+        self.hdf5_file = h5py.File(self.filename, 'r')
+
+    def _saliency_map(self, stimulus):
+        stimulus_id = get_image_hash(stimulus)
+        stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
+        stimulus_filename = self.stimuli.filenames[stimulus_index]
+        _, filename = os.path.split(stimulus_filename)
+        smap = self.hdf5_file[filename][:]
+        if not smap.shape == (stimulus.shape[0], stimulus.shape[1]):
+            warnings.warn('Wrong shape for stimulus', filename)
+        return smap
+
+
+class HDF5Model(Model):
+    """ exposes a HDF5 file with log densities as pysaliency model.
+
+        For more detail see HDF5SaliencyMapModel
+    """
+    def __init__(self, stimuli, filename, **kwargs):
+        super(HDF5Model, self).__init__(**kwargs)
+        self.parent_model = HDF5SaliencyMapModel(stimuli = stimuli,
+                                                 filename = filename,
+                                                 caching=False)
+
+    def _log_density(self, stimulus):
+        smap = self.parent_model.saliency_map(stimulus)
+        if not -0.01 <= logsumexp(smap) <= 0.01:
+            raise ValueError('Not a correct log density!')
+        return smap
