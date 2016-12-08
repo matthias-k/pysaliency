@@ -219,7 +219,7 @@ class Fixations(object):
         cfix = Fixations(self.x.copy(), self.y.copy(), self.t.copy(),
                          self.x_hist.copy(), self.y_hist.copy(), self.t_hist.copy(),
                          self.n.copy(), self.subjects.copy())
-        cfix.__attributes = list(self.__attributes__)
+        cfix.__attributes__ = list(self.__attributes__)
         for name in self.__attributes__:
             setattr(cfix, name, getattr(self, name).copy())
         return cfix
