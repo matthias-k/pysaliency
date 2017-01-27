@@ -16,7 +16,7 @@ from .generics import progressinfo
 from .roc import general_roc, general_rocs_per_positive
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache
-from .datasets import Stimulus, Fixations
+from .datasets import Stimulus, Fixations, FileStimuli
 
 
 def handle_stimulus(stimulus):
@@ -198,8 +198,9 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
     but the model is not explicitly a probabilistic model.
     """
 
-    def __init__(self, cache_location = None, caching=True):
-        self._cache = Cache(cache_location)
+    def __init__(self, cache_location = None, caching=True,
+                 memory_cache_size=None):
+        self._cache = Cache(cache_location, memory_cache_size=memory_cache_size)
         self.caching = caching
 
     @property
@@ -784,3 +785,16 @@ class ExpSaliencyMapModel(SaliencyMapModel):
 
     def _saliency_map(self, stimulus):
         return np.exp(self.parent_model.saliency_map(stimulus))
+
+
+def export_model_to_hdf5(model, stimuli, filename, compression=9):
+    assert isinstance(stimuli, FileStimuli)
+
+    import h5py
+    with h5py.File(filename, mode='w') as f:
+        for k, s in enumerate(tqdm(stimuli)):
+            filename = stimuli.filenames[k]
+            _, filename = os.path.split(filename)
+
+            smap = model.saliency_map(s)
+            f.create_dataset(filename, data=smap, compression=compression)

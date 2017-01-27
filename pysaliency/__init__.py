@@ -6,7 +6,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from .datasets import Fixations, FixationTrains, Stimuli, FileStimuli, create_nonfixations, create_subset, remove_out_of_stimulus_fixations
 from .saliency_map_models import (SaliencyMapModel, GeneralSaliencyMapModel, FixationMap, CachedSaliencyMapModel, ExpSaliencyMapModel,
-                                  DisjointUnionSaliencyMapModel, SubjectDependentSaliencyMapModel, ResizingSaliencyMapModel)
+                                  DisjointUnionSaliencyMapModel, SubjectDependentSaliencyMapModel, ResizingSaliencyMapModel,
+                                  export_model_to_hdf5)
 from .models import (GeneralModel, Model, UniformModel, CachedModel, MixtureModel,
                      DisjointUnionModel, SubjectDependentModel, ShuffledAUCSaliencyMapModel, ResizingModel,
                      )

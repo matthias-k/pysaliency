@@ -16,6 +16,8 @@ from tempfile import mkdtemp
 
 import numpy as np
 
+from boltons.cacheutils import LRU
+
 
 def lazy_property(fn):
     """Lazy property: Is only calculated when first used.
@@ -299,8 +301,12 @@ class Cache(MutableMapping):
         be saved to files!
 
     """
-    def __init__(self, cache_location=None, pickle_cache=False):
-        self._cache = {}
+    def __init__(self, cache_location=None, pickle_cache=False,
+                 memory_cache_size=None):
+        if memory_cache_size:
+            self._cache = LRU(max_size=memory_cache_size)
+        else:
+            self._cache = {}
         self.cache_location = cache_location
         self.pickle_cache = pickle_cache
 
@@ -361,5 +367,8 @@ class Cache(MutableMapping):
 
     def __setstate__(self, state):
         if not '_cache' in state:
-            state['_cache'] = {}
+            if state.get('memory_cache_size'):
+                state['_cache'] = LRU(max_size=memory_cache_size)
+            else:
+                state['_cache'] = {}
         self.__dict__ = dict(state)
