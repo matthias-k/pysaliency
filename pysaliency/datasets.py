@@ -245,7 +245,9 @@ class FixationTrains(Fixations):
         train_subjects: 1d array (number_of_trains)
 
     """
-    def __init__(self, train_xs, train_ys, train_ts, train_ns, train_subjects):
+    def __init__(self, train_xs, train_ys, train_ts, train_ns, train_subjects, attributes=None):
+        self.__attributes__ = list(self.__attributes__)
+        self.__attributes__.append('scanpath_index')
         self.train_xs = train_xs
         self.train_ys = train_ys
         self.train_ts = train_ts
@@ -267,6 +269,7 @@ class FixationTrains(Fixations):
         self.n = np.empty(N_trains, dtype=int)
         self.lengths = np.empty(N_trains, dtype=int)
         self.subjects = np.empty(N_trains, dtype=int)
+        self.scanpath_index = np.empty(N_trains, dtype=int)
         out_index = 0
         for train_index in range(self.train_xs.shape[0]):
             fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
@@ -277,10 +280,28 @@ class FixationTrains(Fixations):
                 self.n[out_index] = self.train_ns[train_index]
                 self.subjects[out_index] = self.train_subjects[train_index]
                 self.lengths[out_index] = fix_index
+                self.scanpath_index[out_index] = train_index
                 self.x_hist[out_index][:fix_index] = self.train_xs[train_index][:fix_index]
                 self.y_hist[out_index][:fix_index] = self.train_ys[train_index][:fix_index]
                 self.t_hist[out_index][:fix_index] = self.train_ts[train_index][:fix_index]
                 out_index += 1
+
+
+        if attributes:
+            self.__attributes__ = list(self.__attributes__)
+            for key, value in attributes.items():
+                assert key != 'subjects'
+                assert key != 'scanpath_index'
+                assert len(value) == len(self.train_xs)
+                self.__attributes__.append(key)
+                value = np.array(value)
+
+                fixation_values = np.empty(N_trains, dtype=value.dtype)
+                setattr(self, key, fixation_values)
+                for scanpath_index in range(self.train_xs.shape[0]):
+                    indices = self.scanpath_index == scanpath_index
+                    fixation_values[indices] = value[scanpath_index]
+
         self.full_nonfixations = None
 
     def filter_fixation_trains(self, indices):
@@ -310,7 +331,7 @@ class FixationTrains(Fixations):
             yield xs, ys, ts, n, subject
 
     @classmethod
-    def from_fixation_trains(cls, xs, ys, ts, ns, subjects):
+    def from_fixation_trains(cls, xs, ys, ts, ns, subjects, attributes=None):
         """ Create Fixation object from fixation trains.
               - xs, ys, ts: Lists of array_like of double. Each array has to contain
                     the data from one fixation train.
@@ -335,7 +356,7 @@ class FixationTrains(Fixations):
             #print ns[i], train_ns[i]
             train_ns[i] = ns[i]
             train_subjects[i] = subjects[i]
-        return cls(train_xs, train_ys, train_ts, train_ns, train_subjects)
+        return cls(train_xs, train_ys, train_ts, train_ns, train_subjects, attributes=attributes)
 
     def generate_crossval(self, splitcount = 10):
         train_xs_training = []
