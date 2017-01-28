@@ -3,7 +3,6 @@
 from __future__ import absolute_import, print_function, division, unicode_literals
 
 from hashlib import sha1
-from copy import deepcopy
 from collections import Sequence
 
 from six.moves import range as xrange
@@ -62,6 +61,7 @@ class Fixations(object):
         `FixationTrains`.
     """
     __attributes__ = ['subjects']
+
     def __init__(self, x, y, t, x_hist, y_hist, t_hist, n, subjects):
         x = np.asarray(x)
         y = np.asarray(y)
@@ -285,7 +285,6 @@ class FixationTrains(Fixations):
                 self.y_hist[out_index][:fix_index] = self.train_ys[train_index][:fix_index]
                 self.t_hist[out_index][:fix_index] = self.train_ts[train_index][:fix_index]
                 out_index += 1
-
 
         if attributes:
             self.__attributes__ = list(self.__attributes__)
@@ -593,7 +592,6 @@ class FixationTrains(Fixations):
         return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
 
 
-
 def get_image_hash(img):
     """
     Calculate a unique hash for the given image.
@@ -790,6 +788,73 @@ def create_subset(stimuli, fixations, stimuli_indices):
     new_fixations.n = np.array(new_fixation_ns)
 
     return new_stimuli, new_fixations
+
+
+def concatenate_stimuli(stimuli):
+    return ObjectStimuli(sum([s.stimulus_objects for s in stimuli], []))
+
+
+def concatenate_attributes(attributes):
+    attributes = [np.array(a) for a in attributes]
+    for a in attributes:
+        assert len(a.shape) == len(attributes[0].shape)
+
+    if len(attributes[0].shape) == 1:
+        return np.hstack(attributes)
+
+    else:
+        assert len(attributes[0].shape) == 2
+        max_cols = max(a.shape[1] for a in attributes)
+        padded_attributes = []
+        for a in attributes:
+            if a.shape[1] < max_cols:
+                padding = np.empty((a.shape[0], max_cols-a.shape[1]), dtype=a.dtype)
+                padding[:] = np.nan
+                padded_attributes.append(np.hstack((a, padding)))
+            else:
+                padded_attributes.append(a)
+        return np.vstack(padded_attributes)
+
+#np.testing.assert_allclose(concatenate_attributes([[0], [1, 2, 3]]), [0,1,2,3])
+#np.testing.assert_allclose(concatenate_attributes([[[0]], [[1],[2], [3]]]), [[0],[1],[2],[3]])
+#np.testing.assert_allclose(concatenate_attributes([[[0.,1.]], [[1.],[2.], [3.]]]), [[0, 1],[1,np.nan],[2,np.nan],[3,np.nan]])
+
+
+def concatenate_fixations(fixations):
+    kwargs = {}
+    for key in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']:
+        kwargs[key] = concatenate_attributes(getattr(f, key) for f in fixations)
+    new_fixations = Fixations(**kwargs)
+    attributes = set(fixations[0].__attributes__)
+    for f in fixations:
+        attributes = attributes.intersection(f.__attributes__)
+    attributes = sorted(attributes, key=fixations[0].__attributes__.index)
+    for key in attributes:
+        if key == 'subjects':
+            continue
+        setattr(new_fixations, key, concatenate_attributes(getattr(f, key) for f in fixations))
+
+    new_fixations.__attributes__ = attributes
+
+    return new_fixations
+
+
+def concatenate_datasets(stimuli, fixations):
+    """Concatenate multiple Stimuli instances with associated fixations"""
+
+    stimuli = list(stimuli)
+    fixations = list(fixations)
+    assert len(stimuli) == len(fixations)
+    if len(stimuli) == 1:
+        return stimuli[0], fixations[0]
+
+    for i in range(len(fixations)):
+        offset = sum(len(s) for s in stimuli[:i])
+        f = fixations[i].copy()
+        f.n += offset
+        fixations[i] = f
+
+    return concatenate_stimuli(stimuli), concatenate_fixations(fixations)
 
 
 def remove_out_of_stimulus_fixations(stimuli, fixations):
