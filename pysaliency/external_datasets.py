@@ -1224,7 +1224,7 @@ def _load_FIGRIM_data(filename, stimuli_indices, stimulus_type):
 
 def get_FIGRIM(location=None):
     """
-    Loads or downloads and caches the filler part of the FIGRIM dataset. The dataset
+    Loads or downloads and caches the FIGRIM dataset. The dataset
     consists of >2700 scenes of sizes 1000x1000px
     and the fixations of subjects while doing a repetition
     recognition task with 3 seconds presentation time.
@@ -1338,3 +1338,5 @@ def get_FIGRIM(location=None):
         dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
         dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
     return stimuli, fixations
+
+
