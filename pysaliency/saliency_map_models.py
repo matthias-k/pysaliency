@@ -569,6 +569,31 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
         return values
 
+    def SIMs(self, stimuli, other, verbose=False):
+        """ Calculate Similarity Metric against some other model
+
+        Returns performances for each stimulus. For performance over dataset,
+        see `SIM`
+        """
+
+        def _normalize_saliency_map(smap):
+            if smap.min() < 0:
+                smap = smap - smap.min()
+            smap = smap / smap.sum()
+            return smap
+
+        values = []
+        for s in tqdm(stimuli, disable=not verbose):
+            smap1 = _normalize_saliency_map(self.saliency_map(s))
+
+            smap2 = _normalize_saliency_map(other.saliency_map(s))
+
+            values.append(np.min([smap1, smap2], axis=0).sum())
+        return np.asarray(values)
+
+    def SIM(self, stimuli, other, verbose=False):
+        return self.SIMs(stimuli, other, verbose=verbose).mean()
+
 
 class CachedSaliencyMapModel(SaliencyMapModel):
     """Saliency map model which uses only precached saliency maps
