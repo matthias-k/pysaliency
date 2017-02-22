@@ -732,11 +732,12 @@ class FixationMap(SaliencyMapModel):
 
 
 class ResizingSaliencyMapModel(SaliencyMapModel):
-    def __init__(self, parent_model, **kwargs):
+    def __init__(self, parent_model, verbose=True, **kwargs):
         if 'caching' not in kwargs:
             kwargs['caching'] = False
         super(ResizingSaliencyMapModel, self).__init__(**kwargs)
         self.parent_model = parent_model
+        self.verbose = verbose
 
     def _saliency_map(self, stimulus):
         smap = self.parent_model.saliency_map(stimulus)
@@ -745,11 +746,12 @@ class ResizingSaliencyMapModel(SaliencyMapModel):
                         stimulus.shape[1])
 
         if smap.shape != target_shape:
-            print("Resizing saliency map", smap.shape, target_shape)
+            if self.verbose:
+                print("Resizing saliency map", smap.shape, target_shape)
             x_factor = target_shape[1] / smap.shape[1]
             y_factor = target_shape[0] / smap.shape[0]
 
-            smap = zoom(smap, [y_factor, x_factor], order=1)
+            smap = zoom(smap, [y_factor, x_factor], order=1, mode='nearest')
 
             assert smap.shape == target_shape
 
