@@ -339,7 +339,7 @@ class ResizingModel(Model):
             x_factor = target_shape[1] / smap.shape[1]
             y_factor = target_shape[0] / smap.shape[0]
 
-            smap = zoom(smap, [y_factor, x_factor], order=1)
+            smap = zoom(smap, [y_factor, x_factor], order=1, mode='nearest')
 
             smap -= logsumexp(smap)
 
