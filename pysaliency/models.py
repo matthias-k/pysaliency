@@ -322,9 +322,10 @@ class MixtureModel(Model):
 
 
 class ResizingModel(Model):
-    def __init__(self, parent_model, **kwargs):
+    def __init__(self, parent_model, verbose=True, **kwargs):
         if 'caching' not in kwargs:
             kwargs['caching'] = False
+        self.verbose = verbose
         super(ResizingModel, self).__init__(**kwargs)
         self.parent_model = parent_model
 
@@ -335,7 +336,8 @@ class ResizingModel(Model):
                         stimulus.shape[1])
 
         if smap.shape != target_shape:
-            print("Resizing saliency map", smap.shape, target_shape)
+            if self.verbose:
+                print("Resizing saliency map", smap.shape, target_shape)
             x_factor = target_shape[1] / smap.shape[1]
             y_factor = target_shape[0] / smap.shape[0]
 
