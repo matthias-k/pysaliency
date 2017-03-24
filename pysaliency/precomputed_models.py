@@ -127,11 +127,12 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
         stimulus file, the model expects a dataset with the same
         name in the dataset.
     """
-    def __init__(self, stimuli, filename, **kwargs):
+    def __init__(self, stimuli, filename, check_shape=True, **kwargs):
         super(HDF5SaliencyMapModel, self).__init__(**kwargs)
         assert isinstance(stimuli, FileStimuli)
         self.stimuli = stimuli
         self.filename = filename
+        self.check_shape=check_shape
         import h5py
         self.hdf5_file = h5py.File(self.filename, 'r')
 
@@ -142,7 +143,8 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
         _, filename = os.path.split(stimulus_filename)
         smap = self.hdf5_file[filename][:]
         if not smap.shape == (stimulus.shape[0], stimulus.shape[1]):
-            warnings.warn('Wrong shape for stimulus', filename)
+            if self.check_shape:
+                warnings.warn('Wrong shape for stimulus {}'.format(filename))
         return smap
 
 
@@ -151,11 +153,12 @@ class HDF5Model(Model):
 
         For more detail see HDF5SaliencyMapModel
     """
-    def __init__(self, stimuli, filename, **kwargs):
+    def __init__(self, stimuli, filename, check_shape=True, **kwargs):
         super(HDF5Model, self).__init__(**kwargs)
         self.parent_model = HDF5SaliencyMapModel(stimuli = stimuli,
                                                  filename = filename,
-                                                 caching=False)
+                                                 caching=False,
+                                                 check_shape=check_shape)
 
     def _log_density(self, stimulus):
         smap = self.parent_model.saliency_map(stimulus)
