@@ -29,4 +29,5 @@ from .external_datasets import (get_mit1003, get_mit1003_onesize,
                                 get_mit300,
                                 get_koehler,
                                 get_FIGRIM,
-                                get_OSIE)
+                                get_OSIE,
+                                get_NUSEF_public)
