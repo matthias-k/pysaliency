@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from abc import abstractmethod
+from itertools import combinations
 
 import numpy as np
 from scipy.ndimage import zoom
@@ -11,10 +12,12 @@ from .generics import progressinfo
 from .saliency_map_models import (GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus,
                                   SubjectDependentSaliencyMapModel,
                                   ExpSaliencyMapModel, DisjointUnionSaliencyMapModel)
-from .datasets import FixationTrains
+from .datasets import FixationTrains, get_image_hash
 
 
-def sample_from_image(densities, count=None):
+def sample_from_image(densities, count=None, rst=None):
+    if rst is None:
+        rst = np.random
     height, width = densities.shape
     sorted_densities = densities.flatten(order='C')
     cumsums = np.cumsum(sorted_densities)
@@ -24,7 +27,7 @@ def sample_from_image(densities, count=None):
         real_count = count
     sample_xs = []
     sample_ys = []
-    tmps = np.random.rand(real_count)
+    tmps = rst.rand(real_count)
     js = np.searchsorted(cumsums, tmps)
     for j in js:
         sample_xs.append(j % width)
@@ -317,7 +320,8 @@ class MixtureModel(Model):
 
         log_density = logsumexp(log_densities, axis=0)
         np.testing.assert_allclose(np.exp(log_density).sum(), 1.0, rtol=1e-7)
-        assert log_density.shape == (stimulus.shape[0], stimulus.shape[1])
+        if not log_density.shape == (stimulus.shape[0], stimulus.shape[1]):
+            raise ValueError('wrong density shape in mixture model! stimulus shape: ({}, {}), density shape: {}'.format(stimulus.shape[0], stimulus.shape[1], log_density.shape))
         return log_density
 
 
@@ -368,6 +372,27 @@ class SubjectDependentModel(DisjointUnionModel, SubjectDependentSaliencyMapModel
         return SubjectDependentSaliencyMapModel({
             s: ExpSaliencyMapModel(self.subject_models[s])
             for s in self.subject_models})
+
+
+class StimulusDependentModel(Model):
+    def __init__(self, stimuli_models, check_stimuli=True, **kwargs):
+        super(StimulusDependentModel, self).__init__(**kwargs)
+        self.stimuli_models = stimuli_models
+        if check_stimuli:
+            self.check_stimuli()
+
+    def check_stimuli(self):
+        for s1, s2 in tqdm(list(combinations(self.stimuli_models, 2))):
+            if not set(s1.stimulus_ids).isdisjoint(s2.stimulus_ids):
+                raise ValueError('Stimuli not disjoint')
+
+    def _log_density(self, stimulus):
+        stimulus_hash = get_image_hash(stimulus)
+        for stimuli, model in self.stimuli_models.items():
+            if stimulus_hash in stimuli.stimulus_ids:
+                return model.log_density(stimulus)
+        else:
+            raise ValueError('stimulus not provided by these models')
 
 
 class ShuffledAUCSaliencyMapModel(SaliencyMapModel):

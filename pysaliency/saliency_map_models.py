@@ -28,6 +28,23 @@ def handle_stimulus(stimulus):
     return stimulus
 
 
+def normalize_saliency_map(saliency_map, cdf, cdf_bins):
+    """ Normalize saliency to make saliency values distributed according to a given CDF
+    """
+
+    smap = saliency_map.copy()
+    shape = smap.shape
+    smap = smap.flatten()
+    smap = np.argsort(np.argsort(smap)).astype(float)
+    smap /= 1.0*len(smap)
+
+    inds = np.searchsorted(cdf, smap, side='right')
+    smap = cdf_bins[inds]
+    smap = smap.reshape(shape)
+    smap = smap.reshape(shape)
+    return smap
+
+
 class FullShuffledNonfixationProvider(object):
     def __init__(self, stimuli, fixations, max_fixations_in_cache=500*1000*1000):
         self.stimuli = stimuli
@@ -772,7 +789,8 @@ class DisjointUnionSaliencyMapModel(GeneralSaliencyMapModel):
     def eval_metric(self, metric_name, stimuli, fixations, **kwargs):
         result = np.empty(len(fixations.x))
         done = np.zeros_like(result).astype(bool)
-        for inds, model in self._split_fixations(stimuli, fixations):
+        verbose = kwargs.get('verbose')
+        for inds, model in tqdm(self._split_fixations(stimuli, fixations), disable = not verbose):
             assert done[inds].sum() == 0
             _f = fixations[inds]
             this_metric = getattr(model, metric_name)
@@ -812,6 +830,56 @@ class ExpSaliencyMapModel(SaliencyMapModel):
 
     def _saliency_map(self, stimulus):
         return np.exp(self.parent_model.saliency_map(stimulus))
+
+
+class BluringSaliencyMapModel(SaliencyMapModel):
+    def __init__(self, parent_model, kernel_size, **kwargs):
+        super(BluringSaliencyMapModel, self).__init__(**kwargs)
+        self.parent_model = parent_model
+        self.kernel_size = kernel_size
+
+    def _saliency_map(self, stimulus):
+        smap = self.parent_model.saliency_map(stimulus)
+        smap = gaussian_filter(smap, self.kernel_size, mode='nearest')
+        return smap
+
+
+class DigitizeMapModel(SaliencyMapModel):
+    def __init__(self, parent_model, bins=256, return_ints=True):
+        super(DigitizeMapModel, self).__init__(caching=False)
+        self.parent_model = parent_model
+        self.bins = bins
+        self.return_ints = return_ints
+
+    def _saliency_map(self, stimulus):
+        smap = self.parent_model.saliency_map(stimulus)
+        min = smap.min()
+        max = smap.max()
+        bins = np.linspace(min, max, num=self.bins+1)
+        smap = np.digitize(smap, bins) - 1
+        if self.return_ints:
+            return smap
+        else:
+            return smap.astype(float)
+
+
+class HistogramNormalizedSaliencyMapModel(SaliencyMapModel):
+    def __init__(self, parent_model, histogram=None, **kwargs):
+        super(HistogramNormalizedSaliencyMapModel, self).__init__(**kwargs)
+
+        self.parent_model = parent_model
+
+        if histogram is None:
+            histogram = np.ones(256) / 256
+
+        self.histogram = histogram
+        self.histogram /= self.histogram.sum()
+        self.bins = np.linspace(0, 1, len(self.histogram))
+        self.cdf = np.cumsum(self.histogram)
+
+    def _saliency_map(self, stimulus):
+        smap = self.parent_model.saliency_map(stimulus)
+        return normalize_saliency_map(smap, self.cdf, self.bins)
 
 
 def export_model_to_hdf5(model, stimuli, filename, compression=9):

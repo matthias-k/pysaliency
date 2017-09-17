@@ -1,3 +1,5 @@
+from __future__ import print_function, unicode_literals, division, absolute_import
+
 import numpy as np
 from scipy.misc import logsumexp
 from scipy.ndimage.filters import gaussian_filter
@@ -267,6 +269,67 @@ class GoldModel(Model):
         #ZZ -= np.log(np.exp(ZZ).sum())
 
         return ZZ
+
+
+
+class KDEGoldModel(Model):
+    def __init__(self, stimuli, fixations, bandwidth, eps = 1e-20, keep_aspect=False, verbose=False, **kwargs):
+        super(KDEGoldModel, self).__init__(**kwargs)
+        self.stimuli = stimuli
+        self.fixations = fixations
+        self.bandwidth = bandwidth
+        self.eps = eps
+        self.keep_aspect = keep_aspect
+        self.xs, self.ys = normalize_fixations(stimuli, fixations, keep_aspect=self.keep_aspect, verbose=verbose)
+        self.shape_cache = {}
+
+    def _log_density(self, stimulus):
+        shape = stimulus.shape[0], stimulus.shape[1]
+
+        stimulus_id = get_image_hash(stimulus)
+        stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
+
+        #fixations = self.fixations[self.fixations.n == stimulus_index]
+        inds = self.fixations.n == stimulus_index
+
+        if not inds.sum():
+            return UniformModel().log_density(stimulus)
+
+        X = fixations_to_scikit_learn(
+            self.fixations[inds], normalize=self.stimuli,
+            keep_aspect=self.keep_aspect, add_shape=False, verbose=False)
+        kde = KernelDensity(bandwidth=self.bandwidth).fit(X)
+
+        height, width = shape
+        if self.keep_aspect:
+            max_size = max(height, width)
+            rel_height = height / max_size
+            rel_width = width / max_size
+        else:
+            rel_height = 1.0
+            rel_width = 1.0
+
+        # calculate the KDE score at the middle of each pixel:
+        # for a width of 10 pixels, we are going to calculate at
+        # 0.5, 1.5, ..., 9.5, since e.g. fixations with x coordinate between 0.0 and 1.0
+        # will be evaluated at pixel index 0.
+        xs = np.linspace(0, rel_width, num=width, endpoint=False)+0.5*rel_width/width
+        ys = np.linspace(0, rel_height, num=height, endpoint=False)+0.5*rel_height/height
+        XX, YY = np.meshgrid(xs, ys)
+        scores = kde.score_samples(np.column_stack((XX.flatten(), YY.flatten()))).reshape(XX.shape)
+        scores -= logsumexp(scores)
+        ZZ = scores
+
+        if self.eps:
+            ZZ = np.logaddexp(
+                np.log(1-self.eps)+scores,
+                np.log(self.eps)-np.log(height*width)
+            )
+
+        ZZ -= logsumexp(ZZ)
+
+        return ZZ
+
 
 
 class CrossvalidatedBaselineModel(Model):

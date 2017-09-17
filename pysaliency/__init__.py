@@ -8,9 +8,11 @@ from .datasets import (Fixations, FixationTrains, Stimuli, FileStimuli, create_n
                        concatenate_datasets)
 from .saliency_map_models import (SaliencyMapModel, GeneralSaliencyMapModel, FixationMap, CachedSaliencyMapModel, ExpSaliencyMapModel,
                                   DisjointUnionSaliencyMapModel, SubjectDependentSaliencyMapModel, ResizingSaliencyMapModel,
+                                  BluringSaliencyMapModel, DigitizeMapModel, HistogramNormalizedSaliencyMapModel,
                                   export_model_to_hdf5)
 from .models import (GeneralModel, Model, UniformModel, CachedModel, MixtureModel,
                      DisjointUnionModel, SubjectDependentModel, ShuffledAUCSaliencyMapModel, ResizingModel,
+                     StimulusDependentModel
                      )
 from .saliency_map_conversion import SaliencyMapConvertor, JointSaliencyMapConvertor, optimize_for_information_gain
 from .precomputed_models import (SaliencyMapModelFromFiles,
