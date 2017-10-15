@@ -410,7 +410,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             weights /= weights.sum()
 
             # take care of nans due to no fixations
-            aucs[weights==0] = 0
+            aucs[weights == 0] = 0
 
             return np.average(aucs, weights=weights)
         elif average == 'image':
@@ -888,8 +888,8 @@ def export_model_to_hdf5(model, stimuli, filename, compression=9):
     import h5py
     with h5py.File(filename, mode='w') as f:
         for k, s in enumerate(tqdm(stimuli)):
-            filename = stimuli.filenames[k]
-            _, filename = os.path.split(filename)
+            stimulus_name = stimuli.filenames[k]
+            _, stimulus_name = os.path.split(stimulus_name)
 
             smap = model.saliency_map(s)
-            f.create_dataset(filename, data=smap, compression=compression)
+            f.create_dataset(stimulus_name, data=smap, compression=compression)
