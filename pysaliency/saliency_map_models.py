@@ -722,8 +722,7 @@ class FixationMap(SaliencyMapModel):
     the fixation map should be blured or just contain
     the actual fixations.
     """
-    def __init__(self, stimuli, fixations, *args, **kwargs):
-        kernel_size = kwargs.pop('kernel_size', None)
+    def __init__(self, stimuli, fixations, kernel_size=None, convolution_mode='reflect', *args, **kwargs):
         super(FixationMap, self).__init__(*args, **kwargs)
 
         self.xs = {}
@@ -734,6 +733,7 @@ class FixationMap(SaliencyMapModel):
             self.ys[stimuli.stimulus_ids[n]] = f.y.copy()
 
         self.kernel_size = kernel_size
+        self.convolution_mode = convolution_mode
 
     def _saliency_map(self, stimulus):
         stimulus = Stimulus(stimulus)
@@ -744,7 +744,7 @@ class FixationMap(SaliencyMapModel):
         saliency_map[self.ys[stimulus_id].astype(int), self.xs[stimulus_id].astype(int)] = 1.0
 
         if self.kernel_size:
-            saliency_map = gaussian_filter(saliency_map, self.kernel_size)
+            saliency_map = gaussian_filter(saliency_map, self.kernel_size, mode=self.convolution_mode)
         return saliency_map
 
 

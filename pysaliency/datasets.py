@@ -4,8 +4,10 @@ from __future__ import absolute_import, print_function, division, unicode_litera
 
 from hashlib import sha1
 from collections import Sequence
+import json
 
 from six.moves import range as xrange
+from six import string_types
 
 import numpy as np
 from scipy.misc import imread
@@ -230,6 +232,48 @@ class Fixations(object):
         y_hist = np.empty((len(x), 1))*np.nan
         t_hist = np.empty((len(x), 1))*np.nan
         return cls(x, y, t, x_hist, y_hist, t_hist, n, subjects)
+
+    def write_hdf5(self, target):
+        """ Write fixations to hdf5 file or hdf5 group
+        """
+
+        if isinstance(target, str):
+            import h5py
+            with h5py.File(target, 'w') as f:
+                self.write_hdf5(f)
+
+        else:
+            for attribute in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n'] + self.__attributes__:
+                target.create_dataset(attribute, data=getattr(self, attribute))
+
+            #target.create_dataset('__attributes__', data=self.__attributes__)
+            target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
+
+    @classmethod
+    def read_hdf5(cls, source):
+        """ Read fixations from hdf5 file or hdf5 group """
+        if isinstance(source, str):
+            import h5py
+            with h5py.File(source, 'r') as f:
+                return cls.read_hdf5(f)
+
+        else:
+            data = {key: source[key][...] for key in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']}
+            fixations = cls(**data)
+
+            json_attributes = source.attrs['__attributes__']
+            if not isinstance(json_attributes, string_types):
+                json_attributes = json_attributes.decode('utf8')
+            __attributes__ = json.loads(json_attributes)
+            fixations.__attributes__ == list(__attributes__)
+
+            for key in __attributes__:
+                setattr(fixations, key, source[key][...])
+
+            return fixations
+
+
+
 
 
 class FixationTrains(Fixations):

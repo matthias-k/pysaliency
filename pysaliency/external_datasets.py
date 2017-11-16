@@ -721,7 +721,7 @@ def get_cat2000_train(location=None):
         os.makedirs(os.path.join(temp_dir, out_path))
         run_matlab_cmd('load_cat2000;', cwd=temp_dir)
 
-        print('Running original code to extract fixations. This can take some minutes.')
+        print('Extracting fixations. This can take some minutes.')
         print('Warning: In the IPython Notebook, the output is shown on the console instead of the notebook.')
 
         #run_matlab_cmd('extract_all_fixations;', cwd=temp_dir)
@@ -752,6 +752,8 @@ def get_cat2000_train(location=None):
                 if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
                     continue
                 if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
+                    continue
+                if any(np.isnan(fix_data[i])):  # skip invalid data
                     continue
                 x.append(fix_data[i, 0])
                 y.append(fix_data[i, 1])

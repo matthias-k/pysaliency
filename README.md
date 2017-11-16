@@ -59,3 +59,9 @@ These models and dataset seem to work with octave:
   - MIT1003
   - MIT300
   - SALICON
+
+Depenencies
+-----------
+
+The Judd Model needs some libraries to work. In ubuntu/debian you need to install these packages:
+`libopencv-core-dev, libopencv-flann-dev, libopencv-imgproc-dev, libopencv-photo-dev, libopencv-video-dev, libopencv-features2d-dev, libopencv-objdetect-dev, libopencv-calib3d-dev, libopencv-ml-dev, opencv2/contrib/contrib.hpp`

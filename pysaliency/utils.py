@@ -17,6 +17,8 @@ from tempfile import mkdtemp
 import numpy as np
 
 from boltons.cacheutils import LRU
+from tqdm import tqdm
+import requests
 
 
 def lazy_property(fn):
@@ -268,7 +270,7 @@ def check_file_hash(filename, md5_hash):
                       " this code producing wrong data.".format(filename, md5_hash, file_hash))
 
 
-def download_file(url, target):
+def download_file_old(url, target):
     """Download url to target while displaying progress information."""
     class Log(object):
         def __init__(self):
@@ -282,6 +284,16 @@ def download_file(url, target):
             self.last_percent = percent
     urllib.request.urlretrieve(url, target, Log())
     print('')
+
+
+def download_file(url, target):
+    r = requests.get(url, stream=True)
+    total_size = int(r.headers.get('content-length', 0))
+    with open(target, 'wb') as f:
+        with tqdm(total=total_size, unit='B', unit_scale=True, desc='Downloading file') as progress_bar:
+            for data in r.iter_content(32*1024):
+                f.write(data)
+                progress_bar.update(32*1024)
 
 
 def download_and_check(url, target, md5_hash):

@@ -15,6 +15,49 @@ from .saliency_map_models import (GeneralSaliencyMapModel, SaliencyMapModel, han
 from .datasets import FixationTrains, get_image_hash
 
 
+def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
+    """ Sample from log probabilities (robust to many bins and small probabilities).
+
+        +-np.inf and np.nan will be interpreted as zero probability
+    """
+    if rst is None:
+        rst = np.random
+    log_probabilities = np.asarray(log_probabilities)
+
+    valid_indices = np.nonzero(np.isfinite(log_probabilities))[0]
+    valid_log_probabilities = log_probabilities[valid_indices]
+
+    ndxs = valid_log_probabilities.argsort()
+    sorted_log_probabilities = valid_log_probabilities[ndxs]
+    cumsums = np.logaddexp.accumulate(sorted_log_probabilities)
+    cumsums -= cumsums[-1]
+
+    tmps = -rst.exponential(size=size)
+    js = np.searchsorted(cumsums, tmps)
+    valid_values = ndxs[js]
+    values = valid_indices[valid_values]
+
+    return values
+
+
+def sample_from_logdensity(log_density, count=None, rst=None):
+    if count is None:
+        real_count = 1
+    else:
+        real_count = count
+
+    height, width = log_density.shape
+    flat_log_density = log_density.flatten(order='C')
+    samples = sample_from_logprobabilities(flat_log_density, size=real_count, rst=rst)
+    sample_xs = samples % width
+    sample_ys = samples // width
+
+    if count is None:
+        return sample_xs[0], sample_ys[0]
+    else:
+        return np.asarray(sample_xs), np.asarray(sample_ys)
+
+
 def sample_from_image(densities, count=None, rst=None):
     if rst is None:
         rst = np.random

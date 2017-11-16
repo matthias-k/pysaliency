@@ -6,9 +6,13 @@ import zipfile
 import tarfile
 from pkg_resources import resource_string,  resource_listdir
 
+from boltons.fileutils import mkdir_p
+import numpy as np
+from scipy.ndimage import zoom
+
 from .utils import TemporaryDirectory, download_and_check, run_matlab_cmd
 from .quilt import QuiltSeries
-from .saliency_map_models import MatlabSaliencyMapModel
+from .saliency_map_models import MatlabSaliencyMapModel, SaliencyMapModel
 
 
 def write_file(filename, contents):
@@ -553,7 +557,8 @@ class RARE2012(ExternalModelMixin, MatlabSaliencyMapModel):
     def _setup(self):
         source_location = os.path.join(self.location, 'source')
         print('Downloading RARE2012 Model...')
-        download_extract_patch('http://www.tcts.fpms.ac.be/attention/data/documents/data/rare2012.zip',
+        #download_extract_patch('http://www.tcts.fpms.ac.be/attention/data/documents/data/rare2012.zip',
+        download_extract_patch('http://tcts.fpms.ac.be/attention/data/medias/documents/models/rare2012.zip',
                                '5a0a0de83e82b46fa70cea8b0a6bae55',
                                os.path.join(source_location, 'Rare2012'),
                                location_in_archive=True,
@@ -621,7 +626,7 @@ class CovSal(ExternalModelMixin, MatlabSaliencyMapModel):
                                                                                               self.modeltype)
 
     def _setup(self):
-        download_extract_patch('http://web.cs.hacettepe.edu.tr/~erkut/projects/CovSal/saliency.zip',
+        download_extract_patch('https://web.cs.hacettepe.edu.tr/~erkut/projects/CovSal/saliency.zip',
                                '5c1bcdce438a08051968b085f72b2fdc',
                                os.path.join(self.location, 'saliency'),
                                location_in_archive=True,

@@ -133,3 +133,26 @@ def plot_information_gain(information_gain, ax=None, color_range = None, image=N
         [i.set_linewidth(i.get_linewidth()*thickness) for i in ax.spines.itervalues()]
     else:
         ax.set_axis_off()
+
+
+def normalize_log_density(log_density):
+    """ convertes a log density into a map of the cummulative distribution function.
+    """
+    density = np.exp(log_density)
+    flat_density = density.flatten()
+    inds = flat_density.argsort()[::-1]
+    sorted_density = flat_density[inds]
+    cummulative = np.cumsum(sorted_density)
+    unsorted_cummulative = cummulative[np.argsort(inds)]
+    return unsorted_cummulative.reshape(log_density.shape)
+
+def visualize_distribution(log_densities, ax = None):
+    if ax is None:
+        ax = plt.gca()
+    t = normalize_log_density(log_densities)
+    img = ax.imshow(t, cmap=plt.cm.viridis)
+    levels = levels=[0, 0.25, 0.5, 0.75, 1.0]
+    cs = ax.contour(t, levels=levels, colors='black')
+    #plt.clabel(cs)
+
+    return img, cs
