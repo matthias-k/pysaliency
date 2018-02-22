@@ -5,6 +5,7 @@ from __future__ import absolute_import, print_function, division, unicode_litera
 from hashlib import sha1
 from collections import Sequence
 import json
+from functools import wraps
 
 from six.moves import range as xrange
 from six import string_types
@@ -12,8 +13,31 @@ from six import string_types
 import numpy as np
 from scipy.misc import imread
 from PIL import Image
+from tqdm import tqdm
 
 from .utils import LazyList
+
+
+def hdf5_wrapper(mode=None):
+    def decorator(f):
+        @wraps(f)
+        def wrapped(self, target, *args, **kwargs):
+            if isinstance(target, str):
+                import h5py
+                with h5py.File(target, mode) as hdf5_file:
+                    return f(self, hdf5_file, *args, **kwargs)
+            else:
+                return f(self, target, *args, **kwargs)
+
+        return wrapped
+    return decorator
+
+
+def decode_string(data):
+    if not isinstance(data, string_types):
+        return data.decode('utf8')
+
+    return data
 
 
 def _split_crossval(fixations, part, partcount):
@@ -34,6 +58,27 @@ def _split_crossval(fixations, part, partcount):
             subjects.append(fixations.train_subjects[i])
     new_fixations = Fixations.from_fixation_trains(xs, ys, ts, ns, subjects)
     return new_fixations
+
+
+def read_hdf5(source):
+    if isinstance(source, str):
+        import h5py
+        with h5py.File(source, 'r') as hdf5_file:
+            return read_hdf5(hdf5_file)
+
+    data_type = decode_string(source.attrs['type'])
+
+    if data_type == 'Fixations':
+        return Fixations.read_hdf5(source)
+    elif data_type == 'FixationTrains':
+        return FixationTrains.read_hdf5(source)
+    elif data_type == 'Stimuli':
+        return Stimuli.read_hdf5(source)
+    elif data_type == 'FileStimuli':
+        return FileStimuli.read_hdf5(source)
+    else:
+        raise ValueError("Invalid HDF content type:", data_type)
+
 
 
 class Fixations(object):
@@ -233,47 +278,47 @@ class Fixations(object):
         t_hist = np.empty((len(x), 1))*np.nan
         return cls(x, y, t, x_hist, y_hist, t_hist, n, subjects)
 
-    def write_hdf5(self, target):
+    @hdf5_wrapper(mode='w')
+    def to_hdf5(self, target):
         """ Write fixations to hdf5 file or hdf5 group
         """
 
-        if isinstance(target, str):
-            import h5py
-            with h5py.File(target, 'w') as f:
-                self.write_hdf5(f)
+        target.attrs['type'] = np.string_('Fixations')
+        target.attrs['version'] = np.string_('1.0')
 
-        else:
-            for attribute in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n'] + self.__attributes__:
-                target.create_dataset(attribute, data=getattr(self, attribute))
+        for attribute in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n'] + self.__attributes__:
+            target.create_dataset(attribute, data=getattr(self, attribute))
 
-            #target.create_dataset('__attributes__', data=self.__attributes__)
-            target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
+        #target.create_dataset('__attributes__', data=self.__attributes__)
+        target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
 
     @classmethod
+    @hdf5_wrapper(mode='r')
     def read_hdf5(cls, source):
         """ Read fixations from hdf5 file or hdf5 group """
-        if isinstance(source, str):
-            import h5py
-            with h5py.File(source, 'r') as f:
-                return cls.read_hdf5(f)
 
-        else:
-            data = {key: source[key][...] for key in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']}
-            fixations = cls(**data)
+        data_type = decode_string(source.attrs['type'])
+        data_version = decode_string(source.attrs['version'])
 
-            json_attributes = source.attrs['__attributes__']
-            if not isinstance(json_attributes, string_types):
-                json_attributes = json_attributes.decode('utf8')
-            __attributes__ = json.loads(json_attributes)
-            fixations.__attributes__ == list(__attributes__)
+        if data_type != 'Fixations':
+            raise ValueError("Invalid type! Expected 'Fixations', got", data_type)
 
-            for key in __attributes__:
-                setattr(fixations, key, source[key][...])
+        if data_version != '1.0':
+            raise ValueError("Invalid version! Expected '1.0', got", data_version)
 
-            return fixations
+        data = {key: source[key][...] for key in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']}
+        fixations = cls(**data)
 
+        json_attributes = source.attrs['__attributes__']
+        if not isinstance(json_attributes, string_types):
+            json_attributes = json_attributes.decode('utf8')
+        __attributes__ = json.loads(json_attributes)
+        fixations.__attributes__ == list(__attributes__)
 
+        for key in __attributes__:
+            setattr(fixations, key, source[key][...])
 
+        return fixations
 
 
 class FixationTrains(Fixations):
@@ -635,6 +680,55 @@ class FixationTrains(Fixations):
                 train_ts[train_index][i] = self.t[new_fix_index]
         return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
 
+    @hdf5_wrapper(mode='w')
+    def to_hdf5(self, target):
+        """ Write fixations to hdf5 file or hdf5 group
+        """
+
+        target.attrs['type'] = np.string_('FixationTrains')
+        target.attrs['version'] = np.string_('1.0')
+
+        for attribute in ['train_xs', 'train_ys', 'train_ts', 'train_ns', 'train_subjects'] + self.__attributes__:
+            if attribute in ['subject', 'scanpath_index']:
+                continue
+            target.create_dataset(attribute, data=getattr(self, attribute))
+
+        #target.create_dataset('__attributes__', data=self.__attributes__)
+        target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
+
+    @classmethod
+    @hdf5_wrapper(mode='r')
+    def read_hdf5(cls, source):
+        """ Read train fixations from hdf5 file or hdf5 group """
+
+        data_type = decode_string(source.attrs['type'])
+        data_version = decode_string(source.attrs['version'])
+
+        if data_type != 'FixationTrains':
+            raise ValueError("Invalid type! Expected 'FixationTrains', got", data_type)
+
+        if data_version != '1.0':
+            raise ValueError("Invalid version! Expected '1.0', got", data_version)
+
+        data = {key: source[key][...] for key in ['train_xs', 'train_ys', 'train_ts', 'train_ns', 'train_subjects']}
+
+        json_attributes = decode_string(source.attrs['__attributes__'])
+
+        attribute_names = list(json.loads(json_attributes))
+
+        attributes = {}
+        for key in attribute_names:
+            if key == 'subjects':
+                continue
+
+            attributes[key] = source[key][...]
+
+        data['attributes'] = attributes
+
+        fixations = cls(**data)
+
+        return fixations
+
 
 def get_image_hash(img):
     """
@@ -749,6 +843,43 @@ class Stimuli(Sequence):
         else:
             return self.stimulus_objects[index]
 
+    @hdf5_wrapper(mode='w')
+    def to_hdf5(self, target, verbose=False, compression='gzip', compression_opts=9):
+        """ Write stimuli to hdf5 file or hdf5 group
+        """
+
+        target.attrs['type'] = np.string_('Stimuli')
+        target.attrs['version'] = np.string_('1.0')
+
+        for n, stimulus in enumerate(tqdm(self.stimuli, disable=not verbose)):
+            target.create_dataset(str(n), data=stimulus, compression=compression, compression_opts=compression_opts)
+
+        target.attrs['size'] = len(self)
+
+    @classmethod
+    @hdf5_wrapper(mode='r')
+    def read_hdf5(cls, source):
+        """ Read train fixations from hdf5 file or hdf5 group """
+
+        data_type = decode_string(source.attrs['type'])
+        data_version = decode_string(source.attrs['version'])
+
+        if data_type != 'Stimuli':
+            raise ValueError("Invalid type! Expected 'Stimuli', got", data_type)
+
+        if data_version != '1.0':
+            raise ValueError("Invalid version! Expected '1.0', got", data_version)
+
+        size = source.attrs['size']
+        stimuli = []
+
+        for n in range(size):
+            stimuli.append(source[str(n)][...])
+
+        stimuli = cls(stimuli=stimuli)
+
+        return stimuli
+
 
 class ObjectStimuli(Stimuli):
     """
@@ -764,6 +895,9 @@ class ObjectStimuli(Stimuli):
                               length = len(self.stimulus_objects))
         self.stimulus_ids = LazyList(lambda n: self.stimulus_objects[n].stimulus_id,
                                      length = len(self.stimulus_objects))
+
+    def read_hdf5(self, target):
+        raise NotImplementedError()
 
 
 class FileStimuli(Stimuli):
@@ -816,6 +950,49 @@ class FileStimuli(Stimuli):
 
     def load_stimulus(self, n):
         return imread(self.filenames[n])
+
+    @hdf5_wrapper(mode='w')
+    def to_hdf5(self, target):
+        """ Write FileStimuli to hdf5 file or hdf5 group
+        """
+
+        target.attrs['type'] = np.string_('FileStimuli')
+        target.attrs['version'] = np.string_('1.0')
+
+        import h5py
+        # make sure everything is unicode
+        filenames = [decode_string(filename) for filename in self.filenames]
+        encoded_filenames = [filename.encode('utf8') for filename in filenames]
+
+        dt = h5py.special_dtype(vlen=str)
+        target.create_dataset(
+            'filenames',
+            data=np.array(encoded_filenames),
+            dtype=dt)
+
+        target.attrs['size'] = len(self)
+
+    @classmethod
+    @hdf5_wrapper(mode='r')
+    def read_hdf5(cls, source, cache=True):
+        """ Read FileStimuli from hdf5 file or hdf5 group """
+
+        data_type = decode_string(source.attrs['type'])
+        data_version = decode_string(source.attrs['version'])
+
+        if data_type != 'FileStimuli':
+            raise ValueError("Invalid type! Expected 'Stimuli', got", data_type)
+
+        if data_version != '1.0':
+            raise ValueError("Invalid version! Expected '1.0', got", data_version)
+
+        encoded_filenames = source['filenames'][...]
+
+        filenames = [decode_string(filename) for filename in encoded_filenames]
+
+        stimuli = cls(filenames=filenames, cache=cache)
+
+        return stimuli
 
 
 def create_subset(stimuli, fixations, stimuli_indices):

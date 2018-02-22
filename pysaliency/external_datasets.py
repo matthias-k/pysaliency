@@ -17,7 +17,7 @@ from PIL import Image
 from boltons.fileutils import mkdir_p
 from tqdm import tqdm
 
-from .datasets import FileStimuli, Stimuli, FixationTrains, Fixations
+from .datasets import FileStimuli, Stimuli, FixationTrains, Fixations, read_hdf5
 from .utils import TemporaryDirectory, filter_files, run_matlab_cmd, download_and_check
 from .generics import progressinfo
 
@@ -67,6 +67,17 @@ def create_stimuli(stimuli_location, filenames, location=None):
         return create_memory_stimuli(filenames)
 
 
+def _load(filename):
+    """attempt to load hdf5 file and fallback to pickle files if present"""
+    if os.path.isfile(filename):
+        return read_hdf5(filename)
+
+    stem, ext = os.path.splitext(filename)
+    pydat_filename = stem+'.pydat'
+
+    return dill.load(open(pydat_filename, 'rb'))
+
+
 def get_toronto(location=None):
     """
     Loads or downloads and caches the Toronto dataset. The dataset
@@ -94,8 +105,8 @@ def get_toronto(location=None):
     if location:
         location = os.path.join(location, 'toronto')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
     with TemporaryDirectory() as temp_dir:
@@ -272,8 +283,8 @@ def get_mit1003(location=None):
     if location:
         location = os.path.join(location, 'MIT1003')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
     with TemporaryDirectory(cleanup=True) as temp_dir:
@@ -422,8 +433,8 @@ def get_mit1003_onesize(location=None):
     if location:
         location = os.path.join(location, 'MIT1003_onesize')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
     with TemporaryDirectory(cleanup=True) as temp_dir:
@@ -560,7 +571,7 @@ def get_mit300(location=None):
     if location:
         location = os.path.join(location, 'MIT300')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
             return stimuli
         os.makedirs(location)
     with TemporaryDirectory(cleanup=True) as temp_dir:
@@ -622,7 +633,7 @@ def get_cat2000_test(location=None):
     if location:
         location = os.path.join(location, 'CAT2000_test')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
             return stimuli
         os.makedirs(location)
     with TemporaryDirectory(cleanup=True) as temp_dir:
@@ -682,8 +693,8 @@ def get_cat2000_train(location=None):
     if location:
         location = os.path.join(location, 'CAT2000_train')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
     with TemporaryDirectory(cleanup=True) as temp_dir:
@@ -791,11 +802,11 @@ def get_iSUN(location=None):
     if location:
         location = os.path.join(location, 'iSUN')
         if os.path.exists(location):
-            stimuli_training = dill.load(open(os.path.join(location, 'stimuli_training.pydat'), 'rb'))
-            stimuli_validation = dill.load(open(os.path.join(location, 'stimuli_validation.pydat'), 'rb'))
-            stimuli_testing = dill.load(open(os.path.join(location, 'stimuli_testing.pydat'), 'rb'))
-            fixations_training = dill.load(open(os.path.join(location, 'fixations_training.pydat'), 'rb'))
-            fixations_validation = dill.load(open(os.path.join(location, 'fixations_validation.pydat'), 'rb'))
+            stimuli_training = _load(os.path.join(location, 'stimuli_training.hdf5'))
+            stimuli_validation = _load(os.path.join(location, 'stimuli_validation.hdf5'))
+            stimuli_testing = _load(os.path.join(location, 'stimuli_testing.hdf5'))
+            fixations_training = _load(os.path.join(location, 'fixations_training.hdf5'))
+            fixations_validation = _load(os.path.join(location, 'fixations_validation.hdf5'))
             return stimuli_training, stimuli_validation, stimuli_testing, fixations_training, fixations_validation
         os.makedirs(location)
     with TemporaryDirectory(cleanup=True) as temp_dir:
@@ -994,8 +1005,8 @@ def get_SALICON_train(location=None):
     if location:
         location = os.path.join(location, 'SALICON_train')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
     stimuli, fixations = _get_SALICON('train',
@@ -1025,8 +1036,8 @@ def get_SALICON_val(location=None):
     if location:
         location = os.path.join(location, 'SALICON_val')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
     stimuli, fixations = _get_SALICON('val',
@@ -1055,7 +1066,7 @@ def get_SALICON_test(location=None):
     if location:
         location = os.path.join(location, 'SALICON_test')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
             return stimuli
         os.makedirs(location)
 
@@ -1145,10 +1156,10 @@ def get_koehler(location=None, datafile=None):
     if location:
         location = os.path.join(location, 'Koehler')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations_freeviewing = dill.load(open(os.path.join(location, 'fixations_freeviewing.pydat'), 'rb'))
-            fixations_objectsearch = dill.load(open(os.path.join(location, 'fixations_objectsearch.pydat'), 'rb'))
-            fixations_saliencysearch = dill.load(open(os.path.join(location, 'fixations_saliencysearch.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations_freeviewing = _load(os.path.join(location, 'fixations_freeviewing.hdf5'))
+            fixations_objectsearch = _load(os.path.join(location, 'fixations_objectsearch.hdf5'))
+            fixations_saliencysearch = _load(os.path.join(location, 'fixations_saliencysearch.hdf5'))
             return stimuli, fixations_freeviewing, fixations_objectsearch, fixations_saliencysearch
         mkdir_p(location)
     if not datafile:
@@ -1254,8 +1265,8 @@ def get_FIGRIM(location=None):
     if location:
         location = os.path.join(location, 'FIGRIM')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
     with TemporaryDirectory(cleanup=True) as temp_dir:
@@ -1365,8 +1376,8 @@ def get_OSIE(location=None):
     if location:
         location = os.path.join(location, 'OSIE')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
     with TemporaryDirectory(cleanup=True) as temp_dir:
@@ -1454,8 +1465,8 @@ def get_NUSEF_public(location=None):
     if location:
         location = os.path.join(location, 'NUSEF_public')
         if os.path.exists(location):
-            stimuli = dill.load(open(os.path.join(location, 'stimuli.pydat'), 'rb'))
-            fixations = dill.load(open(os.path.join(location, 'fixations.pydat'), 'rb'))
+            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
+            fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
     with TemporaryDirectory(cleanup=True) as temp_dir:
