@@ -39,7 +39,7 @@ def _eval_metric(log_density, test_samples, fn, seed=42, fixation_count=120, bat
     return np.average(values, weights=weights)
 
 
-def constrained_descent(opt, loss, params, constraint):
+def constrained_descent(opt, loss, params, constraint, learning_rate):
     """
     opt: e.g. tf.train.GradientDescent()
     """
@@ -52,9 +52,25 @@ def constrained_descent(opt, loss, params, constraint):
     grads_and_vars = opt.compute_gradients(loss, params)
 
     grads0 = grads_and_vars[0][0]
-    projected_grad = grads0 - tf.reduce_sum(grads0*constraint_grad) * normed_constraint_grad
+    params0 = params[0]
+    # first step: make sure we are not running into negative values
+    max_allowed_grad = params0/learning_rate
+    projected_grad1 = tf.reduce_min([grads0, max_allowed_grad], axis=0)
+                #projected_grad1 = grads0
 
-    grads_and_vars = [(projected_grad, grads_and_vars[0][1])]
+    # second step: Make sure that the gradient does not walk
+    # out of the constraint
+    projected_grad2 = projected_grad1 - tf.reduce_sum(projected_grad1*constraint_grad) * normed_constraint_grad
+
+    #projected_grad = grads0 - tf.reduce_sum(grads0*constraint_grad) * normed_constraint_grad
+
+    #param = params[0]
+    #active_set = (param <= 0)
+    #active_grad = (projected_grad > 0)  # we are _descending_, i.e. grad>0 means we are trying to go down
+    #mask = tf.logical_not(tf.logical_and(active_set, active_grad))
+    #projected_grad = projected_grad * tf.cast(mask, 'float')
+
+    grads_and_vars = [(projected_grad2, grads_and_vars[0][1])]
 
     tf_train_op = opt.apply_gradients(grads_and_vars)
 
@@ -105,14 +121,30 @@ def maximize_expected_sim(log_density, kernel_size,
                           initial_learning_rate=1e-7,
                           backlook=1, min_iter=0, max_iter=1000,
                           truncate_gaussian=3,
-                          learning_rate_decay_samples=None):
+                          learning_rate_decay_samples=None,
+                          initial_saliency_map=None,
+                          learning_rate_decay_scheme=None,
+                          learning_rate_decay_ratio = 0.333333333,
+                          minimum_learning_rate = 1e-11):
     """
        max_batch_size: maximum possible batch size to be used in validation
        learning rate decay samples: how often to decay the learning rate (using 1/k)
+
+       learning_rate_decay_scheme: how to decay the learning rate:
+           - None, "1/k": 1/k scheme
+           - "validation_loss": if validation loss not better for last backlook
+           steps
+
+        learning_rate_decay_ratio: how much to decay learning rate if `learning_rate_decay_scheme` == 'validation_loss'
+        minimum_learning_rate: stop optimization if learning rate would drop below this rate if using validation loss decay scheme
+
     """
 
     if max_batch_size is None:
         max_batch_size = batch_size
+
+    if learning_rate_decay_scheme is None:
+        learning_rate_decay_scheme = '1/k'
 
     if learning_rate_decay_samples is None:
         learning_rate_decay_samples = train_samples_per_epoch
@@ -120,6 +152,16 @@ def maximize_expected_sim(log_density, kernel_size,
     log_density_sum = logsumexp(log_density)
     if not -0.001 < log_density_sum < 0.001:
         raise ValueError("Log density not normalized! LogSumExp={}".format(log_density_sum))
+
+    if initial_saliency_map is None:
+        initial_value = gaussian_filter(np.exp(log_density), kernel_size, mode='constant')
+    else:
+        initial_value = initial_saliency_map
+
+    if initial_value.min() < 0:
+        initial_value -= initial_value.min()
+
+    initial_value /= initial_value.sum()
 
     graph = tf.Graph()
     dtype = tf.float32
@@ -150,7 +192,11 @@ def maximize_expected_sim(log_density, kernel_size,
         learning_rate = tf.Variable(1.0, dtype=dtype)
         opt = tf.train.GradientDescentOptimizer(learning_rate)
 
-        train_op = constrained_descent(opt, loss, [saliency_map], constraint)
+        train_op = constrained_descent(opt, loss, [saliency_map], constraint, learning_rate)
+
+        intermediate = saliency_map * tf.cast((saliency_map >= 0), 'float')
+        normalized_saliency_map = intermediate / tf.reduce_sum(intermediate)
+        normalize_op = tf.assign(saliency_map, normalized_saliency_map)
 
     #print("starting session")
     with tf.Session(graph=graph, config=session_config) as session:
@@ -167,9 +213,6 @@ def maximize_expected_sim(log_density, kernel_size,
 
         session.run(tf.global_variables_initializer())
         #initial_value = gaussian_filter(density, kernel_size, mode='nearest')
-        initial_value = gaussian_filter(np.exp(log_density), kernel_size, mode='constant')
-
-        initial_value /= initial_value.sum()
         session.run(tf.assign(saliency_map, initial_value))
         session.run(tf.assign(learning_rate, initial_learning_rate))
 
@@ -179,10 +222,33 @@ def maximize_expected_sim(log_density, kernel_size,
         #print('starting val')
 
         val_scores = [val_loss()]
+        learning_rate_relevant_scores = list(val_scores)
         train_rst = np.random.RandomState(seed=train_seed)
         #print('starting train')
         with tqdm(disable=not verbose) as outer_t:
-            while (len(val_scores) - 1 < max_iter) and (len(val_scores) < min_iter or np.argmin(val_scores) >= len(val_scores) - backlook):
+
+            def general_termination_condition():
+                return len(val_scores) - 1 >= max_iter
+
+            def termination_1overk():
+                return not (np.argmin(val_scores) >= len(val_scores) - backlook)
+
+            def termination_validation():
+                return session.run(learning_rate) < minimum_learning_rate
+
+            def termination_condition():
+                if len(val_scores) < min_iter:
+                    return False
+                cond = general_termination_condition()
+                if learning_rate_decay_scheme == '1/k':
+                    cond = cond or termination_1overk()
+                elif learning_rate_decay_scheme == 'validation_loss':
+                    cond = cond or termination_validation()
+
+                return cond
+
+            #while (len(val_scores) - 1 < max_iter) and (len(val_scores) < min_iter or np.argmin(val_scores) >= len(val_scores) - backlook):
+            while not termination_condition():
                 count = 0
                 with tqdm(total=train_samples_per_epoch, leave=False, disable=True) as t:
                     while count < train_samples_per_epoch:
@@ -190,20 +256,32 @@ def maximize_expected_sim(log_density, kernel_size,
 
                         xs, ys, ns = sample_batch_fixations(log_density, fixations_per_image=fixation_count, batch_size=this_count, rst=train_rst)
                         session.run(train_op, {Ns: ns, Ys: ys, Xs: xs, BatchSize: this_count})
+                        session.run(normalize_op)
 
                         count += this_count
                         total_samples += this_count
 
-                        if total_samples >= (decay_step+1)*learning_rate_decay_samples:
-                            decay_step += 1
-                            session.run(tf.assign(learning_rate, initial_learning_rate/decay_step))
+                        if learning_rate_decay_scheme == '1/k':
+                            if total_samples >= (decay_step+1)*learning_rate_decay_samples:
+                                decay_step += 1
+                                session.run(tf.assign(learning_rate, initial_learning_rate/decay_step))
 
                         t.update(this_count)
                 val_scores.append(val_loss())
+                learning_rate_relevant_scores.append(val_scores[-1])
+
+                if np.argmin(learning_rate_relevant_scores) < len(learning_rate_relevant_scores) - backlook:
+                    old_learning_rate = session.run(learning_rate)
+                    #print("Old Learning Rate", old_learning_rate, type(old_learning_rate))
+                    #print("Decay", learning_rate_decay_ratio)
+                    new_learning_rate = old_learning_rate*learning_rate_decay_ratio
+                    session.run(tf.assign(learning_rate, new_learning_rate))
+                    #print("Decaying learning_rate to", new_learning_rate)
+                    learning_rate_relevant_scores = [learning_rate_relevant_scores[-1]]
 
                 score1, score2 = val_scores[-2:]
                 last_min = len(val_scores) - np.argmin(val_scores) - 1
-                outer_t.set_description('{:.05f}, diff {:.02e} [{}]'.format(score2, score2-score1, last_min))
+                outer_t.set_description('{:.05f}, diff {:.02e} [{}] lr {:.02e}'.format(score2, score2-score1, last_min, session.run(learning_rate)))
                 outer_t.update(1)
 
         return session.run(saliency_map), val_scores[-1]
@@ -222,6 +300,10 @@ class SIMSaliencyMapModel(SaliencyMapModel):
                  max_iter=1000,
                  truncate_gaussian=3,
                  learning_rate_decay_samples=None,
+                 learning_rate_decay_scheme=None,
+                 learning_rate_decay_ratio = 0.333333333,
+                 minimum_learning_rate = 1e-11,
+                 initial_model=None,
                  verbose=True,
                  session_config=None,
                  **kwargs
@@ -243,11 +325,21 @@ class SIMSaliencyMapModel(SaliencyMapModel):
         self.max_iter = max_iter
         self.truncate_gaussian = truncate_gaussian
         self.learning_rate_decay_samples = learning_rate_decay_samples
+        self.learning_rate_decay_scheme = learning_rate_decay_scheme
+        self.learning_rate_decay_ratio = learning_rate_decay_ratio
+        self.minimum_learning_rate = minimum_learning_rate
+        self.initial_model = initial_model
         self.verbose = verbose
         self.session_config = session_config
 
     def _saliency_map(self, stimulus):
         log_density = self.parent_model.log_density(stimulus)
+
+        if self.initial_model:
+            initial_saliency_map = self.initial_model.saliency_map(stimulus)
+        else:
+            initial_saliency_map = None
+
         saliency_map, val_scores = maximize_expected_sim(
             log_density,
             kernel_size=self.kernel_size,
@@ -266,5 +358,9 @@ class SIMSaliencyMapModel(SaliencyMapModel):
             max_iter=self.max_iter,
             truncate_gaussian=self.truncate_gaussian,
             learning_rate_decay_samples=self.learning_rate_decay_samples,
+            initial_saliency_map=initial_saliency_map,
+            learning_rate_decay_scheme=self.learning_rate_decay_scheme,
+            learning_rate_decay_ratio=self.learning_rate_decay_ratio,
+            minimum_learning_rate=self.minimum_learning_rate
         )
         return saliency_map

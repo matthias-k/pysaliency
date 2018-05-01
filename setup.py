@@ -7,7 +7,7 @@ from Cython.Build import cythonize
 import numpy as np
 
 PACKAGE_NAME = 'pysaliency'
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 DESCRIPTION = 'A Python Framework for Saliency Modeling and Evaluation'
 AUTHOR = 'Matthias Kümmerer'
 EMAIL = 'matthias.kuemmerer@bethgelab.org'
