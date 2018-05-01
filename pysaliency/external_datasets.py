@@ -140,8 +140,8 @@ def get_toronto(location=None):
             subjects.extend([0 for x in _xs])
         fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
-        dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -244,8 +244,8 @@ def get_toronto_with_subjects(location=None):
         fixations = FixationTrains.from_fixation_trains(train_xs, train_ys, train_ts, train_ns, train_subjects)
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
-        dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -391,8 +391,8 @@ def get_mit1003(location=None):
         fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
-        dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -543,8 +543,8 @@ def get_mit1003_onesize(location=None):
         fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
-        dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -595,7 +595,7 @@ def get_mit300(location=None):
         stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
     return stimuli
 
 
@@ -655,7 +655,7 @@ def get_cat2000_test(location=None):
         stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
     return stimuli
 
 
@@ -777,8 +777,8 @@ def get_cat2000_train(location=None):
         fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
-        dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -879,11 +879,11 @@ def get_iSUN(location=None):
             fixations.append(get_fixations(name))
 
     if location:
-        dill.dump(stimulis[0], open(os.path.join(location, 'stimuli_training.pydat'), 'wb'))
-        dill.dump(stimulis[1], open(os.path.join(location, 'stimuli_validation.pydat'), 'wb'))
-        dill.dump(stimulis[2], open(os.path.join(location, 'stimuli_testing.pydat'), 'wb'))
-        dill.dump(fixations[0], open(os.path.join(location, 'fixations_training.pydat'), 'wb'))
-        dill.dump(fixations[1], open(os.path.join(location, 'fixations_validation.pydat'), 'wb'))
+        stimulis[0].to_hdf5(os.path.join(location, 'stimuli_training.hdf5'))
+        stimulis[1].to_hdf5(os.path.join(location, 'stimuli_validation.hdf5'))
+        stimulis[2].to_hdf5(os.path.join(location, 'stimuli_test.hdf5'))
+        fixations[0].to_hdf5(os.path.join(location, 'fixations_training.hdf5'))
+        fixations[1].to_hdf5(os.path.join(location, 'fixations_validation.hdf5'))
 
     return stimulis + fixations
 
@@ -981,9 +981,9 @@ def _get_SALICON(data_type, stimuli_url, stimuli_hash, fixation_url, fixation_ha
             fixations = None
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
         if fixations is not None:
-            dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -1092,7 +1092,7 @@ def get_SALICON_test(location=None):
         stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
     return stimuli
 
 
@@ -1188,10 +1188,10 @@ def get_koehler(location=None, datafile=None):
             fs.append(_get_koehler_fixations(data, task, len(stimuli)))
 
         if location:
-            dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
-            dill.dump(fs[0], open(os.path.join(location, 'fixations_freeviewing.pydat'), 'wb'))
-            dill.dump(fs[1], open(os.path.join(location, 'fixations_objectsearch.pydat'), 'wb'))
-            dill.dump(fs[2], open(os.path.join(location, 'fixations_saliencysearch.pydat'), 'wb'))
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+            fs[0].to_hdf5(os.path.join(location, 'fixations_freeviewing.hdf5'))
+            fs[1].to_hdf5(os.path.join(location, 'fixations_objectsearch.hdf5'))
+            fs[2].to_hdf5(os.path.join(location, 'fixations_saliencysearch.hdf5'))
     return [stimuli] + fs
 
 
@@ -1349,8 +1349,8 @@ def get_FIGRIM(location=None):
             })
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
-        dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -1432,8 +1432,8 @@ def get_OSIE(location=None):
     fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
-        dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -1548,6 +1548,6 @@ def get_NUSEF_public(location=None):
     fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
     if location:
-        dill.dump(stimuli, open(os.path.join(location, 'stimuli.pydat'), 'wb'))
-        dill.dump(fixations, open(os.path.join(location, 'fixations.pydat'), 'wb'))
+        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations

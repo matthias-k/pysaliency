@@ -80,7 +80,6 @@ def read_hdf5(source):
         raise ValueError("Invalid HDF content type:", data_type)
 
 
-
 class Fixations(object):
     """Capsules the fixations of a dataset and provides different methods
        of accessing them, e.g. in fixation trains, as conditional fixations
@@ -689,7 +688,7 @@ class FixationTrains(Fixations):
         target.attrs['version'] = np.string_('1.0')
 
         for attribute in ['train_xs', 'train_ys', 'train_ts', 'train_ns', 'train_subjects'] + self.__attributes__:
-            if attribute in ['subject', 'scanpath_index']:
+            if attribute in ['subjects', 'scanpath_index']:
                 continue
             target.create_dataset(attribute, data=getattr(self, attribute))
 
@@ -718,7 +717,7 @@ class FixationTrains(Fixations):
 
         attributes = {}
         for key in attribute_names:
-            if key == 'subjects':
+            if key in ['subjects', 'scanpath_index']:
                 continue
 
             attributes[key] = source[key][...]
@@ -904,7 +903,7 @@ class FileStimuli(Stimuli):
     """
     Manage a list of stimuli that are saved as files.
     """
-    def __init__(self, filenames, cache=True):
+    def __init__(self, filenames, cache=True, shapes=None):
         """
         Create a stimuli object that reads it's stimuli from files.
 
@@ -930,16 +929,19 @@ class FileStimuli(Stimuli):
         """
         self.filenames = filenames
         self.stimuli = LazyList(self.load_stimulus, len(self.filenames), cache=cache)
-        self.shapes = []
-        for f in filenames:
-            img = Image.open(f)
-            size = img.size
-            if len(img.mode) > 1:
-                # PIL uses (width, height), we use (height, width)
-                self.shapes.append((size[1], size[0], len(img.mode)))
-            else:
-                self.shapes.append((size[1], size[0]))
-            del img
+        if shapes is None:
+            self.shapes = []
+            for f in filenames:
+                img = Image.open(f)
+                size = img.size
+                if len(img.mode) > 1:
+                    # PIL uses (width, height), we use (height, width)
+                    self.shapes.append((size[1], size[0], len(img.mode)))
+                else:
+                    self.shapes.append((size[1], size[0]))
+                del img
+        else:
+            self.shapes = shapes
 
         self.stimulus_ids = LazyList(lambda n: get_image_hash(self.stimuli[n]),
                                      length=len(self.stimuli),
@@ -964,11 +966,20 @@ class FileStimuli(Stimuli):
         filenames = [decode_string(filename) for filename in self.filenames]
         encoded_filenames = [filename.encode('utf8') for filename in filenames]
 
-        dt = h5py.special_dtype(vlen=str)
         target.create_dataset(
             'filenames',
             data=np.array(encoded_filenames),
-            dtype=dt)
+            dtype=h5py.special_dtype(vlen=str)
+        )
+
+        shape_dataset = target.create_dataset(
+            'shapes',
+            (len(self), ),
+            dtype=h5py.special_dtype(vlen=np.dtype('int64'))
+        )
+
+        for n, shape in enumerate(self.shapes):
+            shape_dataset[n] = np.array(shape)
 
         target.attrs['size'] = len(self)
 
@@ -989,8 +1000,9 @@ class FileStimuli(Stimuli):
         encoded_filenames = source['filenames'][...]
 
         filenames = [decode_string(filename) for filename in encoded_filenames]
+        shapes = [list(shape) for shape in source['shapes'][...]]
 
-        stimuli = cls(filenames=filenames, cache=cache)
+        stimuli = cls(filenames=filenames, cache=cache, shapes=shapes)
 
         return stimuli
 
