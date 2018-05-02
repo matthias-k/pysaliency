@@ -2,6 +2,7 @@
 #kate: space-indent on; indent-width 4; backspace-indents on;
 from __future__ import absolute_import, print_function, division, unicode_literals
 
+import os
 from hashlib import sha1
 from collections import Sequence
 import json
@@ -959,12 +960,17 @@ class FileStimuli(Stimuli):
         """
 
         target.attrs['type'] = np.string_('FileStimuli')
-        target.attrs['version'] = np.string_('1.0')
+        target.attrs['version'] = np.string_('2.0')
 
         import h5py
         # make sure everything is unicode
-        filenames = [decode_string(filename) for filename in self.filenames]
-        encoded_filenames = [filename.encode('utf8') for filename in filenames]
+
+        hdf5_filename = target.file.filename
+        hdf5_directory = os.path.dirname(hdf5_filename)
+
+        relative_filenames = [os.path.relpath(filename, hdf5_directory) for filename in self.filenames]
+        decoded_filenames = [decode_string(filename) for filename in relative_filenames]
+        encoded_filenames = [filename.encode('utf8') for filename in decoded_filenames]
 
         target.create_dataset(
             'filenames',
@@ -994,12 +1000,18 @@ class FileStimuli(Stimuli):
         if data_type != 'FileStimuli':
             raise ValueError("Invalid type! Expected 'Stimuli', got", data_type)
 
-        if data_version != '1.0':
-            raise ValueError("Invalid version! Expected '1.0', got", data_version)
+        if data_version not in ['1.0', '2.0']:
+            raise ValueError("Invalid version! Expected '1.0' or '2.0', got", data_version)
 
         encoded_filenames = source['filenames'][...]
 
         filenames = [decode_string(filename) for filename in encoded_filenames]
+
+        if data_version >= '2.0':
+            hdf5_filename = source.file.filename
+            hdf5_directory = os.path.dirname(hdf5_filename)
+            filenames = [os.path.join(hdf5_directory, filename) for filename in filenames]
+
         shapes = [list(shape) for shape in source['shapes'][...]]
 
         stimuli = cls(filenames=filenames, cache=cache, shapes=shapes)
