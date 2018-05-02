@@ -7,7 +7,9 @@ import filecmp
 from six.moves import cPickle
 import six
 
-from nose.tools import assert_equal
+
+def assert_equal(a, b):
+    assert a == b
 
 
 class TestWithData(unittest.TestCase):

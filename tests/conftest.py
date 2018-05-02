@@ -30,7 +30,7 @@ def matlab(request):
     return request.param
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def skip_by_matlab(request, matlab):
     if request.node.get_marker('skip_octave'):
         if matlab == 'octave':

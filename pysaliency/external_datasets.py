@@ -249,39 +249,22 @@ def get_toronto_with_subjects(location=None):
     return stimuli, fixations
 
 
-def get_mit1003(location=None):
+def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, only_1024_by_768=False):
     """
-    Loads or downloads and caches the MIT1003 dataset. The dataset
-    consists of 1003 natural indoor and outdoor scenes of
-    sizes: max dim: 1024px, other dim: 405-1024px
-    and the fixations of 15 subjects under
-    free viewing conditions with 3 seconds presentation time.
-
-    All fixations outside of the image are discarded. This includes
-    blinks.
-
-    @type  location: string, defaults to `None`
-    @param location: If and where to cache the dataset. The dataset
-                     will be stored in the subdirectory `toronto` of
-                     location and read from there, if already present.
-    @return: Stimuli, FixationTrains
-
-    .. note::
-        This code needs a working matlab or octave installation as the original
-        matlab code by Judd et al. is used to extract the fixation from the
-        eyetracking data.
-
-        The first fixation of each fixation train is discarded as stated in the
-        paper (Judd et al. 2009).
-
     .. seealso::
 
         Tilke Judd, Krista Ehinger, Fredo Durand, Antonio Torralba. Learning to Predict where Humans Look [ICCV 2009]
 
         http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
     """
+
+    if include_initial_fixation:
+        first_fixation = 0
+    else:
+        first_fixation = 1
+
     if location:
-        location = os.path.join(location, 'MIT1003')
+        location = os.path.join(location, dataset_name)
         if os.path.exists(location):
             stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
             fixations = _load(os.path.join(location, 'fixations.hdf5'))
@@ -310,6 +293,13 @@ def get_mit1003(location=None):
         images = glob.glob(os.path.join(stimuli_src_location, '*.jpeg'))
         images = [os.path.split(img)[1] for img in images]
         stimuli_filenames = natsorted(images)
+
+        if only_1024_by_768:
+            def check_size(f):
+                img = Image.open(os.path.join(stimuli_src_location, f))
+                return img.size == (1024, 768)
+
+            stimuli_filenames = [s for s in stimuli_filenames if check_size(s)]
 
         stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
@@ -375,7 +365,9 @@ def get_mit1003(location=None):
                 x = []
                 y = []
                 t = []
-                for i in range(1, fix_data.shape[0]):  # Skip first fixation like Judd does
+                # if first_fixation == 1 the first fixation is skipped, as done
+                # by Judd.
+                for i in range(first_fixation, fix_data.shape[0]):
                     if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
                         continue
                     if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
@@ -394,6 +386,76 @@ def get_mit1003(location=None):
         stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
         fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
+
+
+def get_mit1003(location=None):
+    """
+    Loads or downloads and caches the MIT1003 dataset. The dataset
+    consists of 1003 natural indoor and outdoor scenes of
+    sizes: max dim: 1024px, other dim: 405-1024px
+    and the fixations of 15 subjects under
+    free viewing conditions with 3 seconds presentation time.
+
+    All fixations outside of the image are discarded. This includes
+    blinks.
+
+    @type  location: string, defaults to `None`
+    @param location: If and where to cache the dataset. The dataset
+                     will be stored in the subdirectory `toronto` of
+                     location and read from there, if already present.
+    @return: Stimuli, FixationTrains
+
+    .. note::
+        This code needs a working matlab or octave installation as the original
+        matlab code by Judd et al. is used to extract the fixation from the
+        eyetracking data.
+
+        The first fixation of each fixation train is discarded as stated in the
+        paper (Judd et al. 2009).
+
+    .. seealso::
+
+        Tilke Judd, Krista Ehinger, Fredo Durand, Antonio Torralba. Learning to Predict where Humans Look [ICCV 2009]
+
+        http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
+    """
+    return _get_mit1003('MIT1003', location=location, include_initial_fixation=False)
+
+
+def get_mit1003_with_initial_fixation(location=None):
+    """
+    Loads or downloads and caches the MIT1003 dataset. The dataset
+    consists of 1003 natural indoor and outdoor scenes of
+    sizes: max dim: 1024px, other dim: 405-1024px
+    and the fixations of 15 subjects under
+    free viewing conditions with 3 seconds presentation time.
+
+    All fixations outside of the image are discarded. This includes
+    blinks.
+
+    @type  location: string, defaults to `None`
+    @param location: If and where to cache the dataset. The dataset
+                     will be stored in the subdirectory `toronto` of
+                     location and read from there, if already present.
+    @return: Stimuli, FixationTrains
+
+    .. note::
+        This code needs a working matlab or octave installation as the original
+        matlab code by Judd et al. is used to extract the fixation from the
+        eyetracking data.
+
+        Unlike in the original paper (Judd et al. 2009), in this version of
+        the MIT1003 dataset the first fixation of each scanpath
+        is *not* discarded. See `get_mit1003` if you want to use
+        the dataset as suggested by Judd.
+
+    .. seealso::
+
+        Tilke Judd, Krista Ehinger, Fredo Durand, Antonio Torralba. Learning to Predict where Humans Look [ICCV 2009]
+
+        http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
+    """
+    return _get_mit1003('MIT1003_initial_fix', location=location, include_initial_fixation=True)
 
 
 def get_mit1003_onesize(location=None):
@@ -430,122 +492,7 @@ def get_mit1003_onesize(location=None):
 
         http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
     """
-    if location:
-        location = os.path.join(location, 'MIT1003_onesize')
-        if os.path.exists(location):
-            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
-            fixations = _load(os.path.join(location, 'fixations.hdf5'))
-            return stimuli, fixations
-        os.makedirs(location)
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        download_and_check('http://people.csail.mit.edu/tjudd/WherePeopleLook/ALLSTIMULI.zip',
-                           os.path.join(temp_dir, 'ALLSTIMULI.zip'),
-                           '0d7df8b954ecba69b6796e77b9afe4b6')
-        download_and_check('http://people.csail.mit.edu/tjudd/WherePeopleLook/DATA.zip',
-                           os.path.join(temp_dir, 'DATA.zip'),
-                           'ea19d74ad0a0144428c53e9d75c2d71c')
-        download_and_check('http://people.csail.mit.edu/tjudd/WherePeopleLook/Code/DatabaseCode.zip',
-                           os.path.join(temp_dir, 'DatabaseCode.zip'),
-                           'd8e5e2b6ec827f4115ddbff59b0bdf1d')
-
-        # Stimuli
-        print('Creating stimuli')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'ALLSTIMULI.zip'))
-        namelist = f.namelist()
-        namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
-        f.extractall(temp_dir, namelist)
-
-        stimuli_src_location = os.path.join(temp_dir, 'ALLSTIMULI')
-        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
-        images = glob.glob(os.path.join(stimuli_src_location, '*.jpeg'))
-        images = [os.path.split(img)[1] for img in images]
-        stimuli_filenames = sorted(images)  # I used sorted instead of natsorted at this time
-
-        def check_size(f):
-            img = Image.open(os.path.join(stimuli_src_location, f))
-            return img.size == (1024, 768)
-
-        stimuli_filenames = [s for s in stimuli_filenames if check_size(s)]
-
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
-
-        # FixationTrains
-
-        print('Creating fixations')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'DATA.zip'))
-        namelist = f.namelist()
-        namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
-        f.extractall(temp_dir, namelist)
-
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'DatabaseCode.zip'))
-        namelist = f.namelist()
-        namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
-        f.extractall(temp_dir, namelist)
-
-        subjects = ['kae', 'jw', 'tmj', 'ems', 'zb', 'emb', 'hp', 'ajs', 'tu', 'jcw', 'krl', 'CNG', 'ff', 'po', 'ya']
-
-        with open(os.path.join(temp_dir, 'extract_fixations.m'), 'wb') as f:
-            f.write(resource_string(__name__, 'scripts/{}'.format('extract_fixations.m')))
-
-        cmds = []
-        # It is vital _not_ to store the extracted fixations in the main
-        # directory where matlab is running, as matlab will check the timestamp
-        # of all files in this directory very often. This leads to heavy
-        # performance penalties and would make matlab run for more than an
-        # hour.
-        out_path = 'extracted'
-        os.makedirs(os.path.join(temp_dir, out_path))
-        total_cmd_count = len(stimuli_filenames) * len(subjects)
-        for n, stimulus in enumerate(stimuli_filenames):
-            for subject_id, subject in enumerate(subjects):
-                subject_path = os.path.join('DATA', subject)
-                outfile = '{0}_{1}.mat'.format(stimulus, subject)
-                outfile = os.path.join(out_path, outfile)
-                cmds.append("fprintf('%d/%d\\n', {}, {});".format(n*len(subjects)+subject_id, total_cmd_count))
-                cmds.append("extract_fixations('{0}', '{1}', '{2}');".format(stimulus, subject_path, outfile))
-
-        print('Running original code to extract fixations. This can take some minutes.')
-        print('Warning: In the IPython Notebook, the output is shown on the console instead of the notebook.')
-        with open(os.path.join(temp_dir, 'extract_all_fixations.m'), 'w') as f:
-            for cmd in cmds:
-                f.write('{}\n'.format(cmd))
-
-        run_matlab_cmd('extract_all_fixations;', cwd=temp_dir)
-        xs = []
-        ys = []
-        ts = []
-        ns = []
-        train_subjects = []
-        for n, stimulus in enumerate(stimuli_filenames):
-            stimulus_size = stimuli.sizes[n]
-            for subject_id, subject in enumerate(subjects):
-                subject_name = os.path.split(subject)[-1]
-                outfile = '{0}_{1}.mat'.format(stimulus, subject_name)
-                mat_data = loadmat(os.path.join(temp_dir, out_path, outfile))
-                fix_data = mat_data['fixations']
-                starts = mat_data['starts']
-                x = []
-                y = []
-                t = []
-                for i in range(1, fix_data.shape[0]):  # Skip first fixation like Judd does
-                    if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
-                        continue
-                    if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
-                        continue
-                    x.append(fix_data[i, 0])
-                    y.append(fix_data[i, 1])
-                    t.append(starts[0, i]/240.0)  # Eye Tracker rate = 240Hz
-                xs.append(x)
-                ys.append(y)
-                ts.append(t)
-                ns.append(n)
-                train_subjects.append(subject_id)
-        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
-
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
-    return stimuli, fixations
+    return _get_mit1003('MIT1003_onesize', location=location, include_initial_fixation=False, only_1024_by_768=True)
 
 
 def get_mit300(location=None):
