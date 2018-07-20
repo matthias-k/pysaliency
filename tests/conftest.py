@@ -6,16 +6,19 @@ import pysaliency.utils
 def pytest_addoption(parser):
     parser.addoption("--runslow", action="store_true",
                      default=False, help="run slow tests")
+    parser.addoption("--nomatlab", action="store_true", default=False, help="don't run matlab tests")
 
 
 def pytest_collection_modifyitems(config, items):
-    if config.getoption("--runslow"):
-        # --runslow given in cli: do not skip slow tests
-        return
+    run_slow = config.getoption("--runslow")
+    no_matlab = config.getoption("--nomatlab")
     skip_slow = pytest.mark.skip(reason="need --runslow option to run")
+    skip_matlab = pytest.mark.skip(reason="skipped because of --nomatlab")
     for item in items:
-        if "slow" in item.keywords:
+        if "slow" in item.keywords and not run_slow:
             item.add_marker(skip_slow)
+        if "matlab" in item.keywords and no_matlab:
+            item.add_marker(skip_matlab)
 
 
 @pytest.fixture(params=["matlab", "octave"])
