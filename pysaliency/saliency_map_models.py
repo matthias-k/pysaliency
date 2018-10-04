@@ -893,3 +893,15 @@ def export_model_to_hdf5(model, stimuli, filename, compression=9):
 
             smap = model.saliency_map(s)
             f.create_dataset(stimulus_name, data=smap, compression=compression)
+
+
+class LambdaSaliencyMapModel(SaliencyMapModel):
+    """Applies a function to a list of saliency maps from other models"""
+    def __init__(self, parent_models, fn, **kwargs):
+        super(LambdaSaliencyMapModel, self).__init__(**kwargs)
+        self.parent_models = parent_models
+        self.fn = fn
+
+    def _saliency_map(self, stimulus):
+        saliency_maps = [model.saliency_map(stimulus) for model in self.parent_models]
+        return self.fn(saliency_maps)

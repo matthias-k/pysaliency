@@ -191,3 +191,21 @@ def test_full_shuffled_nonfixation_provider():
     assert len(xs) == (fixations.n != 0).sum()
     np.testing.assert_allclose(xs, [1, 10, 3, 1, 1, 8, 1])
     np.testing.assert_allclose(ys, [21, 25, 33, 20, 21, 21, 22])
+
+
+def test_lambda_saliency_map_model():
+    stimuli = pysaliency.Stimuli([np.random.randn(50, 50, 3),
+                                  np.random.randn(50, 50, 3),
+                                  np.random.randn(100, 200, 3)])
+    m1 = ConstantSaliencyMapModel()
+    m2 = GaussianSaliencyMapModel()
+    fn1 = lambda smaps: np.exp(smaps[0])
+    fn2 = lambda smaps: np.sum(smaps, axis=0)
+    lambda_model_1 = pysaliency.saliency_map_models.LambdaSaliencyMapModel([m1, m2], fn1)
+    lambda_model_2 = pysaliency.saliency_map_models.LambdaSaliencyMapModel([m1, m2], fn2)
+
+    for s in stimuli:
+        smap1 = m1.saliency_map(s)
+        smap2 = m2.saliency_map(s)
+        np.testing.assert_allclose(lambda_model_1.saliency_map(s), fn1([smap1, smap2]))
+        np.testing.assert_allclose(lambda_model_2.saliency_map(s), fn2([smap1, smap2]))
