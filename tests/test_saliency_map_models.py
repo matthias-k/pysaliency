@@ -209,3 +209,19 @@ def test_lambda_saliency_map_model():
         smap2 = m2.saliency_map(s)
         np.testing.assert_allclose(lambda_model_1.saliency_map(s), fn1([smap1, smap2]))
         np.testing.assert_allclose(lambda_model_2.saliency_map(s), fn2([smap1, smap2]))
+
+
+def test_saliency_map_model_operators():
+    stimuli = pysaliency.Stimuli([np.random.randn(50, 50, 3),
+                                  np.random.randn(50, 50, 3),
+                                  np.random.randn(100, 200, 3)])
+    m1 = ConstantSaliencyMapModel()
+    m2 = GaussianSaliencyMapModel()
+
+    for s in stimuli:
+        smap1 = m1.saliency_map(s)
+        smap2 = m2.saliency_map(s)
+        np.testing.assert_allclose((m1+m2).saliency_map(s), smap1 + smap2)
+        np.testing.assert_allclose((m1-m2).saliency_map(s), smap1 - smap2)
+        np.testing.assert_allclose((m1*m2).saliency_map(s), smap1 * smap2)
+        np.testing.assert_allclose((m1/m2).saliency_map(s), smap1 / smap2)

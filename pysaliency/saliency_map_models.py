@@ -611,6 +611,30 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
     def SIM(self, stimuli, other, verbose=False):
         return self.SIMs(stimuli, other, verbose=verbose).mean()
 
+    def __add__(self, other):
+        if not isinstance(other, SaliencyMapModel):
+            return NotImplemented
+
+        return LambdaSaliencyMapModel([self, other], fn=lambda smaps: np.sum(smaps, axis=0, keepdims=False), caching=False)
+
+    def __sub__(self, other):
+        if not isinstance(other, SaliencyMapModel):
+            return NotImplemented
+
+        return LambdaSaliencyMapModel([self, other], fn=lambda smaps: smaps[0] - smaps[1], caching=False)
+
+    def __mul__(self, other):
+        if not isinstance(other, SaliencyMapModel):
+            return NotImplemented
+
+        return LambdaSaliencyMapModel([self, other], fn=lambda smaps: np.prod(smaps, axis=0, keepdims=False), caching=False)
+
+    def __truediv__(self, other):
+        if not isinstance(other, SaliencyMapModel):
+            return NotImplemented
+
+        return LambdaSaliencyMapModel([self, other], fn=lambda smaps: smaps[0] / smaps[1], caching=False)
+
 
 class CachedSaliencyMapModel(SaliencyMapModel):
     """Saliency map model which uses only precached saliency maps
