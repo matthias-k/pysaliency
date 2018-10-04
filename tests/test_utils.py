@@ -28,7 +28,7 @@ class TestLazyList(TestWithData):
         for i in range(length):
             self.assertEqual(l[i], i**2)
 
-        self.assertEqual(calls, range(length))
+        self.assertEqual(calls, list(range(length)))
 
     def test_pickle_no_cache(self):
         def gen(i):

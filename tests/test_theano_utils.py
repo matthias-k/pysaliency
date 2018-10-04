@@ -1,7 +1,7 @@
 from __future__ import absolute_import, print_function, division, unicode_literals
 
 import unittest
-from itertools import product
+import pytest
 
 import numpy as np
 from scipy.ndimage import gaussian_filter as scipy_filter
@@ -9,6 +9,21 @@ import theano
 import theano.tensor as T
 
 from pysaliency.theano_utils import nonlinearity, gaussian_filter, CenterBias, Blur
+
+
+@pytest.fixture(params=['float64', 'float32'])
+def dtype(request):
+    return request.param
+
+
+@pytest.fixture(params=['pixel', 'random'])
+def input(request):
+    return request.param
+
+
+@pytest.fixture(params=[20.0])
+def sigma(request):
+    return request.param
 
 
 class TestNonlinearity(unittest.TestCase):
@@ -93,14 +108,7 @@ class TestBlur(object):
 
         np.testing.assert_allclose(out, 1)
 
-    def test_other(self):
-        dtypes = ['float64', 'float32']
-        inputs = ['pixel', 'random']
-        sigmas = [20.0]
-        for dtype, input, sigma in product(dtypes, inputs, sigmas):
-            yield self.check_other, dtype, input, sigma
-
-    def check_other(self, dtype, input, sigma):
+    def test_other(self, dtype, input, sigma):
         theano.config.compute_test_value = 'ignore'
         sigma_theano = theano.shared(sigma)
         window_radius = int(sigma*4)
