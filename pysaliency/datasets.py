@@ -396,7 +396,7 @@ class FixationTrains(Fixations):
         """
         Create new fixations object which contains only the fixation trains indicated.
         """
-        if self.__attributes__ != ['subjects']:
+        if not set(self.__attributes__).issubset(['subjects', 'scanpath_index']):
             raise NotImplementedError('Filtering fixation trains with additional attributes is not yet implemented!')
         train_xs = self.train_xs[indices]
         train_ys = self.train_ys[indices]
@@ -737,6 +737,13 @@ def get_image_hash(img):
     Can be used to cache results for images, e.g. saliency maps.
     """
     return sha1(np.ascontiguousarray(img)).hexdigest()
+
+
+def as_stimulus(img_or_stimulus):
+    if isinstance(img_or_stimulus, Stimulus):
+        return img_or_stimulus
+
+    return Stimulus(img_or_stimulus)
 
 
 class Stimulus(object):

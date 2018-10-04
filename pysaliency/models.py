@@ -12,7 +12,7 @@ from .generics import progressinfo
 from .saliency_map_models import (GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus,
                                   SubjectDependentSaliencyMapModel,
                                   ExpSaliencyMapModel, DisjointUnionSaliencyMapModel)
-from .datasets import FixationTrains, get_image_hash
+from .datasets import FixationTrains, get_image_hash, as_stimulus
 
 
 def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
@@ -110,6 +110,17 @@ class GeneralModel(GeneralSaliencyMapModel):
 
     def log_likelihood(self, stimuli, fixations, verbose=False):
         return np.mean(self.log_likelihoods(stimuli, fixations, verbose=verbose))
+
+    def information_gains(self, stimuli, fixations, baseline_model=None, verbose=False):
+        if baseline_model is None:
+            baseline_model = UniformModel()
+
+        own_log_likelihoods = self.log_likelihoods(stimuli, fixations, verbose=verbose)
+        baseline_log_likelihoods = baseline_model.log_likelihoods(stimuli, fixations, verbose=verbose)
+        return (own_log_likelihoods - baseline_log_likelihoods) / np.log(2)
+
+    def information_gain(self, stimuli, fixations, baseline_model=None, verbose=False):
+        return np.mean(self.information_gains(stimuli, fixations, baseline_model, verbose=verbose))
 
     def _expand_sample_arguments(self, stimuli, train_counts, lengths=None, stimulus_indices=None):
         if isinstance(train_counts, int):
@@ -434,6 +445,27 @@ class StimulusDependentModel(Model):
         for stimuli, model in self.stimuli_models.items():
             if stimulus_hash in stimuli.stimulus_ids:
                 return model.log_density(stimulus)
+        else:
+            raise ValueError('stimulus not provided by these models')
+
+
+class StimulusDependentGeneralModel(GeneralModel):
+    def __init__(self, stimuli_models, check_stimuli=True, **kwargs):
+        super(StimulusDependentGeneralModel, self).__init__(**kwargs)
+        self.stimuli_models = stimuli_models
+        if check_stimuli:
+            self.check_stimuli()
+
+    def check_stimuli(self):
+        for s1, s2 in tqdm(list(combinations(self.stimuli_models, 2))):
+            if not set(s1.stimulus_ids).isdisjoint(s2.stimulus_ids):
+                raise ValueError('Stimuli not disjoint')
+
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, out=None):
+        stimulus_hash = get_image_hash(as_stimulus(stimulus).stimulus_data)
+        for stimuli, model in self.stimuli_models.items():
+            if stimulus_hash in stimuli.stimulus_ids:
+                return model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, out=out)
         else:
             raise ValueError('stimulus not provided by these models')
 
