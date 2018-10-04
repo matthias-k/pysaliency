@@ -857,14 +857,15 @@ class ExpSaliencyMapModel(SaliencyMapModel):
 
 
 class BluringSaliencyMapModel(SaliencyMapModel):
-    def __init__(self, parent_model, kernel_size, **kwargs):
+    def __init__(self, parent_model, kernel_size, mode='nearest', **kwargs):
         super(BluringSaliencyMapModel, self).__init__(**kwargs)
         self.parent_model = parent_model
         self.kernel_size = kernel_size
+        self.mode = mode
 
     def _saliency_map(self, stimulus):
         smap = self.parent_model.saliency_map(stimulus)
-        smap = gaussian_filter(smap, self.kernel_size, mode='nearest')
+        smap = gaussian_filter(smap, self.kernel_size, mode=self.mode)
         return smap
 
 
