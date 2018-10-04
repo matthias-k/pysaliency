@@ -87,7 +87,7 @@ def build_fixation_maps(Ns, Ys, Xs, batch_size, height, width, dtype=tf.float32)
 
 
 def tf_similarity(saliency_map, empirical_saliency_maps):
-    normalized_empirical_saliency_maps = empirical_saliency_maps / tf.reduce_sum(empirical_saliency_maps, reduction_indices=[1, 2], keep_dims=True)
+    normalized_empirical_saliency_maps = empirical_saliency_maps / tf.reduce_sum(empirical_saliency_maps, reduction_indices=[1, 2], keepdims=True)
     normalized_saliency_map = saliency_map / tf.reduce_sum(saliency_map)
     minimums = tf.minimum(normalized_empirical_saliency_maps, tf.expand_dims(normalized_saliency_map, 0))
 
