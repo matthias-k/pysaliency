@@ -1,5 +1,6 @@
 import numpy as np
 import dill
+import pytest
 
 from pysaliency import SaliencyMapConvertor, SaliencyMapModel, Stimuli, Fixations, optimize_for_information_gain
 
@@ -14,6 +15,7 @@ class GaussianSaliencyMapModel(SaliencyMapModel):
         return np.ones((stimulus.shape[0], stimulus.shape[1]))*np.exp(-0.5*(r_squared/size))
 
 
+@pytest.mark.theano
 def test_optimize_for_IG():
     model = GaussianSaliencyMapModel()
     stimulus = np.random.randn(100, 100, 3)
@@ -38,6 +40,7 @@ def test_optimize_for_IG():
     assert smc
 
 
+@pytest.mark.theano
 def test_saliency_map_converter(tmpdir):
     import theano
     theano.config.floatX = 'float64'
