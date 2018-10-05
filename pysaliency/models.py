@@ -1,6 +1,8 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
+from six import add_metaclass
+
 from itertools import combinations
 
 import numpy as np
@@ -13,6 +15,7 @@ from .saliency_map_models import (GeneralSaliencyMapModel, SaliencyMapModel, han
                                   SubjectDependentSaliencyMapModel,
                                   ExpSaliencyMapModel, DisjointUnionSaliencyMapModel)
 from .datasets import FixationTrains, get_image_hash, as_stimulus
+from .utils import Cache
 
 
 def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
@@ -83,7 +86,8 @@ def sample_from_image(densities, count=None, rst=None):
         return np.asarray(sample_xs), np.asarray(sample_ys)
 
 
-class GeneralModel(GeneralSaliencyMapModel):
+@add_metaclass(ABCMeta)
+class GeneralModel(object):
     """
     General probabilistic saliency model.
 
@@ -93,9 +97,6 @@ class GeneralModel(GeneralSaliencyMapModel):
     @abstractmethod
     def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, out=None):
         raise NotImplementedError()
-
-    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, out=None):
-        return self.conditional_log_density(stimulus, x_hist, y_hist, t_hist, out=out)
 
     def log_likelihoods(self, stimuli, fixations, verbose=False):
         log_likelihoods = np.empty(len(fixations.x))
@@ -221,18 +222,27 @@ class GeneralModel(GeneralSaliencyMapModel):
         return xs, ys, ts
 
 
-class Model(GeneralModel, SaliencyMapModel):
+class Model(GeneralModel):
     """
     Time independend probabilistic saliency model.
 
     Inheriting classes have to implement `_log_density`.
     """
     def __init__(self, cache_location=None, caching=True, memory_cache_size=None):
-        super(Model, self).__init__(cache_location=cache_location, caching=caching,
-                                    memory_cache_size=memory_cache_size)
+        super(Model, self).__init__()
+        self._cache = Cache(cache_location, memory_cache_size=memory_cache_size)
+        self.caching = caching
         #self._log_density_cache = Cache(cache_location)
         # This make the property `cache_location` work.
         #self._saliency_map_cache = self._log_density_cache
+
+    @property
+    def cache_location(self):
+        return self._cache.cache_location
+
+    @cache_location.setter
+    def cache_location(self, value):
+        self._cache.cache_location = value
 
     def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, out=None):
         return self.log_density(stimulus)
@@ -317,6 +327,15 @@ class Model(GeneralModel, SaliencyMapModel):
             logp_gold = gold_standard.log_density(s)
             kl_divs.append((np.exp(logp_gold)*(logp_gold - logp_model)).sum())
         return kl_divs
+
+    def set_params(self, **kwargs):
+        """
+	        Set model parameters, if the model has parameters
+
+	        This method has to reset caches etc., if the depend on the parameters
+        """
+        if kwargs:
+            raise ValueError('Unkown parameters!', kwargs)
 
 
 class CachedModel(Model):

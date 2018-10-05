@@ -48,50 +48,6 @@ def stimuli():
                                np.random.randn(40, 40, 3)])
 
 
-def test_auc_constant(stimuli, fixation_trains):
-    csmm = ConstantSaliencyModel()
-
-    aucs = csmm.AUCs(stimuli, fixation_trains, nonfixations='uniform')
-    np.testing.assert_allclose(aucs, np.ones(len(fixation_trains.x))*0.5)
-
-    aucs = csmm.AUCs(stimuli, fixation_trains, nonfixations='shuffled')
-    np.testing.assert_allclose(aucs, np.ones(len(fixation_trains.x))*0.5)
-
-
-def test_auc_gauss(stimuli, fixation_trains):
-    gsmm = GaussianSaliencyModel()
-
-    aucs = gsmm.AUCs(stimuli, fixation_trains, nonfixations='uniform')
-    np.testing.assert_allclose(aucs, [0.099375,  0.158125,  0.241875,  0.241875,
-                                      0.241875,  0.291875, 0.509375,  0.138125],
-                               rtol=1e-6)
-
-    aucs = gsmm.AUCs(stimuli, fixation_trains, nonfixations='shuffled')
-    np.testing.assert_allclose(aucs, [0.0,         0.33333333,  0.33333333,  0.33333333,
-                                      0.33333333,  1.,          1.,          0.2],
-                               rtol=1e-6)
-
-
-def test_fixation_based_kl_constant(stimuli, fixation_trains):
-    csmm = ConstantSaliencyModel()
-
-    fb_kl = csmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='uniform')
-    np.testing.assert_allclose(fb_kl, 0.0)
-
-    fb_kl = csmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='shuffled')
-    np.testing.assert_allclose(fb_kl, 0.0)
-
-
-def test_fixation_based_kl_gauss(stimuli, fixation_trains):
-    gsmm = GaussianSaliencyModel()
-
-    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='uniform')
-    np.testing.assert_allclose(fb_kl, 0.8763042309253437)
-
-    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='shuffled')
-    np.testing.assert_allclose(fb_kl, 0.0)
-
-
 def test_log_likelihood_constant(stimuli, fixation_trains):
     csmm = ConstantSaliencyModel()
 
