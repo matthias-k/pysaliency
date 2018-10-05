@@ -6,7 +6,7 @@ from six.moves import cPickle
 import dill
 
 import numpy as np
-from scipy.misc import imsave
+from imageio import imwrite
 
 import pysaliency
 from test_helpers import TestWithData
@@ -103,7 +103,8 @@ class TestFixations(TestWithData):
             ts_trains.append(np.cumsum(np.square(np.random.randn(size))))
             ns.append(np.random.randint(20))
             subjects.append(np.random.randint(20))
-            f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+
+        f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
         # First order filtering
         inds = f.train_ns == 10
         _f = f.filter_fixation_trains(inds)
@@ -228,11 +229,11 @@ class TestFileStimuli(TestWithData):
     def test_file_stimuli(self):
         img1 = np.random.randint(255, size=(100, 200, 3)).astype('uint8')
         filename1 = os.path.join(self.data_path, 'img1.png')
-        imsave(filename1, img1)
+        imwrite(filename1, img1)
 
         img2 = np.random.randint(255, size=(50, 150)).astype('uint8')
         filename2 = os.path.join(self.data_path, 'img2.png')
-        imsave(filename2, img2)
+        imwrite(filename2, img2)
 
         stimuli = pysaliency.FileStimuli([filename1, filename2])
 
@@ -263,7 +264,7 @@ class TestFileStimuli(TestWithData):
         filenames = []
         for i, img in enumerate(images):
             filename = os.path.join(self.data_path, 'img{}.png'.format(i))
-            imsave(filename, img)
+            imwrite(filename, img)
             filenames.append(filename)
 
 

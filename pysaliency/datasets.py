@@ -12,7 +12,7 @@ from six.moves import range as xrange
 from six import string_types
 
 import numpy as np
-from scipy.misc import imread
+from imageio import imread
 from PIL import Image
 from tqdm import tqdm
 

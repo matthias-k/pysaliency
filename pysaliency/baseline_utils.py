@@ -5,7 +5,7 @@ from scipy.misc import logsumexp
 from scipy.ndimage.filters import gaussian_filter
 
 from sklearn.neighbors.kde import KernelDensity
-from sklearn.cross_validation import _PartitionIterator
+from sklearn.model_selection import BaseCrossValidator
 from sklearn.base import BaseEstimator
 
 from tqdm import tqdm
@@ -64,7 +64,7 @@ def fixations_to_scikit_learn(fixations, normalize=None, keep_aspect=False, add_
     return np.vstack(data).T.copy()
 
 
-class ScikitLearnImageCrossValidationGenerator(_PartitionIterator):
+class ScikitLearnImageCrossValidationGenerator(BaseCrossValidator):
     def __init__(self, stimuli, fixations):
         super(ScikitLearnImageCrossValidationGenerator, self).__init__(len(fixations.x))
         self.stimuli = stimuli

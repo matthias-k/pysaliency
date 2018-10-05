@@ -31,6 +31,7 @@ setup(
 	license = 'MIT',
 	install_requires=[
 		'boltons',
+		'imageio',
 		'natsort',
 		'numpy',
 		'requests',

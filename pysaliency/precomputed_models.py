@@ -4,7 +4,8 @@ import os.path
 import warnings
 
 import numpy as np
-from scipy.misc import imread, logsumexp
+from imageio import imread
+from scipy.special import logsumexp
 from scipy.io import loadmat
 
 from .models import Model
