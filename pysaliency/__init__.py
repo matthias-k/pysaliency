@@ -4,6 +4,12 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 #from . import models
 #import .utils
 
+from . import datasets
+from . import saliency_map_models
+from . import models
+from . import external_models
+from . import external_datasets
+
 from .datasets import (Fixations, FixationTrains, Stimuli, FileStimuli, create_nonfixations, create_subset, remove_out_of_stimulus_fixations,
                        concatenate_datasets, read_hdf5)
 from .saliency_map_models import (SaliencyMapModel, GeneralSaliencyMapModel, FixationMap, CachedSaliencyMapModel, ExpSaliencyMapModel,

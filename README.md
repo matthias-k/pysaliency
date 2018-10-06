@@ -3,8 +3,39 @@ Pysaliency
 
 Pysaliency is a python package for saliency modelling. It aims at providing a unified interface
 to both the traditional saliency maps used in saliency modeling as well as probabilistic saliency
-models. Pysaliency has a range of influential models prepackaged and ready for use, as well as
-some public available datasets. These models are using the original code which is often matlab.
+models.
+
+Pysaliency can evaluate most commonly used saliency metrics, including AUC, sAUC, NSS, CC
+image-based KL divergence, fixation based KL divergence and SIM for saliency map models and
+log likelihoods and information gain for probabilistic models.
+
+Pysaliency provides several important datasets:
+
+* MIT1003
+* MIT300
+* CAT2000
+* Toronto
+* Koehler
+* iSUN
+* SALICON (both the 2015 and the 2017 edition and each with both the original mouse traces and the inferred fixations)
+* FIGRIM
+* OSIE
+* NUSEF (the part with public images)
+
+and some influential models:
+* AIM
+* SUN
+* ContextAwareSaliency
+* BMS
+* GBVS
+* GBVSIttiKoch
+* Judd
+* IttiKoch
+* RARE2012
+* CovSal
+
+
+These models are using the original code which is often matlab.
 Therefore, a matlab licence is required to make use of these models, although quite some of them
 work with octave, too (see below).
 
