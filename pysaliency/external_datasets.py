@@ -18,7 +18,7 @@ from boltons.fileutils import mkdir_p
 from tqdm import tqdm
 
 from .datasets import FileStimuli, Stimuli, FixationTrains, Fixations, read_hdf5
-from .utils import TemporaryDirectory, filter_files, run_matlab_cmd, download_and_check
+from .utils import TemporaryDirectory, filter_files, run_matlab_cmd, download_and_check, download_file_from_google_drive, check_file_hash
 from .generics import progressinfo
 
 
@@ -862,7 +862,8 @@ def get_iSUN_testing(location=None):
     return test_stimuli
 
 
-def _get_SALICON(data_type, stimuli_url, stimuli_hash, fixation_url, fixation_hash, location):
+def _get_SALICON_obsolete(data_type, stimuli_url, stimuli_hash, fixation_url, fixation_hash, location):
+    """Obsolete code for loading from the SALICON json files. The URLs don't exist anymore and the LSUN challenge uses simpler mat files"""
     from salicon.salicon import SALICON
     with TemporaryDirectory(cleanup=True) as temp_dir:
         download_and_check(stimuli_url,
@@ -934,13 +935,22 @@ def _get_SALICON(data_type, stimuli_url, stimuli_hash, fixation_url, fixation_ha
     return stimuli, fixations
 
 
-def get_SALICON_train(location=None):
+
+def get_SALICON(edition='2015', fixation_type='mouse', location=None):
     """
-    Loads or downloads and caches the SALICON training dataset. For memory reasons no fixation trains
-    are provided.
+    Loads or downloads and caches the SALICON dataset as used in the LSUN challenge prior to 2017.
+    For memory reasons no fixation trains  are provided.
+    @type edition: string, defaults to '2015'
+    @param edition: whether to provide the original SALICON dataset from 2015 or the update from 2017
+
+    @type fixation_type: string, defaults to 'mouse'
+    @param fixation_type: whether to use the mouse gaze postion ('mouse')
+                          or the inferred fixations ('fixations').
+                          For more details see the SALICON challenge homepage (below).
+
     @type  location: string, defaults to `None`
     @param location: If and where to cache the dataset. The dataset
-                     will be stored in the subdirectory `SALICON_train` of
+                     will be stored in the subdirectory `SALICON` of
                      location and read from there, if already present.
     @return: Training stimuli, validation stimuli, testing stimuli, training fixation trains, validation fixation trains
 
@@ -948,99 +958,225 @@ def get_SALICON_train(location=None):
         Ming Jiang, Shengsheng Huang, Juanyong Duan*, Qi Zhao: SALICON: Saliency in Context, CVPR 2015
 
         http://salicon.net/
+
+    .. note:
+        prior to version 0.2.0 of pysaliency the data was stored in a way that allowed
+        accessing the subject ids. This is not possible anymore and each scanpath on
+        each image is just assigned an auto-incrementing id.
     """
+    if edition not in ['2015', '2017']:
+        raise ValueError('edition has to be \'2015\' or \'2017\', not \'{}\''.format(edition))
+
+    if fixation_type not in ['mouse', 'fixations']:
+        raise ValueError('fixation_type has to be \'mouse\' or \'fixations\', not \'{}\''.format(fixation_type))
+
+    name = _get_SALICON_name(edition=edition, fixation_type=fixation_type)
+
+    stimuli_train, stimuli_val, stimuli_test = _get_SALICON_stimuli(
+        location=location, name='SALICON', edition=edition, fixation_type=fixation_type)
+    fixations_train, fixations_val = _get_SALICON_fixations(
+        location=location, name=name, edition=edition, fixation_type=fixation_type)
+
+    return stimuli_train, stimuli_val, stimuli_test, fixations_train, fixations_val
+
+
+def _get_SALICON_name(edition='2015', fixation_type='mouse'):
+    if edition not in ['2015', '2017']:
+        raise ValueError('edition has to be \'2015\' or \'2017\', not \'{}\''.format(edition))
+
+    if fixation_type not in ['mouse', 'fixations']:
+        raise ValueError('fixation_type has to be \'mouse\' or \'fixations\', not \'{}\''.format(fixation_type))
+
+    if edition == '2015':
+        if fixation_type == 'mouse':
+            name = 'SALICON'
+        elif fixation_type == 'fixations':
+            name = 'SALICON2015_fixations'
+    elif edition == '2017':
+        if fixation_type == 'mouse':
+            name = 'SALICON2017_mouse'
+        elif fixation_type == 'fixations':
+            name = 'SALICON2017_fixations'
+
+    return name
+
+
+def _get_SALICON_stimuli(location, name, edition='2015', fixation_type='mouse'):
+    if edition not in ['2015', '2017']:
+        raise ValueError('edition has to be \'2015\' or \'2017\', not \'{}\''.format(edition))
+
+    if fixation_type not in ['mouse', 'fixations']:
+        raise ValueError('fixation_type has to be \'mouse\' or \'fixations\', not \'{}\''.format(fixation_type))
+
     if location:
-        location = os.path.join(location, 'SALICON_train')
+        location = os.path.join(location, name)
         if os.path.exists(location):
-            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
-            fixations = _load(os.path.join(location, 'fixations.hdf5'))
-            return stimuli, fixations
-        os.makedirs(location)
-    stimuli, fixations = _get_SALICON('train',
-                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/train.zip',
-                                      'd549761c16e59b80cd5981373ada5e98',
-                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/fixations_train2014.json',
-                                      'ab60a090ee31642fbb4aa41f4953b8bd',
-                                      location)
-    return stimuli, fixations
+            if all(os.path.exists(os.path.join(location, filename)) for filename in ['stimuli_train.hdf5', 'stimuli_val.hdf5', 'stimuli_test.hdf5']):
+                stimuli_train = read_hdf5(os.path.join(location, 'stimuli_train.hdf5'))
+                stimuli_val = read_hdf5(os.path.join(location, 'stimuli_val.hdf5'))
+                stimuli_test = read_hdf5(os.path.join(location, 'stimuli_test.hdf5'))
+                return stimuli_train, stimuli_val, stimuli_test
+        os.makedirs(location, exist_ok=True)
 
-
-def get_SALICON_val(location=None):
-    """
-    Loads or downloads and caches the SALICON validation dataset. For memory reasons no fixation trains
-    are provided.
-    @type  location: string, defaults to `None`
-    @param location: If and where to cache the dataset. The dataset
-                     will be stored in the subdirectory `SALICON_train` of
-                     location and read from there, if already present.
-    @return: Training stimuli, validation stimuli, testing stimuli, training fixation trains, validation fixation trains
-
-    .. seealso::
-        Ming Jiang, Shengsheng Huang, Juanyong Duan*, Qi Zhao: SALICON: Saliency in Context, CVPR 2015
-
-        http://salicon.net/
-    """
-    if location:
-        location = os.path.join(location, 'SALICON_val')
-        if os.path.exists(location):
-            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
-            fixations = _load(os.path.join(location, 'fixations.hdf5'))
-            return stimuli, fixations
-        os.makedirs(location)
-    stimuli, fixations = _get_SALICON('val',
-                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/val.zip',
-                                      '62cd6641a5354d3099a693ff90cb6dab',
-                                      'https://s3.amazonaws.com/salicon-dataset/2015r1/fixations_val2014.json',
-                                      '3224f8cf86ea8d248d93583866b60c5f',
-                                      location)
-    return stimuli, fixations
-
-
-def get_SALICON_test(location=None):
-    """
-    Loads or downloads and caches the SALICON test stimuli
-    @type  location: string, defaults to `None`
-    @param location: If and where to cache the dataset. The dataset
-                     will be stored in the subdirectory `SALICON_test` of
-                     location and read from there, if already present.
-    @return: Test stimuli
-
-    .. seealso::
-        Ming Jiang, Shengsheng Huang, Juanyong Duan*, Qi Zhao: SALICON: Saliency in Context, CVPR 2015
-
-        http://salicon.net/
-    """
-    if location:
-        location = os.path.join(location, 'SALICON_test')
-        if os.path.exists(location):
-            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
-            return stimuli
-        os.makedirs(location)
-
-    stimuli_url = 'https://s3.amazonaws.com/salicon-dataset/2015r1/test.zip'
-    stimuli_hash = '746897f099d72b4b74861ee00917a3f2'
-
-    from salicon.salicon import SALICON
     with TemporaryDirectory(cleanup=True) as temp_dir:
-        download_and_check(stimuli_url,
-                           os.path.join(temp_dir, 'stimuli.zip'),
-                           stimuli_hash)
-        print('Creating stimuli')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'stimuli.zip'))
-        namelist = f.namelist()
-        f.extractall(temp_dir, namelist)
-        del f
+        stimuli_file = os.path.join(temp_dir, 'stimuli.zip')
 
-        # Let's hope that that is the right order.
-        namelist = [f for f in namelist if f.lower().endswith('.jpg')]
-        stimuli_filenames = natsorted(namelist)
-        stimuli_src_location = os.path.join(temp_dir)
-        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+        download_and_check(
+            'http://lsun.cs.princeton.edu/challenge/2015/eyetracking_salicon/data/image.zip',
+            stimuli_file,
+            '856e451461b8c164f556ebef96dad1a2'
+        )
+
+        print("Extracting stimuli")
+
+        f = zipfile.ZipFile(stimuli_file)
+        f.extractall(temp_dir)
+
+        stimuli_train = create_stimuli(
+            stimuli_location = os.path.join(temp_dir, 'images'),
+            filenames = [os.path.basename(f) for f in sorted(glob.glob(os.path.join(temp_dir, 'images', 'COCO_train*')))],
+            location=os.path.join(location, 'stimuli', 'train') if location else None
+        )
+
+        stimuli_val = create_stimuli(
+            stimuli_location = os.path.join(temp_dir, 'images'),
+            filenames = [os.path.basename(f) for f in sorted(glob.glob(os.path.join(temp_dir, 'images', 'COCO_val*')))],
+            location=os.path.join(location, 'stimuli', 'val') if location else None
+        )
+
+        stimuli_test = create_stimuli(
+            stimuli_location = os.path.join(temp_dir, 'images'),
+            filenames = [os.path.basename(f) for f in sorted(glob.glob(os.path.join(temp_dir, 'images', 'COCO_test*')))],
+            location=os.path.join(location, 'stimuli', 'test') if location else None
+        )
+
+        if location is not None:
+            stimuli_train.to_hdf5(os.path.join(location, 'stimuli_train.hdf5'))
+            stimuli_val.to_hdf5(os.path.join(location, 'stimuli_val.hdf5'))
+            stimuli_test.to_hdf5(os.path.join(location, 'stimuli_test.hdf5'))
+
+        return stimuli_train, stimuli_val, stimuli_test
+
+
+def _get_SALICON_fixations(location, name, edition='2015', fixation_type='mouse'):
+    if edition not in ['2015', '2017']:
+        raise ValueError('edition has to be \'2015\' or \'2017\', not \'{}\''.format(edition))
+
+    if fixation_type not in ['mouse', 'fixations']:
+        raise ValueError('fixation_type has to be \'mouse\' or \'fixations\', not \'{}\''.format(fixation_type))
 
     if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-    return stimuli
+        location = os.path.join(location, name)
+        if os.path.exists(location):
+            if all(os.path.exists(os.path.join(location, filename)) for filename in ['fixations_train.hdf5', 'fixations_val.hdf5']):
+                fixations_train = read_hdf5(os.path.join(location, 'fixations_train.hdf5'))
+                fixations_val = read_hdf5(os.path.join(location, 'fixations_val.hdf5'))
+                return fixations_train, fixations_val
+        os.makedirs(location, exist_ok=True)
+
+    with TemporaryDirectory(cleanup=True) as temp_dir:
+        fixations_file = os.path.join(temp_dir, 'fixations.zip')
+
+        if edition == '2015':
+            download_file_from_google_drive('0B2hsWbciDVedWHFiMUVVWFRZTE0', fixations_file)
+            check_file_hash(fixations_file, '9a22db9d718200fb90252e5010c004c4')
+        elif edition == '2017':
+            download_file_from_google_drive('0B2hsWbciDVedS1lBZHprdXFoZkU', fixations_file)
+            check_file_hash(fixations_file, '462b70f4f9e8ea446ac628e46cea8d3d')
+
+        f = zipfile.ZipFile(fixations_file)
+        f.extractall(os.path.join(temp_dir, 'fixations'))
+
+        fixations = []
+
+        if fixation_type == 'mouse':
+            fixation_attr = 'location'
+        elif fixation_type == 'fixations':
+            fixation_attr = 'fixations'
+
+        for dataset in ['train', 'val']:
+            ns = []
+            train_xs = []
+            train_ys = []
+            train_ts = []
+            train_subjects = []
+
+            subject_id = 0
+
+            data_files = list(sorted(glob.glob(os.path.join(temp_dir, 'fixations', dataset, '*.mat'))))
+            for n, filename in enumerate(tqdm(data_files)):
+                fixation_data = loadmat(filename)
+                for subject_data in fixation_data['gaze'].flatten():
+                    train_xs.append(subject_data[fixation_attr][:, 0] - 1)  # matlab: one-based indexing
+                    train_ys.append(subject_data[fixation_attr][:, 1] - 1)
+                    if fixation_type == 'mouse':
+                        train_ts.append(subject_data['timestamp'].flatten())
+                    elif fixation_type == 'fixations':
+                        train_ts.append(range(len(train_xs[-1])))
+
+                    train_subjects.append(np.ones(len(train_xs[-1]), dtype=int)*subject_id)
+                    ns.append(np.ones(len(train_xs[-1]), dtype=int)*n)
+                    subject_id += 1
+
+            xs = np.hstack(train_xs)
+            ys = np.hstack(train_ys)
+            ts = np.hstack(train_ts)
+            subjects = np.hstack(train_subjects)
+            ns = np.hstack(ns)
+
+            fixations.append(Fixations.FixationsWithoutHistory(xs, ys, ts, ns, subjects))
+
+        fixations_train, fixations_val = fixations
+
+        if location is not None:
+            fixations_train.to_hdf5(os.path.join(location, 'fixations_train.hdf5'))
+            fixations_val.to_hdf5(os.path.join(location, 'fixations_val.hdf5'))
+
+        return fixations_train, fixations_val
+
+
+def get_SALICON_train(edition='2015', fixation_type='mouse', location=None):
+    """
+    Loads or downloads and caches the SALICON training dataset. See `get_SALICON` for more details.
+    """
+    if location:
+        name = _get_SALICON_name(edition=edition, fixation_type=fixation_type)
+        if os.path.exists(os.path.join(location, name)):
+            stimuli = _load(os.path.join(locaton, 'SALICON', 'stimuli_train.hdf5'))
+            fixations = _load(os.path.join(location, name, 'fixations_train.hdf5'))
+            return stimuli, fixations
+    stimuli_train, stimuli_val, stimuli_test, fixations_val, fixations_test = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
+
+    return stimuli_train, fixations_train
+
+
+def get_SALICON_val(edition='2015', fixation_type='mouse',  location=None):
+    """
+    Loads or downloads and caches the SALICON validation dataset. See `get_SALICON` for more details.
+    """
+    if location:
+        name = _get_SALICON_name(edition=edition, fixation_type=fixation_type)
+        if os.path.exists(os.path.join(location, name)):
+            stimuli = _load(os.path.join(location, 'SALICON', 'stimuli_val.hdf5'))
+            fixations = _load(os.path.join(location, name, 'fixations_val.hdf5'))
+            return stimuli, fixations
+    stimuli_train, stimuli_val, stimuli_test, fixations_val, fixations_test = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
+
+    return stimuli_val, stimuli_val
+
+
+def get_SALICON_test(edition='2015', fixation_type='mouse', location=None):
+    """
+    Loads or downloads and caches the SALICON test dataset. See `get_SALICON` for more details.
+    """
+    if location:
+        name = _get_SALICON_name(edition=edition, fixation_type=fixation_type)
+        if os.path.exists(os.path.join(location, name)):
+            stimuli = _load(os.path.join('SALICON', 'stimuli_test.hdf5'))
+            return stimuli
+    stimuli_train, stimuli_val, stimuli_test, fixations_val, fixations_test = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
+
+    return stimuli_test
 
 
 def _get_koehler_fixations(data, task, n_stimuli):

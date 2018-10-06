@@ -16,9 +16,6 @@ Make sure all packages from requirements.txt are installed. Then as usual, the p
 
     python setup.py install
 
-If you want to use the SALICON dataset you have to install the [salicon python api](https://github.com/NUS-VIP/salicon-api).
-
-
 Quickstart
 ----------
 
@@ -60,7 +57,7 @@ These models and dataset seem to work with octave:
   - MIT300
   - SALICON
 
-Depenencies
+Dependencies
 -----------
 
 The Judd Model needs some libraries to work. In ubuntu/debian you need to install these packages:
