@@ -144,7 +144,6 @@ if __name__ == '__main__':
 
 @pytest.mark.slow
 @pytest.mark.download
-@pytest.mark.skip_octave
 def test_SALICON_stimuli(tmpdir):
     real_location = str(tmpdir)
     location = tmpdir
@@ -168,7 +167,6 @@ def test_SALICON_stimuli(tmpdir):
 
 @pytest.mark.slow
 @pytest.mark.download
-@pytest.mark.skip_octave
 def test_SALICON_fixations_2015_mouse(tmpdir):
     real_location = str(tmpdir)
     location = tmpdir
@@ -233,7 +231,6 @@ def test_SALICON_fixations_2015_mouse(tmpdir):
 
 @pytest.mark.slow
 @pytest.mark.download
-@pytest.mark.skip_octave
 def test_SALICON_fixations_2015_fixations(tmpdir):
     real_location = str(tmpdir)
     location = tmpdir
