@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from distutils.core import setup
-from distutils.extension import Extension
+from setuptools import setup, find_packages
+from setuptools.extension import Extension
 from Cython.Build import cythonize
 
 import numpy as np
@@ -12,6 +12,11 @@ DESCRIPTION = 'A Python Framework for Saliency Modeling and Evaluation'
 AUTHOR = 'Matthias Kümmerer'
 EMAIL = 'matthias.kuemmerer@bethgelab.org'
 URL = "https://github.com/matthiask/pysaliency"
+
+from os import path
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 extensions = [
     Extension("pysaliency.roc", ['pysaliency/*.pyx'],
@@ -24,7 +29,7 @@ extensions = [
 setup(
     name = PACKAGE_NAME,
     version = VERSION,
-    packages = [PACKAGE_NAME],
+    packages = find_packages(),
 	author = AUTHOR,
 	author_email = EMAIL,
 	url = URL,
@@ -36,6 +41,7 @@ setup(
 		'numpy',
 		'requests',
 		'scipy',
+		'setuptools',
 	    'tqdm',
 	],
     include_package_data = True,

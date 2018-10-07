@@ -28,3 +28,6 @@ script:
   - python setup.py build_ext --inplace
   - python -c "import pysaliency"
   - python -m pytest --nomatlab tests
+  - python setup.py sdist
+  - pip install dist/*.tar.gz
+  - mkdir tmp && cd tmp && python -c "import pysaliency"
