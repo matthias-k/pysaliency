@@ -281,7 +281,7 @@ def maximize_expected_sim(log_density, kernel_size,
 
                 score1, score2 = val_scores[-2:]
                 last_min = len(val_scores) - np.argmin(val_scores) - 1
-                outer_t.set_description('{:.05f}, diff {:.02e} [{}] lr {:.02e}'.format(score2, score2-score1, last_min, session.run(learning_rate)))
+                outer_t.set_description('{:.05f}, diff {:.02e}, best val {} steps ago, lr {:.02e}'.format(score2, score2-score1, last_min, session.run(learning_rate)))
                 outer_t.update(1)
 
         return session.run(saliency_map), val_scores[-1]
