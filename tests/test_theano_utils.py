@@ -135,7 +135,7 @@ class TestBlur(object):
         scipy_out = scipy_filter(test_data, sigma, mode='nearest')
 
         if dtype == 'float32':
-            rtol = 1e-6
+            rtol = 5e-6
         else:
             rtol = 1e-7
         np.testing.assert_allclose(out, scipy_out, rtol=rtol)

@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 import tensorflow as tf
 
 from .models import sample_from_logdensity
