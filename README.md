@@ -43,9 +43,10 @@ work with octave, too (see below).
 Installation
 ------------
 
-Make sure all packages from requirements.txt are installed. Then as usual, the package is installed by
+You can install pysaliency from pypi via
 
-    python setup.py install
+    pip install pysaliency
+
 
 Quickstart
 ----------
