@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from .generics import progressinfo
 from .models import Model, UniformModel
+from .optpy import minimize
 from .datasets import Fixations
 
 
@@ -73,7 +74,6 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
                  multiple stimuli
     """
 
-    from optpy import minimize
     import theano
     import theano.tensor as T
     from .theano_utils import SaliencyMapProcessing, SaliencyMapProcessingLogNonlinearity, SaliencyMapProcessingLogarithmic
