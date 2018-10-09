@@ -1145,7 +1145,7 @@ def get_SALICON_train(edition='2015', fixation_type='mouse', location=None):
             stimuli = _load(os.path.join(location, 'SALICON', 'stimuli_train.hdf5'))
             fixations = _load(os.path.join(location, name, 'fixations_train.hdf5'))
             return stimuli, fixations
-    stimuli_train, stimuli_val, stimuli_test, fixations_val, fixations_test = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
+    stimuli_train, stimuli_val, stimuli_test, fixations_train, fixations_val = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
 
     return stimuli_train, fixations_train
 
@@ -1160,7 +1160,7 @@ def get_SALICON_val(edition='2015', fixation_type='mouse',  location=None):
             stimuli = _load(os.path.join(location, 'SALICON', 'stimuli_val.hdf5'))
             fixations = _load(os.path.join(location, name, 'fixations_val.hdf5'))
             return stimuli, fixations
-    stimuli_train, stimuli_val, stimuli_test, fixations_val, fixations_test = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
+    stimuli_train, stimuli_val, stimuli_test, fixations_train, fixations_val = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
 
     return stimuli_val, stimuli_val
 
@@ -1174,7 +1174,7 @@ def get_SALICON_test(edition='2015', fixation_type='mouse', location=None):
         if os.path.exists(os.path.join(location, name)):
             stimuli = _load(os.path.join('SALICON', 'stimuli_test.hdf5'))
             return stimuli
-    stimuli_train, stimuli_val, stimuli_test, fixations_val, fixations_test = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
+    stimuli_train, stimuli_val, stimuli_test, fixations_train, fixations_val = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
 
     return stimuli_test
 
