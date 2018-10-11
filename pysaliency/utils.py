@@ -271,7 +271,7 @@ def check_file_hash(filename, md5_hash):
         for block in iter(partial(f.read, 64 * (1 << 20)), b''):
             hasher.update(block)
 
-    file_hash = hasher.hexdigbest()
+    file_hash = hasher.hexdigest()
     if file_hash != md5_hash:
         warnings.warn("MD5 sum of {} has changed. Expected {} but got {}. This might lead to"
                       " this code producing wrong data.".format(filename, md5_hash, file_hash))
