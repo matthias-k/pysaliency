@@ -8,6 +8,7 @@ import os as _os
 import sys as _sys
 import os
 import hashlib
+from functools import partial
 import warnings
 from six.moves import urllib, filterfalse, map
 from six import iterkeys
@@ -263,8 +264,14 @@ def check_file_hash(filename, md5_hash):
     Check a file's hash and issue a warning it is has not the expected value.
     """
     print('Checking md5 sum...')
+    hasher = hashlib.md5()
     with open(filename, 'rb') as f:
-        file_hash = hashlib.md5(f.read()).hexdigest()
+        # read file in chunks to avoid "invalid argument" error
+        # see https://stackoverflow.com/a/48123430
+        for block in iter(functools.partial(f.read, 64 * (1 << 20)), b''):
+            hasher.update(block)
+
+    file_hash = hasher.hexdigbest()
     if file_hash != md5_hash:
         warnings.warn("MD5 sum of {} has changed. Expected {} but got {}. This might lead to"
                       " this code producing wrong data.".format(filename, md5_hash, file_hash))
