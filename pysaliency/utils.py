@@ -268,7 +268,7 @@ def check_file_hash(filename, md5_hash):
     with open(filename, 'rb') as f:
         # read file in chunks to avoid "invalid argument" error
         # see https://stackoverflow.com/a/48123430
-        for block in iter(functools.partial(f.read, 64 * (1 << 20)), b''):
+        for block in iter(partial(f.read, 64 * (1 << 20)), b''):
             hasher.update(block)
 
     file_hash = hasher.hexdigbest()
