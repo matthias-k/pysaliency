@@ -22,6 +22,30 @@ from tqdm import tqdm
 import requests
 
 
+def full_split(filename):
+    """ split filename into all parts """
+    path, basename = os.path.split(filename)
+    components = [path, basename]
+    while components[0]:
+        first_part = components.pop(0)
+        path, basename = os.path.split(first_part)
+        components = [path, basename] + components
+
+    return components[1:]
+
+
+def get_minimal_unique_filenames(filenames):
+    if len(filenames) <= 1:
+        return [os.path.basename(item) for item in filenames]
+
+    components = [full_split(filename) for filename in filenames]
+
+    while len(set(item[0] for item in components)) <= 1:
+        components = [item[1:] for item in components]
+
+    return [os.path.join(*item) for item in components]
+
+
 def lazy_property(fn):
     """Lazy property: Is only calculated when first used.
        Code from http://stackoverflow.com/questions/3012421/python-lazy-property-decorator"""

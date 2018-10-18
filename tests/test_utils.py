@@ -7,8 +7,24 @@ import os
 
 import numpy as np
 
-from pysaliency.utils import LazyList, TemporaryDirectory, Cache
+from pysaliency.utils import LazyList, TemporaryDirectory, Cache, get_minimal_unique_filenames
 from test_helpers import TestWithData
+
+
+def test_minimal_unique_filenames():
+    assert get_minimal_unique_filenames(['a/b/c.d']) == ['c.d']
+
+    filenames = [
+        'a/b/c/d.e',
+        'a/b/c/f.g',
+        'a/b/c/h.i',
+    ]
+
+    assert get_minimal_unique_filenames(filenames) == ['d.e', 'f.g', 'h.i']
+
+    filenames.append('a/b/C/j.k')
+    assert get_minimal_unique_filenames(filenames) == ['c/d.e', 'c/f.g', 'c/h.i', 'C/j.k']
+
 
 
 class TestLazyList(TestWithData):
