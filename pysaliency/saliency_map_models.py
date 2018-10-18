@@ -15,7 +15,7 @@ from boltons.cacheutils import cached, LRU
 from .generics import progressinfo
 from .roc import general_roc, general_rocs_per_positive
 
-from .utils import TemporaryDirectory, run_matlab_cmd, Cache
+from .utils import TemporaryDirectory, run_matlab_cmd, Cache, get_minimal_unique_filenames
 from .datasets import Stimulus, Fixations, FileStimuli
 
 
@@ -910,14 +910,13 @@ class HistogramNormalizedSaliencyMapModel(SaliencyMapModel):
 def export_model_to_hdf5(model, stimuli, filename, compression=9):
     assert isinstance(stimuli, FileStimuli)
 
+    names = get_minimal_unique_filenames(stimuli.filenames)
+
     import h5py
     with h5py.File(filename, mode='w') as f:
         for k, s in enumerate(tqdm(stimuli)):
-            stimulus_name = stimuli.filenames[k]
-            _, stimulus_name = os.path.split(stimulus_name)
-
             smap = model.saliency_map(s)
-            f.create_dataset(stimulus_name, data=smap, compression=compression)
+            f.create_dataset(names[k], data=smap, compression=compression)
 
 
 class LambdaSaliencyMapModel(SaliencyMapModel):
