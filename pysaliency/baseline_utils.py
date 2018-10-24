@@ -57,6 +57,14 @@ def normalize_fixations(stimuli, fixations, keep_aspect=False, add_shape=False, 
     return xs, ys
 
 
+@numba.jit
+def fill_fixation_map(fixation_map, fixations):
+    """fixationmap: 2d array. fixations: Nx2 array of y, x positions"""
+    for i in range(len(fixations)):
+        fixation_y, fixation_x = fixations[i]
+        fixation_map[int(fixation_y), int(fixation_x)] += 1
+
+
 def fixations_to_scikit_learn(fixations, normalize=None, keep_aspect=False, add_shape=False,
                               add_stimulus_number=False,
                               add_fixation_number=False,
@@ -271,8 +279,8 @@ class GoldModel(Model):
         else:
             x_factor = shape[1]
             y_factor = shape[0]
-        for x, y in (zip(self.xs[inds], self.ys[inds])):
-            ZZ[int(y*y_factor), int(x*x_factor)] += 1
+        _fixations = np.array([self.ys[inds]*y_factor, self.xs[inds]*x_factor]).T
+        fill_fixation_map(ZZ, _fixations)
         ZZ = gaussian_filter(ZZ, [self.bandwidth*y_factor, self.bandwidth*x_factor])
         ZZ *= (1-self.eps)
         ZZ += self.eps * 1.0/(shape[0]*shape[1])
@@ -366,8 +374,9 @@ class CrossvalidatedBaselineModel(Model):
         inds = self.fixations.n != stimulus_index
 
         ZZ = np.zeros(shape)
-        for x, y in (zip(self.xs[inds], self.ys[inds])):
-            ZZ[int(y*shape[0]), int(x*shape[1])] += 1
+
+        _fixations = np.array([self.ys[inds]*shape[0], self.xs[inds]*shape[1]]).T
+        fill_fixation_map(ZZ, _fixations)
         ZZ = gaussian_filter(ZZ, [self.bandwidth*shape[0], self.bandwidth*shape[1]])
         ZZ *= (1-self.eps)
         ZZ += self.eps * 1.0/(shape[0]*shape[1])
@@ -402,8 +411,8 @@ class BaselineModel(Model):
             else:
                 y_factor = height
                 x_factor = width
-            for x, y in (zip(self.xs, self.ys)):
-                ZZ[int(y*y_factor), int(x*x_factor)] += 1
+            _fixations = np.array([self.ys*y_factor, self.xs*x_factor]).T
+            fill_fixation_map(ZZ, _fixations)
             ZZ = gaussian_filter(ZZ, [self.bandwidth*y_factor, self.bandwidth*x_factor])
             ZZ *= (1-self.eps)
             ZZ += self.eps * 1.0/(shape[0]*shape[1])
