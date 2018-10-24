@@ -1,5 +1,6 @@
 from __future__ import print_function, unicode_literals, division, absolute_import
 
+import numba
 import numpy as np
 from scipy.misc import logsumexp
 from scipy.ndimage.filters import gaussian_filter
@@ -15,17 +16,29 @@ from .roc import general_roc
 from . import Model, UniformModel
 
 
-def normalize_fixations(stimuli, fixations, keep_aspect=False, add_shape=False, verbose=True):
-    widths = np.ones(len(fixations.x))
-    heights = np.ones(len(fixations.x))
-    for n in tqdm(list(range(len(stimuli))), disable=not verbose):
-        inds = np.nonzero(fixations.n == n)[0]
-        height, width = stimuli.sizes[n]
-        widths[inds] = width
-        heights[inds] = height
+@numba.jit(nopython=True)
+def _normalize_fixations(orig_xs, orig_ys, orig_ns, sizes, new_xs, new_ys, real_widths, real_heights):
+    for i in range(len(orig_xs)):
+        height, width = sizes[orig_ns[i]]
+        new_xs[i] = orig_xs[i] / width
+        new_ys[i] = orig_ys[i] / height
+        real_widths[i] = width
+        real_heights[i] = height
 
-        real_widths = widths.copy()
-        real_heights = heights.copy()
+
+def normalize_fixations(stimuli, fixations, keep_aspect=False, add_shape=False, verbose=True):
+    sizes = np.array(stimuli.sizes)
+
+    xs = np.empty(len(fixations.x))
+    ys = np.empty(len(fixations.x))
+    widths = np.empty(len(fixations.x))
+    heights = np.empty(len(fixations.x))
+
+    _normalize_fixations(fixations.x, fixations.y, fixations.n, sizes,
+                         xs, ys, widths, heights)
+
+    real_widths = widths.copy()
+    real_heights = heights.copy()
 
     if keep_aspect:
         max_size = np.max([widths, heights], axis=0)

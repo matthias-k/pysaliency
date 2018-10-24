@@ -56,6 +56,7 @@ setup(
 		'boltons',
 		'imageio',
 		'natsort',
+		'numba',
 		'numpy',
 		'requests',
 		'scipy',
