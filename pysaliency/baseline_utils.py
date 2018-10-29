@@ -97,6 +97,9 @@ class ScikitLearnImageCrossValidationGenerator(BaseCrossValidator):
             if inds.sum():
                 yield inds
 
+    def get_n_splits(self):
+        return len(self)
+
     def __len__(self):
         return len(self.stimuli)
 
