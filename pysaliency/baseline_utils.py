@@ -5,7 +5,7 @@ import numpy as np
 from scipy.misc import logsumexp
 from scipy.ndimage.filters import gaussian_filter
 
-from sklearn.neighbors.kde import KernelDensity
+from sklearn.neighbors import KernelDensity
 from sklearn.model_selection import BaseCrossValidator
 from sklearn.base import BaseEstimator
 
