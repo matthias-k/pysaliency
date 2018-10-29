@@ -275,13 +275,6 @@ class Model(GeneralModel):
         """
         raise NotImplementedError()
 
-    def saliency_map(self, stimulus):
-        return self.log_density(stimulus)
-
-    def _saliency_map(self, stimulus):
-        # We have to implement this abstract method
-        pass
-
     def log_likelihoods(self, stimuli, fixations, verbose=False):
         log_likelihoods = np.empty(len(fixations.x))
         for n in tqdm(range(len(stimuli)), disable=not verbose):
