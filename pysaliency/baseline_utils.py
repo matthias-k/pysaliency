@@ -85,20 +85,16 @@ def fixations_to_scikit_learn(fixations, normalize=None, keep_aspect=False, add_
     return np.vstack(data).T.copy()
 
 
-class ScikitLearnImageCrossValidationGenerator(BaseCrossValidator):
+class ScikitLearnImageCrossValidationGenerator(object):
     def __init__(self, stimuli, fixations):
-        super(ScikitLearnImageCrossValidationGenerator, self).__init__(len(fixations.x))
         self.stimuli = stimuli
         self.fixations = fixations
 
-    def _iter_test_masks(self):
+    def __iter__(self):
         for n in range(len(self.stimuli)):
             inds = self.fixations.n == n
             if inds.sum():
-                yield inds
-
-    def get_n_splits(self):
-        return len(self)
+                yield ~inds, inds
 
     def __len__(self):
         return len(self.stimuli)
