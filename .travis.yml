@@ -14,7 +14,7 @@ before_install:
   - conda config --add channels conda-forge
   - conda update -q conda
 install:
-  - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION numpy scipy cython  six setuptools sphinx numpydoc pkg-config pillow tqdm boltons natsort requests dill tensorflow pytest theano imageio
+  - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION numpy scipy cython  six setuptools sphinx numpydoc pkg-config pillow tqdm boltons natsort requests dill tensorflow pytest theano imageio scikit-learn
   - source activate test-env
 before_script:
   - conda info
