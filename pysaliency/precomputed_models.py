@@ -7,10 +7,29 @@ import numpy as np
 from imageio import imread
 from scipy.special import logsumexp
 from scipy.io import loadmat
+from tqdm import tqdm
 
 from .models import Model
 from .saliency_map_models import SaliencyMapModel
 from .datasets import get_image_hash, FileStimuli
+from .utils import get_minimal_unique_filenames
+
+
+def export_model_to_hdf5(model, stimuli, filename, compression=9):
+    assert isinstance(stimuli, FileStimuli)
+
+    names = get_minimal_unique_filenames(stimuli.filenames)
+
+    import h5py
+    with h5py.File(filename, mode='w') as f:
+        for k, s in enumerate(tqdm(stimuli)):
+            if isinstance(model, SaliencyMapModel):
+                smap = model.saliency_map(s)
+            elif isinstance(model, Model):
+                smap = model.log_density(s)
+            else:
+                raise TypeError(type(model))
+            f.create_dataset(names[k], data=smap, compression=compression)
 
 
 class SaliencyMapModelFromFiles(SaliencyMapModel):

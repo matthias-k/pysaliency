@@ -14,8 +14,7 @@ from .datasets import (Fixations, FixationTrains, Stimuli, FileStimuli, create_n
                        concatenate_datasets, read_hdf5)
 from .saliency_map_models import (SaliencyMapModel, GeneralSaliencyMapModel, FixationMap, CachedSaliencyMapModel, ExpSaliencyMapModel,
                                   DisjointUnionSaliencyMapModel, SubjectDependentSaliencyMapModel, ResizingSaliencyMapModel,
-                                  BluringSaliencyMapModel, DigitizeMapModel, HistogramNormalizedSaliencyMapModel,
-                                  export_model_to_hdf5)
+                                  BluringSaliencyMapModel, DigitizeMapModel, HistogramNormalizedSaliencyMapModel)
 from .models import (GeneralModel, Model, UniformModel, CachedModel, MixtureModel,
                      DisjointUnionModel, SubjectDependentModel, ShuffledAUCSaliencyMapModel, ResizingModel,
                      StimulusDependentModel
@@ -26,7 +25,8 @@ from .precomputed_models import (SaliencyMapModelFromFiles,
                                  SaliencyMapModelFromFile,
                                  ModelFromDirectory,
                                  HDF5SaliencyMapModel,
-                                 HDF5Model)
+                                 HDF5Model,
+                                 export_model_to_hdf5)
 
 #from .stationary_models import StationarySaliencyModel
 from .external_models import AIM, SUN, ContextAwareSaliency, BMS, GBVS, GBVSIttiKoch, Judd, IttiKoch, RARE2012, CovSal

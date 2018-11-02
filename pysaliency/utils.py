@@ -26,12 +26,15 @@ def full_split(filename):
     """ split filename into all parts """
     path, basename = os.path.split(filename)
     components = [path, basename]
-    while components[0]:
+    while components[0] and components[0] != '/':
         first_part = components.pop(0)
         path, basename = os.path.split(first_part)
         components = [path, basename] + components
 
-    return components[1:]
+    if components[0] == '':
+        components = components[1:]
+
+    return components
 
 
 def get_minimal_unique_filenames(filenames):
@@ -237,15 +240,6 @@ def which(program):
                 return exe_file
 
     return None
-
-
-def full_split(filename):
-    """Split filename into all of its parts"""
-    parts = list(os.path.split(filename))
-    if parts[0]:
-        return full_split(parts[0]) + [parts[1]]
-    else:
-        return [parts[1]]
 
 
 def filter_files(filenames, ignores):
