@@ -39,8 +39,7 @@ def optimize_for_information_gain(
                                blur_radius=blur_radius,
                                processing_class=processing_class,
                                saliency_max=smax,
-                               saliency_min=smin,
-                               optimize=optimize)
+                               saliency_min=smin)
     res = smc.fit(fit_stimuli, fit_fixations, optimize=optimize, verbose=verbose, maxiter=maxiter)
     if return_optimization_result:
         return smc, res
