@@ -738,6 +738,24 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
             return saliency_map
 
 
+class GaussianSaliencyMapModel(SaliencyMapModel):
+    """Gaussian saliency map model with given width"""
+    def __init__(self, width=0.5, **kwargs):
+        super(GaussianSaliencyMapModel, self).__init__(**kwargs)
+        self.width = width
+
+    def _saliency_map(self, stimulus):
+        height = stimulus.shape[0]
+        width = stimulus.shape[1]
+        YS, XS = np.mgrid[:height, :width].astype(float)
+        XS /= width
+        YS /= height
+        XS -= 0.5
+        YS -= 0.5
+        r_squared = XS**2 + YS**2
+        return np.ones((stimulus.shape[0], stimulus.shape[1]))*np.exp(-0.5*r_squared/(self.width)**2)
+
+
 class FixationMap(SaliencyMapModel):
     """
     Fixation maps for given stimuli and fixations.

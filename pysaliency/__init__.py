@@ -12,7 +12,8 @@ from . import external_datasets
 
 from .datasets import (Fixations, FixationTrains, Stimuli, FileStimuli, create_nonfixations, create_subset, remove_out_of_stimulus_fixations,
                        concatenate_datasets, read_hdf5)
-from .saliency_map_models import (SaliencyMapModel, GeneralSaliencyMapModel, FixationMap, CachedSaliencyMapModel, ExpSaliencyMapModel,
+from .saliency_map_models import (SaliencyMapModel, GeneralSaliencyMapModel,
+                                  GaussianSaliencyMapModel, FixationMap, CachedSaliencyMapModel, ExpSaliencyMapModel,
                                   DisjointUnionSaliencyMapModel, SubjectDependentSaliencyMapModel, ResizingSaliencyMapModel,
                                   BluringSaliencyMapModel, DigitizeMapModel, HistogramNormalizedSaliencyMapModel)
 from .models import (GeneralModel, Model, UniformModel, CachedModel, MixtureModel,
