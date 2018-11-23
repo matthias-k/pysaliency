@@ -218,14 +218,16 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
         #constraints.append({'type': 'ineq',
         #                    'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]})
 
-        for i in range(1, num_nonlinearity):
-            constraints.append({'type': 'ineq',
-                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
+        if 'nonlineariy' in optimize:
+            for i in range(1, num_nonlinearity):
+                constraints.append({'type': 'ineq',
+                                   'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
 
-        constraints.append({'type': 'eq',
-                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity.sum()-nonlinearity_value.sum()})
-        constraints.append({'type': 'eq',
-                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum()-centerbias_value.sum()})
+            constraints.append({'type': 'eq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity.sum()-nonlinearity_value.sum()})
+        if 'centerbias' in optimize:
+            constraints.append({'type': 'eq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum()-centerbias_value.sum()})
     if isinstance(saliency_map_processing, SaliencyMapProcessingLogNonlinearity):
         print("Using density constraints on log scale")
         bounds = {'nonlinearity': [(-100, 100) for i in range(num_nonlinearity)],
@@ -237,14 +239,16 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
         #constraints.append({'type': 'ineq',
         #                    'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]})
 
-        for i in range(1, num_nonlinearity):
-            constraints.append({'type': 'ineq',
-                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
+        if 'nonlinearity' in optimize:
+            for i in range(1, num_nonlinearity):
+                constraints.append({'type': 'ineq',
+                                    'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
 
-        constraints.append({'type': 'eq',
-                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: np.exp(nonlinearity).sum()-np.exp(nonlinearity_value).sum()})
-        constraints.append({'type': 'eq',
-                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum()-centerbias_value.sum()})
+            constraints.append({'type': 'eq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: np.exp(nonlinearity).sum()-np.exp(nonlinearity_value).sum()})
+        if 'centerbias' in optimize:
+            constraints.append({'type': 'eq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum()-centerbias_value.sum()})
 
     elif isinstance(saliency_map_processing, SaliencyMapProcessingLogarithmic):
         print("Using log density constraints")
@@ -254,14 +258,16 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
                   'blur_radius': [(0.0, 1e3)]}
 
         constraints = []
-        constraints.append({'type': 'eq',
-                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]})
-        for i in range(1, num_nonlinearity):
-            constraints.append({'type': 'ineq',
-                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
+        if 'nonlinearity' in optimize:
+            constraints.append({'type': 'eq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]})
+            for i in range(1, num_nonlinearity):
+                constraints.append({'type': 'ineq',
+                                    'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i-1]})
 
-        constraints.append({'type': 'eq',
-                            'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias[0]})
+        if 'centerbias' in optimize:
+            constraints.append({'type': 'eq',
+                                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias[0]})
     else:
         raise TypeError('Unknown processing class', saliency_map_processing)
 

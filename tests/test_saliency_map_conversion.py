@@ -16,7 +16,21 @@ class GaussianSaliencyMapModel(SaliencyMapModel):
 
 
 @pytest.mark.theano
-def test_optimize_for_IG():
+@pytest.mark.parametrize("optimize", [
+    None,
+    ['nonlinearity'],
+    ['nonlinearity', 'centerbias'],
+    ['nonlinearity', 'alpha', 'centerbias'],
+    ['centerbias'],
+    ['blur_radius'],
+    ['blur_radius', 'nonlinearity']
+])
+def test_optimize_for_IG(optimize):
+    # To speed up testing, we disable some optimizations
+    import theano
+    old_optimizer = theano.config.optimizer
+    theano.config.optimizer = 'fast_compile'
+
     model = GaussianSaliencyMapModel()
     stimulus = np.random.randn(100, 100, 3)
     stimuli = Stimuli([stimulus])
@@ -29,13 +43,22 @@ def test_optimize_for_IG():
         n = np.zeros(N, dtype=int)
     )
 
-    smc = optimize_for_information_gain(
+    smc, res = optimize_for_information_gain(
         model,
         stimuli,
         fixations,
+        optimize=optimize,
         blur_radius=3,
         verbose=2,
-        maxiter=10)
+        maxiter=10,
+        return_optimization_result=True)
+
+    theano.config.optimizer = old_optimizer
+
+    assert res.status in [
+        0,  # success
+        9,  # max iter reached
+    ]
 
     assert smc
 
@@ -44,6 +67,9 @@ def test_optimize_for_IG():
 def test_saliency_map_converter(tmpdir):
     import theano
     theano.config.floatX = 'float64'
+    old_optimizer = theano.config.optimizer
+    theano.config.optimizer = 'fast_compile'
+
     model = GaussianSaliencyMapModel()
     smc = SaliencyMapConvertor(model)
     smc.set_params(nonlinearity=np.ones(20),
@@ -52,6 +78,8 @@ def test_saliency_map_converter(tmpdir):
                    blur_radius=4,
                    saliency_min=5,
                    saliency_max=6)
+
+    theano.config.optimizer = old_optimizer
 
     pickle_file = tmpdir.join('object.pydat')
     with pickle_file.open(mode='wb') as f:
