@@ -548,6 +548,14 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                                                        convert_gold_standard=convert_gold_standard,
                                                        verbose=verbose))
 
+    def KLDivs(self, *args, **kwargs):
+        """Alias for image_based_kl_divergence"""
+        return self.image_based_kl_divergences(*args, **kwargs)
+
+    def KLDiv(self, *args, **kwargs):
+        """Alias for image_based_kl_divergence"""
+        return self.image_based_kl_divergence(*args, **kwargs)
+
     def CCs(self, stimuli, other, verbose=False):
         """ Calculate Correlation Coefficient Metric against some other model
 
