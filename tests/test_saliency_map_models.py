@@ -102,6 +102,9 @@ def test_auc_constant(stimuli, fixation_trains):
     aucs = csmm.AUCs(stimuli, fixation_trains, nonfixations='shuffled')
     np.testing.assert_allclose(aucs, np.ones(len(fixation_trains.x))*0.5)
 
+    aucs = csmm.sAUCs(stimuli, fixation_trains)
+    np.testing.assert_allclose(aucs, np.ones(len(fixation_trains.x))*0.5)
+
     auc = csmm.AUC(stimuli, fixation_trains, nonfixations=fixation_trains)
     np.testing.assert_allclose(auc, 0.5)
 
@@ -115,6 +118,11 @@ def test_auc_gauss(stimuli, fixation_trains):
                                rtol=1e-6)
 
     aucs = gsmm.AUCs(stimuli, fixation_trains, nonfixations='shuffled')
+    np.testing.assert_allclose(aucs, [0.0,         0.33333333,  0.33333333,  0.33333333,
+                                      0.33333333,  1.,          1.,          0.2],
+                               rtol=1e-6)
+
+    aucs = gsmm.sAUCs(stimuli, fixation_trains)
     np.testing.assert_allclose(aucs, [0.0,         0.33333333,  0.33333333,  0.33333333,
                                       0.33333333,  1.,          1.,          0.2],
                                rtol=1e-6)

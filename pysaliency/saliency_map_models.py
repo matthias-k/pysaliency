@@ -176,6 +176,12 @@ class GeneralSaliencyMapModel(object):
         aucs = self.AUCs(stimuli, fixations, nonfixations=nonfixations, verbose=verbose)
         return np.mean(aucs)
 
+    def sAUCs(self, stimuli, fixations, verbose=False):
+        return self.AUCs(stimuli, fixations, nonfixations='shuffled', verbose=verbose)
+
+    def sAUC(self, stimuli, fixations, average='fixation', verbose=False):
+        return self.AUC(stimuli, fixations, nonfixations='shuffled', average=average, verbose=verbose)
+
     def NSSs(self, stimuli, fixations, verbose=False):
         values = np.empty(len(fixations.x))
         out = None
