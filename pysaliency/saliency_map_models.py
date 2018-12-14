@@ -496,7 +496,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
         return (p_fix * (np.log(p_fix) - np.log(p_nonfix))).sum()
 
-    def image_based_kl_divergences(self, stimuli, gold_standard, minimum_value=1e-20, convert_gold_standard=True):
+    def image_based_kl_divergences(self, stimuli, gold_standard, minimum_value=1e-20, convert_gold_standard=True, verbose=False):
         """Calculate image-based KL-Divergences between model and gold standard for each stimulus
 
         This metric computes the KL-Divergence between model predictions and a gold standard
@@ -536,16 +536,17 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         else:
             prob_gold_standard = gold_standard
 
-        return prob_model.kl_divergences(stimuli, prob_gold_standard)
+        return prob_model.kl_divergences(stimuli, prob_gold_standard, verbose=verbose)
 
-    def image_based_kl_divergence(self, stimuli, gold_standard, minimum_value=1e-20, convert_gold_standard=True):
+    def image_based_kl_divergence(self, stimuli, gold_standard, minimum_value=1e-20, convert_gold_standard=True, verbose=False):
         """Calculate image-based KL-Divergences between model and gold standard averaged over stimuli
 
         for more details, see `image_based_kl_divergences`.
         """
         return np.mean(self.image_based_kl_divergences(stimuli, gold_standard,
                                                        minimum_value=minimum_value,
-                                                       convert_gold_standard=convert_gold_standard))
+                                                       convert_gold_standard=convert_gold_standard,
+                                                       verbose=verbose))
 
     def CCs(self, stimuli, other, verbose=False):
         """ Calculate Correlation Coefficient Metric against some other model

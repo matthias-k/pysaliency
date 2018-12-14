@@ -305,7 +305,7 @@ class Model(GeneralModel):
         ig = (p_gold)*(np.logaddexp(log_p_model, np.log(eps))-np.logaddexp(log_p_baseline, np.log(eps)))
         return ig
 
-    def kl_divergences(self, stimuli, gold_standard):
+    def kl_divergences(self, stimuli, gold_standard, verbose=False):
         """Calculate KL Divergence between model and gold standard for each stimulus.
 
         This metric works only for probabilistic models.
@@ -315,7 +315,7 @@ class Model(GeneralModel):
         assert isinstance(self, Model)
         assert isinstance(gold_standard, Model)
         kl_divs = []
-        for s in stimuli:
+        for s in tqdm(stimuli, disable=not verbose):
             logp_model = self.log_density(s)
             logp_gold = gold_standard.log_density(s)
             kl_divs.append((np.exp(logp_gold)*(logp_gold - logp_model)).sum())
