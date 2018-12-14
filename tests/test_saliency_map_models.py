@@ -183,10 +183,10 @@ def test_image_based_kldiv_gauss(stimuli, fixation_trains):
     np.testing.assert_allclose(ib_kl, 0.0)
 
     ib_kl = gsmm.image_based_kl_divergence(stimuli, constant_gold)
-    np.testing.assert_allclose(ib_kl, 0.8152272380729648)
+    np.testing.assert_allclose(ib_kl, 0.8396272788909165)
 
     ib_kl = gsmm.image_based_kl_divergence(stimuli, gold)
-    np.testing.assert_allclose(ib_kl, 1.961124862592289)
+    np.testing.assert_allclose(ib_kl, 2.029283206727416)
 
     ib_kl = gold.image_based_kl_divergence(stimuli, gold)
     np.testing.assert_allclose(ib_kl, 0.0)

@@ -499,43 +499,36 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
     def image_based_kl_divergences(self, stimuli, gold_standard, minimum_value=1e-20, convert_gold_standard=True):
         """Calculate image-based KL-Divergences between model and gold standard for each stimulus
 
-        This metric converts the model to a probabilistic saliency model by treating the
-        saliency maps as probability densities (compare Wilming et al.) and calculates
-        the KL Divergences between model and gold standard per stimulus.
+        This metric computes the KL-Divergence between model predictions and a gold standard
+        when interpreting these as fixation densities. As in the MIT saliency benchmark,
+        saliency maps are interpreted as densities by dividing them by their summed value.
+
+        To avoid problems with zeros, the minimum value is added to all saliency maps.
 
         If the gold standard is already a probabilistic model that should not be converted in a
         new (different!) probabilistic model, set `convert_gold_standard` to False.
         """
         def convert_model(model, minimum_value):
-            model_min = np.inf
-            model_max = -np.inf
-            for s in stimuli:
-                smap = model.saliency_map(s)
-                model_min = min(model_min, smap.min())
-                model_max = max(model_max, smap.max())
-            new_min = model_min / model_max
-            if new_min == 1.0:
-                # constant saliency map model
-                new_min = 0.0
-            new_min = max(new_min, minimum_value)
-            new_max = 1.0
-
             from .models import Model
 
             class SimpleProbabilisticModel(Model):
-                def __init__(self, model, new_min, new_max):
+                def __init__(self, model, minimum_value):
                     self.model = model
-                    self.new_min = new_min
-                    self.new_max = new_max
+                    self.minimum_value = minimum_value
                     super(SimpleProbabilisticModel, self).__init__()
 
+                def _normalize_saliency_map(self, smap):
+                    if smap.min() < 0:
+                        smap = smap - smap.min()
+                    smap = smap + self.minimum_value
+                    smap = smap / smap.sum()
+                    return smap
+
                 def _log_density(self, stimulus):
-                    smap = self.model.saliency_map(stimulus)
-                    smap = new_min + smap / (new_max - new_min)
-                    smap /= np.sum(smap)
+                    smap = self._normalize_saliency_map(self.model.saliency_map(stimulus))
                     return np.log(smap)
 
-            return SimpleProbabilisticModel(model, new_min, new_max)
+            return SimpleProbabilisticModel(model, minimum_value)
 
         prob_model = convert_model(self, minimum_value)
         if convert_gold_standard:
