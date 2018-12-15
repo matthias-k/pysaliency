@@ -201,8 +201,14 @@ class GeneralSaliencyMapModel(object):
             values[i] = value
         return values
 
-    def NSS(self, stimuli, fixations, verbose=False):
-        return self.NSSs(stimuli, fixations, verbose=verbose).mean()
+    def NSS(self, stimuli, fixations, average='fixation', verbose=False):
+        if average == 'fixation':
+            return self.NSSs(stimuli, fixations, verbose=verbose).mean()
+        elif average == 'image':
+            import pandas as pd
+            nsss = self.NSSs(stimuli, fixations, verbose=verbose)
+            df = pd.DataFrame({'n': fixations.n, 'nss': nsss})
+            return df.groupby('n')['nss'].mean().mean()
 
     def set_params(self, **kwargs):
         """
