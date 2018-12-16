@@ -194,7 +194,7 @@ def test_fixation_based_kldiv_mixed(stimuli, fixation_trains):
 def test_image_based_kldiv_gauss(stimuli, fixation_trains):
     gsmm = GaussianSaliencyMapModel()
     constant_gold = ConstantSaliencyMapModel()
-    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size = 10)
+    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size = 10, ignore_doublicates=True)
 
     ib_kl = gsmm.image_based_kl_divergence(stimuli, gsmm)
     np.testing.assert_allclose(ib_kl, 0.0)
@@ -255,3 +255,20 @@ def test_saliency_map_model_operators():
         np.testing.assert_allclose((m1-m2).saliency_map(s), smap1 - smap2)
         np.testing.assert_allclose((m1*m2).saliency_map(s), smap1 * smap2)
         np.testing.assert_allclose((m1/m2).saliency_map(s), smap1 / smap2)
+
+
+def test_fixation_map_model(stimuli, fixation_trains):
+    fixation_map = pysaliency.FixationMap(stimuli, fixation_trains)
+    smap1 = fixation_map.saliency_map(stimuli[0])
+
+    assert smap1.min() == 0
+    assert smap1.max() == 3
+    assert smap1.sum() == (fixation_trains.n == 0).sum()
+
+def test_fixation_map_model_ignore_doublicates(stimuli, fixation_trains):
+    fixation_map = pysaliency.FixationMap(stimuli, fixation_trains, ignore_doublicates=True)
+    smap1 = fixation_map.saliency_map(stimuli[0])
+
+    assert smap1.min() == 0
+    assert smap1.max() == 1
+    assert smap1.sum() == (fixation_trains.n == 0).sum() - 2

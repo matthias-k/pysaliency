@@ -14,6 +14,7 @@ from boltons.cacheutils import cached, LRU
 
 from .generics import progressinfo
 from .roc import general_roc, general_rocs_per_positive
+from .numba_utils import fill_fixation_map
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache, get_minimal_unique_filenames
 from .datasets import Stimulus, Fixations, FileStimuli
@@ -777,8 +778,12 @@ class FixationMap(SaliencyMapModel):
     With the keyword `kernel_size`, you can control whether
     the fixation map should be blured or just contain
     the actual fixations.
+
+    If ignore_doublicates is True, multiple fixations in the same
+    location will be counted as only one fixation (the fixation map
+    won't have entries larger than 1).
     """
-    def __init__(self, stimuli, fixations, kernel_size=None, convolution_mode='reflect', *args, **kwargs):
+    def __init__(self, stimuli, fixations, kernel_size=None, convolution_mode='reflect', ignore_doublicates=False, *args, **kwargs):
         super(FixationMap, self).__init__(*args, **kwargs)
 
         self.xs = {}
@@ -790,6 +795,7 @@ class FixationMap(SaliencyMapModel):
 
         self.kernel_size = kernel_size
         self.convolution_mode = convolution_mode
+        self.ignore_doublicates = ignore_doublicates
 
     def _saliency_map(self, stimulus):
         stimulus = Stimulus(stimulus)
@@ -797,7 +803,11 @@ class FixationMap(SaliencyMapModel):
         if stimulus.stimulus_id not in self.xs:
             raise ValueError('No Fixations known for this stimulus!')
         saliency_map = np.zeros(stimulus.size)
-        saliency_map[self.ys[stimulus_id].astype(int), self.xs[stimulus_id].astype(int)] = 1.0
+        ff = np.vstack([self.ys[stimulus_id].astype(int), self.xs[stimulus_id].astype(int)]).T
+        fill_fixation_map(saliency_map, ff)
+
+        if self.ignore_doublicates:
+            saliency_map[saliency_map >= 1] = 1
 
         if self.kernel_size:
             saliency_map = gaussian_filter(saliency_map, self.kernel_size, mode=self.convolution_mode)
