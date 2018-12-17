@@ -357,7 +357,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
         return rocs_per_fixation
 
-    def AUC_per_image(self, stimuli, fixations, nonfixations='uniform', verbose=False):
+    def AUC_per_image(self, stimuli, fixations, nonfixations='uniform', thresholds='all', verbose=False):
         """
         Calulate AUC scores per image for fixations
 
@@ -374,6 +374,11 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                                   fixations-object: For each image, use the fixations in this fixation
                                                     object as nonfixations
 
+        :type thresholds: string, either of 'all' or 'fixations'
+                          'all' uses all saliency values as threshold, computing the true performance of the saliency
+                          map as a binary classifier on the given fixations and nonfixations
+                          'fixations' uses only the fixated values as done in AUC_Judd.
+
         :rtype : ndarray
         :return : list of AUC scores for each image,
                   or by image numbers (average=='image')
@@ -383,6 +388,13 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
         nonfix_xs = None
         nonfix_ys = None
+
+        if thresholds == 'all':
+            judd = 0
+        elif thresholds == 'fixations':
+            judd = 1
+        else:
+            raise ValueError("Unknown value of `thresholds`: {}".format(thresholds))
 
         if isinstance(nonfixations, Fixations):
             nonfix_xs = []
@@ -404,7 +416,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             elif nonfixations == 'unfixated':
                 negatives = _get_unfixated_values(
                     out,
-                    fixations.y_int[i], fixations.x_int[i]
+                    fixations.y_int[inds], fixations.x_int[inds]
                 )
             elif nonfix_xs is not None:
                 negatives = out[nonfix_ys[n], nonfix_xs[n]]
@@ -416,11 +428,11 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
             positives = positives.astype(float)
             negatives = negatives.astype(float)
-            this_roc, _, _ = general_roc(positives, negatives)
+            this_roc, _, _ = general_roc(positives, negatives, judd=judd)
             rocs_per_image.append(this_roc)
         return rocs_per_image
 
-    def AUC(self, stimuli, fixations, nonfixations='uniform', average='fixation', verbose=False):
+    def AUC(self, stimuli, fixations, nonfixations='uniform', average='fixation', thresholds='all', verbose=False):
         """
         Calulate AUC scores for fixations
 
@@ -443,6 +455,11 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                              'image': average over images
                              'fixation' or None: Return AUC score for each fixation separately
 
+        :type thresholds: string, either of 'all' or 'fixations'
+                          'all' uses all saliency values as threshold, computing the true performance of the saliency
+                          map as a binary classifier on the given fixations and nonfixations
+                          'fixations' uses only the fixated values as done in AUC_Judd.
+
         :rtype : ndarray
         :return : list of AUC scores for each fixation,
                   ordered as in `fixations.x` (average=='fixation' or None)
@@ -450,7 +467,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         """
         if average not in ['fixation', 'image']:
             raise NotImplementedError()
-        aucs = np.asarray(self.AUC_per_image(stimuli, fixations, nonfixations=nonfixations, verbose=verbose))
+        aucs = np.asarray(self.AUC_per_image(stimuli, fixations, nonfixations=nonfixations, thresholds=thresholds, verbose=verbose))
         if average == 'fixation':
             weights = np.zeros_like(aucs)
             for n in set(fixations.n):
@@ -465,6 +482,9 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             return np.mean(aucs)
         else:
             raise ValueError(average)
+
+    def AUC_Judd(self, stimuli, fixations, verbose=False):
+        return self.AUC(stimuli, fixations, average='image', nonfixations='unfixated', thresholds='fixations', verbose=verbose)
 
     def fixation_based_KL_divergence(self, stimuli, fixations, nonfixations='shuffled', bins=10, eps=1e-20):
         """
