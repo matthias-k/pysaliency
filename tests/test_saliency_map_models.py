@@ -117,6 +117,11 @@ def test_auc_gauss(stimuli, fixation_trains):
                                       0.241875,  0.291875, 0.509375,  0.138125],
                                rtol=1e-6)
 
+    aucs = gsmm.AUCs(stimuli, fixation_trains, nonfixations='unfixated')
+    np.testing.assert_allclose(aucs, [0.099248591108, 0.157482780213, 0.240763932373, 0.240763932373,
+                                      0.240763932373, 0.291484032561, 0.50876643707,  0.138071383845],
+                               rtol=1e-6)
+
     aucs = gsmm.AUCs(stimuli, fixation_trains, nonfixations='shuffled')
     np.testing.assert_allclose(aucs, [0.0,         0.33333333,  0.33333333,  0.33333333,
                                       0.33333333,  1.,          1.,          0.2],
@@ -272,3 +277,10 @@ def test_fixation_map_model_ignore_doublicates(stimuli, fixation_trains):
     assert smap1.min() == 0
     assert smap1.max() == 1
     assert smap1.sum() == (fixation_trains.n == 0).sum() - 2
+
+
+def test_get_unfixated_values():
+    smap = np.array([[1, 2], [3, 4], [5, 6]])
+    ys = [0, 1, 1, 2]
+    xs = [1, 1, 1, 0]
+    assert set(pysaliency.saliency_map_models._get_unfixated_values(smap, ys, xs)) == set([1, 3, 6])

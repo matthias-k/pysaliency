@@ -72,6 +72,16 @@ class FullShuffledNonfixationProvider(object):
         return self.nonfixations_for_image(n)
 
 
+def _get_unfixated_values(saliency_map, ys, xs):
+    """Return all saliency values that have not been fixated at leat once."""
+    fixation_map = np.zeros(saliency_map.shape)
+    fill_fixation_map(
+        fixation_map,
+        np.array([ys, xs]).T
+    )
+    return saliency_map[fixation_map == 0].flatten()
+
+
 @add_metaclass(ABCMeta)
 class GeneralSaliencyMapModel(object):
     """
@@ -100,6 +110,7 @@ class GeneralSaliencyMapModel(object):
                               Possible values are:
                                   'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
                                               all pixels from the saliency map.
+                                  'unfixated': Use all pixels from the saliency map except the fixated ones.
                                   'shuffled': Use all fixations from other images as nonfixations.
                                   fixations-object: For each image, use the fixations in this fixation
                                                     object as nonfixations
@@ -133,12 +144,19 @@ class GeneralSaliencyMapModel(object):
             positives = np.asarray([out[fixations.y_int[i], fixations.x_int[i]]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
+            elif nonfixations == 'unfixated':
+                negatives = _get_unfixated_values(
+                    out,
+                    [fixations.y_int[i]], [fixations.x_int[i]]
+                )
             elif nonfix_xs is not None:
                 n = fixations.n[i]
                 negatives = out[nonfix_ys[n], nonfix_xs[n]]
-            else:
+            elif callable(nonfixations):
                 _nonfix_xs, _nonfix_ys = nonfixations(stimuli, fixations, i)
                 negatives = out[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
+            else:
+                raise ValueError("Don't know how to handle nonfixations {}".format(nonfixations))
             this_roc, _, _ = general_roc(positives, negatives)
             rocs.setdefault(fixations.n[i], []).append(this_roc)
             rocs_per_fixation.append(this_roc)
@@ -156,6 +174,7 @@ class GeneralSaliencyMapModel(object):
                               Possible values are:
                                   'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
                                               all pixels from the saliency map.
+                                  'unfixated': Use all pixels from the saliency map except the fixated ones.
                                   'shuffled': Use all fixations from other images as nonfixations.
                                   fixations-object: For each image, use the fixations in this fixation
                                                     object as nonfixations
@@ -283,6 +302,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                               Possible values are:
                                   'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
                                               all pixels from the saliency map.
+                                  'unfixated': Use all pixels from the saliency map except the fixated ones.
                                   'shuffled': Use all fixations from other images as nonfixations.
                                   fixations-object: For each image, use the fixations in this fixation
                                                     object as nonfixations
@@ -316,11 +336,18 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
+            elif nonfixations == 'unfixated':
+                negatives = _get_unfixated_values(
+                    out,
+                    fixations.y_int[inds], fixations.x_int[inds]
+                )
             elif nonfix_xs is not None:
                 negatives = out[nonfix_ys[n], nonfix_xs[n]]
-            else:
+            elif callable(nonfixations):
                 _nonfix_xs, _nonfix_ys = nonfixations(stimuli, fixations, np.nonzero(inds)[0][0])
                 negatives = out[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
+            else:
+                raise TypeError("Cannot handle nonfixations {}".format(nonfixations))
 
             positives = positives.astype(float)
             negatives = negatives.astype(float)
@@ -342,6 +369,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                               Possible values are:
                                   'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
                                               all pixels from the saliency map.
+                                  'unfixated': Use all pixels from the saliency map except the fixated ones.
                                   'shuffled': Use all fixations from other images as nonfixations.
                                   fixations-object: For each image, use the fixations in this fixation
                                                     object as nonfixations
@@ -373,11 +401,18 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
             positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
+            elif nonfixations == 'unfixated':
+                negatives = _get_unfixated_values(
+                    out,
+                    fixations.y_int[i], fixations.x_int[i]
+                )
             elif nonfix_xs is not None:
                 negatives = out[nonfix_ys[n], nonfix_xs[n]]
-            else:
+            elif callable(nonfixations):
                 _nonfix_xs, _nonfix_ys = nonfixations(stimuli, fixations, np.nonzero(inds)[0][0])
                 negatives = out[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
+            else:
+                raise TypeError("Cannot handle nonfixations {}".format(nonfixations))
 
             positives = positives.astype(float)
             negatives = negatives.astype(float)
@@ -397,6 +432,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                               Possible values are:
                                   'uniform':  Use uniform nonfixation distribution (Judd-AUC), i.e.
                                               all pixels from the saliency map.
+                                  'unfixated': Use all pixels from the saliency map except the fixated ones.
                                   'shuffled': Use all fixations from other images as nonfixations.
                                   fixations-object: For each image, use the fixations in this fixation
                                                     object as nonfixations
