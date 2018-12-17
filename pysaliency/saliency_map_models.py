@@ -12,7 +12,6 @@ from scipy.ndimage import gaussian_filter, zoom
 from tqdm import tqdm
 from boltons.cacheutils import cached, LRU
 
-from .generics import progressinfo
 from .roc import general_roc, general_rocs_per_positive
 from .numba_utils import fill_fixation_map
 
@@ -368,7 +367,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         if nonfixations == 'shuffled':
             nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
 
-        for n in progressinfo(range(len(stimuli)), verbose=verbose):
+        for n in tqdm(range(len(stimuli)), disable=not verbose):
             out = self.saliency_map(stimuli.stimulus_objects[n])
             inds = fixations.n == n
             positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
