@@ -483,8 +483,23 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         else:
             raise ValueError(average)
 
-    def AUC_Judd(self, stimuli, fixations, verbose=False):
-        return self.AUC(stimuli, fixations, average='image', nonfixations='unfixated', thresholds='fixations', verbose=verbose)
+    def AUC_Judd(self, stimuli, fixations, jitter=True, noise_size=1.0/10000000, random_seed=42, verbose=False):
+        if jitter:
+            model = RandomNoiseSaliencyMapModel(
+                self,
+                noise_size=noise_size,
+                random_seed=random_seed
+            )
+        else:
+            model = self
+        return model.AUC(
+            stimuli,
+            fixations,
+            average='image',
+            nonfixations='unfixated',
+            thresholds='fixations',
+            verbose=verbose
+        )
 
     def fixation_based_KL_divergence(self, stimuli, fixations, nonfixations='shuffled', bins=10, eps=1e-20):
         """
@@ -1014,3 +1029,18 @@ class LambdaSaliencyMapModel(SaliencyMapModel):
     def _saliency_map(self, stimulus):
         saliency_maps = [model.saliency_map(stimulus) for model in self.parent_models]
         return self.fn(saliency_maps)
+
+
+class RandomNoiseSaliencyMapModel(LambdaSaliencyMapModel):
+    def __init__(self, parent_model, noise_size=1.0/10000000, random_seed=42, **kwargs):
+        super(RandomNoiseSaliencyMapModel, self).__init__(
+            [parent_model],
+            self.add_jitter,
+            **kwargs,
+        )
+        self.rst = np.random.RandomState(seed=random_seed)
+        self.noise_size = noise_size
+
+    def add_jitter(self, saliency_maps):
+        saliency_map = saliency_maps[0]
+        return saliency_map + self.rst.randn(*saliency_map.shape)*self.noise_size
