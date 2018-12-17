@@ -1036,7 +1036,7 @@ class RandomNoiseSaliencyMapModel(LambdaSaliencyMapModel):
         super(RandomNoiseSaliencyMapModel, self).__init__(
             [parent_model],
             self.add_jitter,
-            **kwargs,
+            **kwargs
         )
         self.rst = np.random.RandomState(seed=random_seed)
         self.noise_size = noise_size
