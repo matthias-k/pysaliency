@@ -7,7 +7,7 @@ from itertools import combinations
 
 import numpy as np
 from scipy.ndimage import zoom
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 from tqdm import tqdm
 
 from .generics import progressinfo

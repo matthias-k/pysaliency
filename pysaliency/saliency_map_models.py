@@ -6,7 +6,7 @@ from six import add_metaclass
 
 import numpy as np
 from scipy.io import loadmat
-from scipy.misc import imsave
+from imageio import imsave
 from scipy.ndimage import gaussian_filter, zoom
 
 from tqdm import tqdm

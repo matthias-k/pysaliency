@@ -2,7 +2,7 @@ from __future__ import print_function, unicode_literals, division, absolute_impo
 
 import numba
 import numpy as np
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 from scipy.ndimage.filters import gaussian_filter
 
 from sklearn.neighbors import KernelDensity
