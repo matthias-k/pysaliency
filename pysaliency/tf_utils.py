@@ -90,3 +90,13 @@ def gauss_blur(inputs, sigma, windowradius=5, mode='NEAREST', scope=None,
         return outputs
 
         return slim.utils.collect_named_outputs(outputs_collections, sc, outputs)
+
+
+def tf_logsumexp(data, axis=0):
+    """computes logsumexp along axis in its own graph and session"""
+    with tf.Graph().as_default() as g:
+        input_tensor = tf.placeholder(tf.float32, name='input_tensor')
+        output_tensor = tf.reduce_logsumexp(input_tensor, axis=axis)
+
+        with tf.Session(graph=g) as sess:
+            return sess.run(output_tensor, {input_tensor: data})

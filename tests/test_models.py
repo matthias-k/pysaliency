@@ -61,3 +61,11 @@ def test_log_likelihood_gauss(stimuli, fixation_trains):
     log_likelihoods = gsmm.log_likelihoods(stimuli, fixation_trains)
     np.testing.assert_allclose(log_likelihoods, np.array([-10.276835,  -9.764182,  -9.286885,  -9.286885,
                                                           -9.286885,   -9.057075,  -8.067126,  -9.905604]))
+
+
+def test_shuffled_baseline_model(stimuli):
+    # TODO: implement actual test
+    model = GaussianSaliencyModel()
+    shuffled_model = pysaliency.models.ShuffledBaselineModel(model, stimuli)
+
+    assert model.log_density(stimuli[0]).shape == shuffled_model.log_density(stimuli[0]).shape
