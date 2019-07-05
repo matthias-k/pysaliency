@@ -305,20 +305,31 @@ class Model(GeneralModel):
         ig = (p_gold)*(np.logaddexp(log_p_model, np.log(eps))-np.logaddexp(log_p_baseline, np.log(eps)))
         return ig
 
-    def kl_divergences(self, stimuli, gold_standard, verbose=False):
+    def kl_divergences(self, stimuli, gold_standard, log_regularization=0, quotient_regularization=0, verbose=False):
         """Calculate KL Divergence between model and gold standard for each stimulus.
 
         This metric works only for probabilistic models.
         For the existing saliency metrics known as KL Divergence, see
         `image_based_kl_divergence` and `fixation_based_kl_divergence`.
+
+        log_regularization and quotient_regularization are regularization constants that are used as in
+        kldiv(p1, p2) = sum(p1*log(log_regularization + p1 / (p2 + quotient_regularization))).
         """
         assert isinstance(self, Model)
         assert isinstance(gold_standard, Model)
+
+        def _kl_div(logp1, logp2, log_regularization=0, quotient_regularization=0):
+            if log_regularization or quotient_regularization:
+                return (np.exp(logp2)*np.log(log_regularization+np.exp(logp2)/(np.exp(logp1)+quotient_regularization))).sum()
+            else:
+                return (np.exp(logp2)*(logp2 - logp1)).sum()
+
         kl_divs = []
         for s in tqdm(stimuli, disable=not verbose):
             logp_model = self.log_density(s)
             logp_gold = gold_standard.log_density(s)
-            kl_divs.append((np.exp(logp_gold)*(logp_gold - logp_model)).sum())
+            kl_divs.append(_kl_div(logp_model, logp_gold, log_regularization=log_regularization, quotient_regularization=quotient_regularization))
+
         return kl_divs
 
     def set_params(self, **kwargs):

@@ -39,6 +39,19 @@ class MixedSaliencyMapModel(pysaliency.SaliencyMapModel):
             return self.gaussian_model.saliency_map(stimulus)
 
 
+class GaussianDensityModel(pysaliency.Model):
+    def _log_density(self, stimulus):
+        height = stimulus.shape[0]
+        width = stimulus.shape[1]
+        YS, XS = np.mgrid[:height, :width]
+        r_squared = (XS-0.5*width)**2 + (YS-0.5*height)**2
+        size = np.sqrt(width**2+height**2)
+        values = np.ones((stimulus.shape[0], stimulus.shape[1]))*np.exp(-0.5*(r_squared/size))
+        density = values / values.sum()
+        return np.log(density)
+
+
+
 @pytest.fixture
 def fixation_trains():
     xs_trains = [
@@ -302,3 +315,21 @@ def test_get_unfixated_values():
     ys = [0, 1, 1, 2]
     xs = [1, 1, 1, 0]
     assert set(pysaliency.saliency_map_models._get_unfixated_values(smap, ys, xs)) == set([1, 3, 6])
+
+
+def test_density_map_model(stimuli):
+    model = GaussianDensityModel()
+    smap_model = pysaliency.saliency_map_models.DensitySaliencyMapModel(model)
+    density = np.exp(model.log_density(stimuli[0]))
+    smap = smap_model.saliency_map(stimuli[0])
+
+    np.testing.assert_allclose(density, smap)
+
+
+def test_log_density_map_model(stimuli):
+    model = GaussianDensityModel()
+    smap_model = pysaliency.saliency_map_models.LogDensitySaliencyMapModel(model)
+    log_density = model.log_density(stimuli[0])
+    smap = smap_model.saliency_map(stimuli[0])
+
+    np.testing.assert_allclose(log_density, smap)

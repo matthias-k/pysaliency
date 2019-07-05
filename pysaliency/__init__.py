@@ -15,7 +15,8 @@ from .datasets import (Fixations, FixationTrains, Stimuli, FileStimuli, create_n
 from .saliency_map_models import (SaliencyMapModel, GeneralSaliencyMapModel,
                                   GaussianSaliencyMapModel, FixationMap, CachedSaliencyMapModel, ExpSaliencyMapModel,
                                   DisjointUnionSaliencyMapModel, SubjectDependentSaliencyMapModel, ResizingSaliencyMapModel,
-                                  BluringSaliencyMapModel, DigitizeMapModel, HistogramNormalizedSaliencyMapModel)
+                                  BluringSaliencyMapModel, DigitizeMapModel, HistogramNormalizedSaliencyMapModel,
+                                  DensitySaliencyMapModel, LogDensitySaliencyMapModel, EqualizedSaliencyMapModel)
 from .models import (GeneralModel, Model, UniformModel, CachedModel, MixtureModel,
                      DisjointUnionModel, SubjectDependentModel, ShuffledAUCSaliencyMapModel, ResizingModel,
                      StimulusDependentModel

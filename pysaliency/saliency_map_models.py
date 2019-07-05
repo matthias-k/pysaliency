@@ -573,7 +573,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
         return (p_fix * (np.log(p_fix) - np.log(p_nonfix))).sum()
 
-    def image_based_kl_divergences(self, stimuli, gold_standard, minimum_value=1e-20, convert_gold_standard=True, verbose=False):
+    def image_based_kl_divergences(self, stimuli, gold_standard, minimum_value=1e-20, log_regularization=0, quotient_regularization=0, convert_gold_standard=True, verbose=False):
         """Calculate image-based KL-Divergences between model and gold standard for each stimulus
 
         This metric computes the KL-Divergence between model predictions and a gold standard
@@ -581,6 +581,7 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         saliency maps are interpreted as densities by dividing them by their summed value.
 
         To avoid problems with zeros, the minimum value is added to all saliency maps.
+        Alternatively the kl divergence itself can be regularized (see Model.kl_divergences for details).
 
         If the gold standard is already a probabilistic model that should not be converted in a
         new (different!) probabilistic model, set `convert_gold_standard` to False.
@@ -613,9 +614,15 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         else:
             prob_gold_standard = gold_standard
 
-        return prob_model.kl_divergences(stimuli, prob_gold_standard, verbose=verbose)
+        return prob_model.kl_divergences(
+            stimuli,
+            prob_gold_standard,
+            log_regularization=log_regularization,
+            quotient_regularization=quotient_regularization,
+            verbose=verbose
+        )
 
-    def image_based_kl_divergence(self, stimuli, gold_standard, minimum_value=1e-20, convert_gold_standard=True, verbose=False):
+    def image_based_kl_divergence(self, stimuli, gold_standard, minimum_value=1e-20, log_regularization=0, quotient_regularization=0, convert_gold_standard=True, verbose=False):
         """Calculate image-based KL-Divergences between model and gold standard averaged over stimuli
 
         for more details, see `image_based_kl_divergences`.
@@ -623,6 +630,8 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         return np.mean(self.image_based_kl_divergences(stimuli, gold_standard,
                                                        minimum_value=minimum_value,
                                                        convert_gold_standard=convert_gold_standard,
+                                                       log_regularization=log_regularization,
+                                                       quotient_regularization=quotient_regularization,
                                                        verbose=verbose))
 
     def KLDivs(self, *args, **kwargs):
@@ -1044,3 +1053,37 @@ class RandomNoiseSaliencyMapModel(LambdaSaliencyMapModel):
     def add_jitter(self, saliency_maps):
         saliency_map = saliency_maps[0]
         return saliency_map + self.rst.randn(*saliency_map.shape)*self.noise_size
+
+
+class DensitySaliencyMapModel(SaliencyMapModel):
+    """Uses fixation density as predicted by a probabilistic model as saliency maps"""
+    def __init__(self, parent_model, **kwargs):
+        super().__init__(caching=False, **kwargs)
+        self.parent_model = parent_model
+
+    def _saliency_map(self, stimulus):
+        return np.exp(self.parent_model.log_density(stimulus))
+
+
+class LogDensitySaliencyMapModel(SaliencyMapModel):
+    """Uses fixation log density as predicted by a probabilistic model as saliency maps"""
+    def __init__(self, parent_model, **kwargs):
+        super().__init__(caching=False, **kwargs)
+        self.parent_model = parent_model
+
+    def _saliency_map(self, stimulus):
+        return self.parent_model.log_density(stimulus).copy()
+
+
+class EqualizedSaliencyMapModel(SaliencyMapModel):
+    """Equalizes saliency maps to have uniform histogram"""
+    def __init__(self, parent_model, **kwargs):
+        super(EqualizedSaliencyMapModel, self).__init__(caching=False, **kwargs)
+        self.parent_model = parent_model
+
+    def _saliency_map(self, stimulus):
+        smap = self.parent_model.saliency_map(stimulus)
+        smap = np.argsort(np.argsort(smap.flatten())).reshape(smap.shape)
+        smap = smap.astype(float)
+        smap /= np.prod(smap.shape)
+        return smap
