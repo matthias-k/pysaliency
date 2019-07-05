@@ -1058,7 +1058,7 @@ class RandomNoiseSaliencyMapModel(LambdaSaliencyMapModel):
 class DensitySaliencyMapModel(SaliencyMapModel):
     """Uses fixation density as predicted by a probabilistic model as saliency maps"""
     def __init__(self, parent_model, **kwargs):
-        super().__init__(caching=False, **kwargs)
+        super(DensitySaliencyMapModel, self).__init__(caching=False, **kwargs)
         self.parent_model = parent_model
 
     def _saliency_map(self, stimulus):
@@ -1068,7 +1068,7 @@ class DensitySaliencyMapModel(SaliencyMapModel):
 class LogDensitySaliencyMapModel(SaliencyMapModel):
     """Uses fixation log density as predicted by a probabilistic model as saliency maps"""
     def __init__(self, parent_model, **kwargs):
-        super().__init__(caching=False, **kwargs)
+        super(LogDensitySaliencyMapModel, self).__init__(caching=False, **kwargs)
         self.parent_model = parent_model
 
     def _saliency_map(self, stimulus):
