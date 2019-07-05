@@ -513,7 +513,7 @@ class ShuffledBaselineModel(Model):
     def __init__(self, parent_model, stimuli, resized_predictions_cache_size=5000,
                  compute_size=(500, 500),
                  **kwargs):
-        super().__init__(**kwargs)
+        super(ShuffledBaselineModel, self).__init__(**kwargs)
         self.parent_model = parent_model
         self.stimuli = stimuli
         self.compute_size = compute_size
