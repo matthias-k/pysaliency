@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 from __future__ import absolute_import, division, print_function  # , unicode_literals
 
 import sys
@@ -19,16 +20,26 @@ def optimize_for_information_gain(
         num_centerbias=12,
         blur_radius=0,
         optimize=None,
+        saliency_min=None,
+        saliency_max=None,
         verbose=0,
         return_optimization_result=False,
         maxiter=1000):
+    """ convert saliency map model into probabilistic model as described in Kümmerer et al, PNAS 2015.
+    """
 
-    smax = -np.inf
-    smin = np.inf
-    for s in tqdm(fit_stimuli):
-        smap = model.saliency_map(s)
-        smax = np.max([smax, smap.max()])
-        smin = np.min([smin, smap.min()])
+    if saliency_min is None or saliency_max is None:
+        smax = -np.inf
+        smin = np.inf
+        for s in tqdm(fit_stimuli):
+            smap = model.saliency_map(s)
+            smax = np.max([smax, smap.max()])
+            smin = np.min([smin, smap.min()])
+
+        if saliency_min is None:
+            saliency_min = smin
+        if saliency_max is None:
+            saliency_max = smax
 
     from .theano_utils import SaliencyMapProcessingLogNonlinearity
     processing_class = SaliencyMapProcessingLogNonlinearity
@@ -38,8 +49,8 @@ def optimize_for_information_gain(
                                centerbias = np.linspace(1.1, 0.9, num=num_centerbias),
                                blur_radius=blur_radius,
                                processing_class=processing_class,
-                               saliency_max=smax,
-                               saliency_min=smin)
+                               saliency_max=saliency_max,
+                               saliency_min=saliency_min)
     res = smc.fit(fit_stimuli, fit_fixations, optimize=optimize, verbose=verbose, maxiter=maxiter)
     if return_optimization_result:
         return smc, res
