@@ -41,10 +41,18 @@ class SaliencyMapModelFromFiles(SaliencyMapModel):
         assert(len(files) == len(stimuli))
 
     def _saliency_map(self, stimulus):
-        stimulus_id = get_image_hash(stimulus)
-        stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
-        filename = self.files[stimulus_index]
+        filename = self._file_for_stimulus(stimulus)
         return self._load_file(filename)
+
+    def _file_for_stimulus(self, stimulus):
+        stimulus_id = get_image_hash(stimulus)
+
+        try:
+            stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
+        except IndexError:
+            raise IndexError("Stimulus id '{}' not found in stimuli!".format(stimulus_id))
+
+        return self.files[stimulus_index]
 
     def _load_file(self, filename):
         _, ext = os.path.splitext(filename)
