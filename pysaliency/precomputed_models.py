@@ -15,14 +15,33 @@ from .datasets import get_image_hash, FileStimuli
 from .utils import get_minimal_unique_filenames
 
 
-def export_model_to_hdf5(model, stimuli, filename, compression=9):
+def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True):
+    """Export pysaliency model predictions for stimuli into hdf5 file
+
+    model: Model or SaliencyMapModel
+    stimuli: instance of FileStimuli
+    filename: where to save hdf5 file to
+    compression: how much to compress the data
+    overwrite: if False, an existing file will be appended to and
+      if for some stimuli predictions already exist, they will be
+      kept.
+    """
     assert isinstance(stimuli, FileStimuli)
 
     names = get_minimal_unique_filenames(stimuli.filenames)
 
     import h5py
-    with h5py.File(filename, mode='w') as f:
+
+    if overwrite:
+        mode = 'w'
+    else:
+        mode = 'a'
+
+    with h5py.File(filename, mode=mode) as f:
         for k, s in enumerate(tqdm(stimuli)):
+            if not overwrite and names[k] in f:
+                print("Skipping already existing entry", names[k])
+                continue
             if isinstance(model, SaliencyMapModel):
                 smap = model.saliency_map(s)
             elif isinstance(model, Model):
