@@ -425,13 +425,18 @@ class Judd(ExternalModelMixin, MatlabSaliencyMapModel):
     """
     __modelname__ = 'Judd'
 
-    def __init__(self, location=None, saliency_toolbox_archive=None, **kwargs):
-        self.setup(location, saliency_toolbox_archive=saliency_toolbox_archive)
+    def __init__(self, location=None, saliency_toolbox_archive=None, include_locations=None, library_locations=None, **kwargs):
+        self.setup(location, saliency_toolbox_archive=saliency_toolbox_archive, include_locations=include_locations, library_locations=library_locations)
         super(Judd, self).__init__(os.path.join(self.location, 'Judd_wrapper.m'), only_color_stimuli=True, **kwargs)
 
-    def _setup(self, saliency_toolbox_archive):
+    def _setup(self, saliency_toolbox_archive, include_locations, library_locations):
         if not saliency_toolbox_archive:
             raise Exception('You have to provide the zipfile containing the Itti and Koch Saliency Toolbox!')
+
+        if include_locations is None:
+            include_locations = ['/usr/include/opencv2']
+        if library_locations is None:
+            library_locations = ['/usr/lib/x86_64-linux-gnu/']
 
         source_location = os.path.join(self.location, 'source')
         print('Downloading Judd Model...')
@@ -468,7 +473,15 @@ class Judd(ExternalModelMixin, MatlabSaliencyMapModel):
                                os.path.join(source_location, 'FaceDetect'),
                                location_in_archive=False,
                                patches=os.path.join('Judd', 'FaceDetect_patches'))
-        run_matlab_cmd("mex FaceDetect.cpp -I/usr/include/opencv2 -L/usr/lib/x86_64-linux-gnu/  -lopencv_core -lopencv_objdetect -lopencv_imgproc -lopencv_highgui -outdir .",
+
+        includes = ' '.join(['-I{}'.format(location) for location in include_locations])
+        libraries = ' '.join(['-L{}'.format(location) for location in library_locations])
+
+
+        run_matlab_cmd("mex FaceDetect.cpp {includes} {libaries} -lopencv_core -lopencv_objdetect -lopencv_imgproc -lopencv_highgui -outdir .".format(
+                           includes=includes,
+                           libaries=libraries
+                       ),
                        cwd=os.path.join(source_location, 'FaceDetect', 'src'))
 
         print('Downloading LabelMe Toolbox')
