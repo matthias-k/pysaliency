@@ -190,10 +190,17 @@ class GeneralSaliencyMapModel(object):
                   ordered as in `fixations.x` (average=='fixation' or None)
                   or by image numbers (average=='image')
         """
-        if average != 'fixation':
-            raise NotImplementedError()
         aucs = self.AUCs(stimuli, fixations, nonfixations=nonfixations, verbose=verbose)
-        return np.mean(aucs)
+        if average == 'fixation':
+            return np.mean(aucs)
+        elif average == 'image':
+            image_scores = {}
+            for auc, image_index in zip(aucs, fixations.n):
+                image_scores.setdefault(image_index, []).append(auc)
+            image_scores = {k: np.mean(aucs) for k, aucs in image_scores.items()}
+            return np.mean(list(image_scores.values()))
+        else:
+            raise ValueError(average)
 
     def sAUCs(self, stimuli, fixations, verbose=False):
         return self.AUCs(stimuli, fixations, nonfixations='shuffled', verbose=verbose)

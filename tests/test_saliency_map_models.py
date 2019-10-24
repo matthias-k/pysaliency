@@ -151,6 +151,15 @@ def test_auc_gauss(stimuli, fixation_trains):
     auc = gsmm.AUC(stimuli, fixation_trains)
     np.testing.assert_allclose(auc, 0.2403125)
 
+    auc = gsmm.AUC(stimuli, fixation_trains, average='image')
+    np.testing.assert_allclose(auc, 0.254875)
+
+    auc = pysaliency.saliency_map_models.GeneralSaliencyMapModel.AUC(gsmm, stimuli, fixation_trains)
+    np.testing.assert_allclose(auc, 0.2403125)
+
+    auc = pysaliency.saliency_map_models.GeneralSaliencyMapModel.AUC(gsmm, stimuli, fixation_trains, average='image')
+    np.testing.assert_allclose(auc, 0.254875)
+
     auc = gsmm.AUC(stimuli, fixation_trains, nonfixations='unfixated')
     np.testing.assert_allclose(auc, 0.2396681277395116)
 
