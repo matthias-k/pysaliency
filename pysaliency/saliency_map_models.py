@@ -237,6 +237,8 @@ class GeneralSaliencyMapModel(object):
             nsss = self.NSSs(stimuli, fixations, verbose=verbose)
             df = pd.DataFrame({'n': fixations.n, 'nss': nsss})
             return df.groupby('n')['nss'].mean().mean()
+        else:
+            raise ValueError(average)
 
     def set_params(self, **kwargs):
         """
