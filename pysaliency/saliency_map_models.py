@@ -658,14 +658,20 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         see `CC`
         """
         coeffs = []
-        for s in tqdm(stimuli, disable=not verbose):
-            smap1 = self.saliency_map(s).copy()
-            smap1 -= smap1.mean()
-            smap1 /= smap1.std()
 
-            smap2 = other.saliency_map(s).copy()
-            smap2 -= smap2.mean()
-            smap2 /= smap2.std()
+        def normalize(saliency_map):
+            saliency_map -= saliency_map.mean()
+            std = saliency_map.std()
+
+            if std:
+                saliency_map /= std
+
+            return saliency_map
+
+        for s in tqdm(stimuli, disable=not verbose):
+            smap1 = normalize(self.saliency_map(s).copy())
+
+            smap2 = normalize(other.saliency_map(s).copy())
 
             coeffs.append(np.corrcoef(smap1.flatten(), smap2.flatten())[0, 1])
         return np.asarray(coeffs)
