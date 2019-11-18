@@ -672,7 +672,6 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
         for s in tqdm(stimuli, disable=not verbose):
             smap1 = normalize(self.saliency_map(s).copy())
-
             smap2 = normalize(other.saliency_map(s).copy())
 
             coeffs.append(np.corrcoef(smap1.flatten(), smap2.flatten())[0, 1])
@@ -710,7 +709,15 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         def _normalize_saliency_map(smap):
             if smap.min() < 0:
                 smap = smap - smap.min()
-            smap = smap / smap.sum()
+
+            smap_sum = smap.sum()
+
+            if smap_sum:
+                smap = smap / smap_sum
+            else:
+                smap[:] = 1.0
+                smap /= smap.sum()
+
             return smap
 
         values = []

@@ -10,8 +10,12 @@ import pysaliency.saliency_map_models
 
 
 class ConstantSaliencyMapModel(pysaliency.SaliencyMapModel):
+    def __init__(self, value=1.0, *args, **kwargs):
+        super(ConstantSaliencyMapModel, self).__init__(*args, **kwargs)
+        self.value = value
+
     def _saliency_map(self, stimulus):
-        return np.ones((stimulus.shape[0], stimulus.shape[1]))
+        return np.ones((stimulus.shape[0], stimulus.shape[1]))*self.value
 
 
 class GaussianSaliencyMapModel(pysaliency.SaliencyMapModel):
@@ -223,6 +227,22 @@ def test_cc_gauss(stimuli, fixation_trains):
 
     cc = gsmm.CC(stimuli, gold)
     np.testing.assert_allclose(cc, -0.1542654)
+
+
+def test_SIM_gauss(stimuli, fixation_trains):
+    gsmm = GaussianSaliencyMapModel()
+
+    constant_gold = ConstantSaliencyMapModel()
+    sim = gsmm.SIM(stimuli, constant_gold)
+    np.testing.assert_allclose(sim, 0.54392, rtol=1e-6)
+
+    constant_gold = ConstantSaliencyMapModel(value=0.0)
+    sim = gsmm.SIM(stimuli, constant_gold)
+    np.testing.assert_allclose(sim, 0.54392, rtol=1e-6)
+
+    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size = 10, ignore_doublicates=True)
+    sim = gsmm.SIM(stimuli, gold)
+    np.testing.assert_allclose(sim, 0.315899, rtol=1e-6)
 
 
 def test_fixation_based_kldiv_constant(stimuli, fixation_trains):
