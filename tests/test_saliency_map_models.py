@@ -286,7 +286,6 @@ def test_fixation_based_kldiv_mixed(stimuli, fixation_trains):
 
 def test_image_based_kldiv_gauss(stimuli, fixation_trains):
     gsmm = GaussianSaliencyMapModel()
-    constant_gold = ConstantSaliencyMapModel()
     gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size = 10, ignore_doublicates=True)
 
     ib_kl = gsmm.image_based_kl_divergence(stimuli, gsmm)
@@ -294,9 +293,26 @@ def test_image_based_kldiv_gauss(stimuli, fixation_trains):
     ib_kl = gsmm.KLDiv(stimuli, gsmm)
     np.testing.assert_allclose(ib_kl, 0.0)
 
+    constant_gold = ConstantSaliencyMapModel()
     ib_kl = gsmm.image_based_kl_divergence(stimuli, constant_gold)
     np.testing.assert_allclose(ib_kl, 0.8396272788909165)
     ib_kl = gsmm.KLDiv(stimuli, constant_gold)
+    np.testing.assert_allclose(ib_kl, 0.8396272788909165)
+
+    constant_gold = ConstantSaliencyMapModel(value=0.0)
+    ib_kl = gsmm.image_based_kl_divergence(stimuli, constant_gold)
+    np.testing.assert_allclose(ib_kl, 0.8396272788909165)
+    ib_kl = gsmm.KLDiv(stimuli, constant_gold)
+    np.testing.assert_allclose(ib_kl, 0.8396272788909165)
+
+    # test MIT Benchmarking settings
+    # (minimum_value=0 can be problematic for constant models)
+    ib_kl = gsmm.image_based_kl_divergence(
+            stimuli, constant_gold,
+            minimum_value=0,
+            log_regularization=2.2204e-16,
+            quotient_regularization=2.2204e-16
+        )
     np.testing.assert_allclose(ib_kl, 0.8396272788909165)
 
     ib_kl = gsmm.image_based_kl_divergence(stimuli, gold)

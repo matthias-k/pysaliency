@@ -610,7 +610,14 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
                     if smap.min() < 0:
                         smap = smap - smap.min()
                     smap = smap + self.minimum_value
-                    smap = smap / smap.sum()
+
+                    smap_sum = smap.sum()
+                    if smap_sum:
+                        smap = smap / smap_sum
+                    else:
+                        smap[:] = 1.0
+                        smap /= smap.sum()
+
                     return smap
 
                 def _log_density(self, stimulus):
