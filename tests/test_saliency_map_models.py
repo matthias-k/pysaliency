@@ -197,6 +197,22 @@ def test_nss_gauss(stimuli, fixation_trains):
     np.testing.assert_allclose(nss, -0.706711609374163)
 
 
+def test_nss_uniform(stimuli, fixation_trains):
+    gsmm = ConstantSaliencyMapModel()
+
+    nsss = gsmm.NSSs(stimuli, fixation_trains)
+    np.testing.assert_allclose(
+        nsss,
+        [0, 0, 0, 0, 0, 0, 0, 0],
+        rtol=1e-6)
+
+    nss = gsmm.NSS(stimuli, fixation_trains)
+    np.testing.assert_allclose(nss, 0)
+
+    nss = gsmm.NSS(stimuli, fixation_trains, average='image')
+    np.testing.assert_allclose(nss, 0)
+
+
 def test_fixation_based_kldiv_constant(stimuli, fixation_trains):
     csmm = ConstantSaliencyMapModel()
 

@@ -222,7 +222,9 @@ class GeneralSaliencyMapModel(object):
 
             value = smap[fixations.y_int[i], fixations.x_int[i]].copy()
             value -= mean
-            value /= std
+
+            if std:
+                value /= std
 
             values[i] = value
         return values
@@ -682,7 +684,10 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
 
             _values = smap[fixations.y_int[inds], fixations.x_int[inds]]
             _values -= mean
-            _values /= std
+
+            if std:
+                _values /= std
+
             values[inds] = _values
 
         return values
