@@ -17,6 +17,7 @@ from .numba_utils import fill_fixation_map
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache, get_minimal_unique_filenames
 from .datasets import Stimulus, Fixations, FileStimuli
+from .metrics import NSS
 
 
 def handle_stimulus(stimulus):
@@ -216,17 +217,7 @@ class GeneralSaliencyMapModel(object):
             out = self.conditional_saliency_map(stimuli.stimulus_objects[fixations.n[i]], fixations.x_hist[i], fixations.y_hist[i],
                                                 fixations.t_hist[i], out=out)
 
-            smap = out
-            mean = smap.mean()
-            std = smap.std()
-
-            value = smap[fixations.y_int[i], fixations.x_int[i]].copy()
-            value -= mean
-
-            if std:
-                value /= std
-
-            values[i] = value
+            values[i] = NSS(out, fixations.x_int[i], fixations.y_int[i])
         return values
 
     def NSS(self, stimuli, fixations, average='fixation', verbose=False):
@@ -691,18 +682,8 @@ class SaliencyMapModel(GeneralSaliencyMapModel):
         values = np.empty(len(fixations.x))
         for n, s in enumerate(tqdm(stimuli, disable=not verbose)):
             smap = self.saliency_map(s).copy()
-            mean = smap.mean()
-            std = smap.std()
-
             inds = fixations.n == n
-
-            _values = smap[fixations.y_int[inds], fixations.x_int[inds]]
-            _values -= mean
-
-            if std:
-                _values /= std
-
-            values[inds] = _values
+            values[inds] = NSS(smap, fixations.x_int[inds], fixations.y_int[inds])
 
         return values
 

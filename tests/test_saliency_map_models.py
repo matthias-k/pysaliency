@@ -194,6 +194,13 @@ def test_nss_gauss(stimuli, fixation_trains):
          -0.740616174533, -0.707322347863, -0.433094498355, -0.800070419267],
         rtol=1e-6)
 
+    nsss = pysaliency.GeneralSaliencyMapModel.NSSs(gsmm, stimuli, fixation_trains)
+    np.testing.assert_allclose(
+        nsss,
+        [-0.821596006113, -0.789526121554, -0.740616174533, -0.740616174533,
+         -0.740616174533, -0.707322347863, -0.433094498355, -0.800070419267],
+        rtol=1e-6)
+
     nss = gsmm.NSS(stimuli, fixation_trains)
     np.testing.assert_allclose(nss, -0.721682239593952)
 
