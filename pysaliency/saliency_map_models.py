@@ -18,6 +18,7 @@ from .numba_utils import fill_fixation_map
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache, get_minimal_unique_filenames
 from .datasets import Stimulus, Fixations, FileStimuli
 from .metrics import NSS
+from .sampling_models import SamplingModelMixin
 
 
 def handle_stimulus(stimulus):
@@ -1102,3 +1103,22 @@ class EqualizedSaliencyMapModel(SaliencyMapModel):
         smap = smap.astype(float)
         smap /= np.prod(smap.shape)
         return smap
+
+
+def nd_argmax(array):
+    return np.unravel_index(np.argmax(array.flatten()), array.shape)
+
+
+class WTASamplingMixin(SamplingModelMixin):
+    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, verbose=False, rst=None):
+        conditional_saliency_map = self.conditional_saliency_map(stimulus, x_hist, y_hist, t_hist)
+        x, y = nd_argmax(conditional_saliency_map)
+
+        if not t_hist:
+            t = 0
+        elif len(t_hist) == 1:
+            t = t_hist[0] * 2
+        else:
+            t = t_hist[-1] + np.mean(np.diff(t_hist))
+
+        return x, y, t

@@ -16,6 +16,7 @@ from .saliency_map_models import (GeneralSaliencyMapModel, SaliencyMapModel, han
                                   SubjectDependentSaliencyMapModel,
                                   ExpSaliencyMapModel, DisjointUnionSaliencyMapModel)
 from .datasets import FixationTrains, get_image_hash, as_stimulus
+from .sampling_models import SamplingModelMixin
 from .utils import Cache
 from .tf_utils import tf_logsumexp
 
@@ -89,7 +90,7 @@ def sample_from_image(densities, count=None, rst=None):
 
 
 @add_metaclass(ABCMeta)
-class GeneralModel(object):
+class GeneralModel(SamplingModelMixin, object):
     """
     General probabilistic saliency model.
 
@@ -211,17 +212,12 @@ class GeneralModel(object):
 
     def _sample_fixation_train(self, stimulus, length):
         """Sample one fixation train of given length from stimulus"""
-        xs = []
-        ys = []
-        ts = []
-        for i in range(length):
-            log_densities = self.conditional_log_density(stimulus, xs, ys, ts)
-            x, y = sample_from_image(np.exp(log_densities))
-            xs.append(x)
-            ys.append(y)
-            ts.append(len(ts))
+        return self.sample_scanpath(stimulus, [], [], [], length)
 
-        return xs, ys, ts
+    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, samples, verbose=False, rst=None):
+        log_densities = self.conditional_log_density(stimulus, x_hist, y_hist, t_hist)
+        x, y = sample_from_image(np.exp(log_densities))
+        return x, y, len(t_hist)
 
 
 class Model(GeneralModel):

@@ -69,3 +69,10 @@ def test_shuffled_baseline_model(stimuli):
     shuffled_model = pysaliency.models.ShuffledBaselineModel(model, stimuli)
 
     assert model.log_density(stimuli[0]).shape == shuffled_model.log_density(stimuli[0]).shape
+
+
+def test_sampling(stimuli):
+    model = GaussianSaliencyModel()
+    fixations = model.sample(stimuli, train_counts=10, lengths=3)
+    assert len(fixations.train_xs) == len(stimuli) * 10
+    assert len(fixations.x) == len(stimuli) * 10 * 3

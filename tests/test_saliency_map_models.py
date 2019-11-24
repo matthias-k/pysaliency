@@ -18,7 +18,7 @@ class ConstantSaliencyMapModel(pysaliency.SaliencyMapModel):
         return np.ones((stimulus.shape[0], stimulus.shape[1]))*self.value
 
 
-class GaussianSaliencyMapModel(pysaliency.SaliencyMapModel):
+class GaussianSaliencyMapModel(pysaliency.SaliencyMapModel, pysaliency.saliency_map_models.WTASamplingMixin):
     def _saliency_map(self, stimulus):
         height = stimulus.shape[0]
         width = stimulus.shape[1]
@@ -413,3 +413,16 @@ def test_log_density_map_model(stimuli):
     smap = smap_model.saliency_map(stimuli[0])
 
     np.testing.assert_allclose(log_density, smap)
+
+
+def test_wta_sampling(stimuli):
+    model = GaussianSaliencyMapModel()
+    stimulus = stimuli[0]
+
+    xs, ys, ts = model.sample_scanpath(stimulus, x_hist=[], y_hist=[], t_hist=[], samples=10)
+    assert len(xs) == 10
+    assert len(ys) == 10
+    assert len(ts) == 10
+
+    np.testing.assert_allclose(xs, 0.5 * stimulus.shape[1], atol=0.6)
+    np.testing.assert_allclose(ys, 0.5 * stimulus.shape[0], atol=0.6)
