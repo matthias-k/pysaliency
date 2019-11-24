@@ -1112,7 +1112,7 @@ def nd_argmax(array):
 class WTASamplingMixin(SamplingModelMixin):
     def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, verbose=False, rst=None):
         conditional_saliency_map = self.conditional_saliency_map(stimulus, x_hist, y_hist, t_hist)
-        x, y = nd_argmax(conditional_saliency_map)
+        y, x = nd_argmax(conditional_saliency_map)
 
         if not t_hist:
             t = 0
