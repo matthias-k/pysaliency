@@ -49,6 +49,14 @@ def get_minimal_unique_filenames(filenames):
     return [os.path.join(*item) for item in components]
 
 
+def remove_trailing_nans(data):
+    """Filters a scanpath arrays to remove the ending part of nans."""
+    for i in range(len(data)):
+        if np.all(np.isnan(data[i:])):
+            return data[:i]
+    return data
+
+
 def lazy_property(fn):
     """Lazy property: Is only calculated when first used.
        Code from http://stackoverflow.com/questions/3012421/python-lazy-property-decorator"""
