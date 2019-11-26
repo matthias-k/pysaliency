@@ -15,6 +15,7 @@ before_install:
 install:
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION numpy scipy cython  six setuptools sphinx numpydoc pkg-config pillow tqdm boltons natsort requests dill tensorflow pytest theano imageio scikit-learn pandas
   - source activate test-env
+  - pip install schema
 before_script:
   - conda info
   - conda list
