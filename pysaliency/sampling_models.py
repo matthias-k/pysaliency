@@ -1,7 +1,11 @@
-from abc import ABC, abstractmethod
+from __future__ import print_function, absolute_import, division, unicode_literals
+
+from abc import ABCMeta, abstractmethod
+from six import add_metaclass
 
 
-class SamplingModelMixin(ABC):
+@add_metaclass(ABCMeta)
+class SamplingModelMixin(object):
     """A sampling model is supports sampling fixations and whole scanpaths."""
     def sample_scanpath(
         self, stimulus, x_hist, y_hist, t_hist, samples, verbose=False, rst=None
