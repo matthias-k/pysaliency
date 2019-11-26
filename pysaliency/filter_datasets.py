@@ -2,93 +2,91 @@ from __future__ import division, print_function
 
 import numpy as np
 
+from boltons.iterutils import chunked
 
-#def create_segments(folds):
-#    folds = sorted(folds)
-#    segments = []
-#    for f in folds:
-#        if not segments or segments[-1][-1] < f:
-#            segments.append([f, f+1])
-#        else:
-#            segments[-1][-1] = f + 1
-#    return segments
-#
-#
-#def simplify_segment(segment):
-#    if not isinstance(segment, (list, tuple)):
-#        return segment
-#    if segment[-1] == segment[0]+1:
-#        return segment[0]
-#    else:
-#        return segment
-#
-#
-#def format_segment(segment):
-#    segment = simplify_segment(segment)
-#    if isinstance(segment, list):
-#        return "{}:{}".format(*segment)
-#    else:
-#        return "{}".format(segment)
-#
-#
-#def format_segments(segments):
-#    parts = [format_segment(s) for s in segments]
-#    return ",".join(parts)
-#
-#
-#def format_fold(fold):
-#    return format_segments(create_segments(fold))
-#
-#
-#def create_train_folds(crossval_folds, val_folds, test_folds):
-#    all_folds = list(range(crossval_folds))
-#    if isinstance(val_folds, int):
-#        val_folds = [val_folds]
-#    if isinstance(test_folds, int):
-#        test_folds = [test_folds]
-#
-#    train_folds = [f for f in all_folds if not (f in val_folds or f in test_folds)]
-#
-#    #train_segments, val_segments, test_segments = create_segments(train_folds), create_segments(val_folds), create_segments(test_folds)
-#    #return format_segments(train_segments), format_segments(val_segments), format_segments(test_segments)
-#    return train_folds, val_folds, test_folds
-#
-#
-#def get_crossval_folds(crossval_folds, crossval_no, test_folds=1, val_folds=1):
-#    assert test_folds <= 1
-#    if test_folds:
-#        _test_folds = [crossval_no]
-#        _val_folds = [(crossval_no - i - 1) % crossval_folds for i in range(val_folds)]
-#
-#    else:
-#        assert val_folds == 1
-#
-#        _test_folds = [crossval_no]
-#        _val_folds = [crossval_no]
-#
-#    _train_folds, _val_folds, _test_folds = create_train_folds(crossval_folds, _val_folds, _test_folds)
-#
-#    return _train_folds, _val_folds, _test_folds
-#
-#
-#def get_crossval_postfixes(crossval_folds, crossval_no, test_folds=1, val_folds=1, split_random=True):
-#    """ Create filter postfixes for crossvalidation
-#
-#        if test_folds == 0, validation will be used as test
-#    """
-#
-#    _train_folds, _val_folds, _test_folds = get_crossval_folds(crossval_folds, crossval_no, test_folds=test_folds, val_folds=val_folds)
-#
-#    if split_random:
-#        split_type = 'splitstimulirandom'
-#    else:
-#        split_type = 'splitstimuli'
-#
-#    train_filter = "{}_{}_{}".format(split_type, crossval_folds, format_fold(_train_folds))
-#    val_filter = "{}_{}_{}".format(split_type, crossval_folds, format_fold(_val_folds))
-#    test_filter = "{}_{}_{}".format(split_type, crossval_folds, format_fold(_test_folds))
-#
-#    return train_filter, val_filter, test_filter
+from .datasets import create_subset
+
+
+def train_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True):
+    return crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='train')
+
+
+def validation_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True):
+    return crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='val')
+
+
+def test_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True):
+    return crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='test')
+
+
+def crossval_splits(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True):
+    return (
+        crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='train'),
+        crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='val'),
+        crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='test'),
+    )
+
+
+def crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True, split='train'):
+    train_folds, val_folds, test_folds = get_crossval_folds(crossval_folds, fold_no, test_folds=test_folds, val_folds=val_folds)
+
+    if split == 'train':
+        folds = train_folds
+    elif split == 'val':
+        folds = val_folds
+    elif split == 'test':
+        folds = test_folds
+    else:
+        raise ValueError(split)
+
+    return _get_crossval_split(stimuli, fixations, crossval_folds, included_splits=folds, random=random)
+
+
+def _get_crossval_split(stimuli, fixations, split_count, included_splits, random=True):
+    inds = list(range(len(stimuli)))
+    if random:
+        print("Using random shuffles for crossvalidation")
+        rst = np.random.RandomState(seed=42)
+        rst.shuffle(inds)
+        inds = list(inds)
+    size = int(np.ceil(len(inds) / split_count))
+    chunks = chunked(inds, size=size)
+
+    inds = []
+    for split_nr in included_splits:
+        inds.extend(chunks[split_nr])
+
+    stimuli, fixations = create_subset(stimuli, fixations, inds)
+    return stimuli, fixations
+
+
+def create_train_folds(crossval_folds, val_folds, test_folds):
+    all_folds = list(range(crossval_folds))
+    if isinstance(val_folds, int):
+        val_folds = [val_folds]
+    if isinstance(test_folds, int):
+        test_folds = [test_folds]
+
+    train_folds = [f for f in all_folds if not (f in val_folds or f in test_folds)]
+
+    return train_folds, val_folds, test_folds
+
+
+def get_crossval_folds(crossval_folds, crossval_no, test_folds=1, val_folds=1):
+    assert test_folds <= 1
+    if test_folds:
+        _test_folds = [crossval_no]
+        _val_folds = [(crossval_no - i - 1) % crossval_folds for i in range(val_folds)]
+
+    else:
+        assert val_folds == 1
+
+        _test_folds = [crossval_no]
+        _val_folds = [crossval_no]
+
+    _train_folds, _val_folds, _test_folds = create_train_folds(crossval_folds, _val_folds, _test_folds)
+
+    return _train_folds, _val_folds, _test_folds
 
 
 def parse_list_of_intervals(description):

@@ -48,3 +48,7 @@ def test_filter_fixations_by_number(fixation_trains):
     fixations = filter_datasets.filter_fixations_by_number(fixation_trains, [[0, 2], 2])
     assert len(fixations.x) == 8
     np.testing.assert_allclose(fixations.x, fixation_trains.x)
+
+
+def test_crossval_splits(stimuli, fixation_trains):
+    (train_stimuli, train_fixations), (val_s, val_f), (test_s, test_f) = filter_datasets.crossval_splits(stimuli, fixation_trains, 2, 1, test_folds=0)
