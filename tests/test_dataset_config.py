@@ -36,9 +36,9 @@ def stimuli():
 
 @pytest.fixture
 def hdf5_dataset(tmpdir, fixation_trains, stimuli):
-    stimuli.to_hdf5(os.path.join(tmpdir, 'stimuli.hdf5'))
-    fixation_trains.to_hdf5(os.path.join(tmpdir, 'fixations.hdf5'))
-    return tmpdir
+    stimuli.to_hdf5(os.path.join(str(tmpdir), 'stimuli.hdf5'))
+    fixation_trains.to_hdf5(os.path.join(str(tmpdir), 'fixations.hdf5'))
+    return str(tmpdir)
 
 
 def test_load_dataset(hdf5_dataset, stimuli, fixation_trains):
