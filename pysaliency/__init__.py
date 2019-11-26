@@ -17,6 +17,7 @@ from .datasets import (
     concatenate_datasets,
     read_hdf5,
 )
+from .dataset_config import load_dataset_from_config
 from .saliency_map_models import (
     SaliencyMapModel,
     GeneralSaliencyMapModel,
