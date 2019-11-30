@@ -214,7 +214,7 @@ class GeneralModel(SamplingModelMixin, object):
         """Sample one fixation train of given length from stimulus"""
         return self.sample_scanpath(stimulus, [], [], [], length)
 
-    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, samples, verbose=False, rst=None):
+    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, verbose=False, rst=None):
         log_densities = self.conditional_log_density(stimulus, x_hist, y_hist, t_hist)
         x, y = sample_from_image(np.exp(log_densities))
         return x, y, len(t_hist)
