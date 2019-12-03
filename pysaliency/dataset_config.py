@@ -28,6 +28,8 @@ def load_dataset_from_config(config):
 def apply_dataset_filter_config(stimuli, fixations, filter_config):
     if filter_config['type'] == 'filter_fixations_by_number':
         filter_fn = add_stimuli_argument(filter_fixations_by_number)
+    else:
+        raise ValueError("Invalid filter name: {}".format(filter_config['type']))
 
     return filter_fn(stimuli, fixations, **filter_config['parameters'])
 
