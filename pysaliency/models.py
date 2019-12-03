@@ -103,7 +103,7 @@ class GeneralModel(SamplingModelMixin, object):
 
     def log_likelihoods(self, stimuli, fixations, verbose=False):
         log_likelihoods = np.empty(len(fixations.x))
-        for i in tqdm(range(len(fixations.x)), disabled=not verbose):
+        for i in tqdm(range(len(fixations.x)), disable=not verbose):
             conditional_log_density = self.conditional_log_density(stimuli.stimulus_objects[fixations.n[i]],
                                                                    fixations.x_hist[i],
                                                                    fixations.y_hist[i],
