@@ -606,7 +606,16 @@ def get_cat2000_test(location=None):
     return stimuli
 
 
-def get_cat2000_train(location=None):
+def get_cat2000_train(location=None, include_initial_fixation=False):
+    name = 'CAT2000_train'
+
+    if not include_initial_fixation:
+        name += 'with_initial_fixation'
+
+    return _get_cat2000_train(name=name, location=location, include_initial_fixation=include_initial_fixation)
+
+
+def _get_cat2000_train(name, location, include_initial_fixation):
     """
     Loads or downloads and caches the CAT2000 dataset. The dataset
     consists of 1003 natural indoor and outdoor scenes of
@@ -637,6 +646,11 @@ def get_cat2000_train(location=None):
 
         http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
     """
+    if include_initial_fixation:
+        first_fixation = 1
+    else:
+        first_fixation = 0
+
     if location:
         location = os.path.join(location, 'CAT2000_train')
         if os.path.exists(location):
@@ -696,7 +710,7 @@ def get_cat2000_train(location=None):
             mat_data = loadmat(f)
             fix_data = mat_data['data']
             name = mat_data['name'][0]
-            n = int(os.path.basename(f).split('fix',1)[1].split('_')[0])-1
+            n = int(os.path.basename(f).split('fix', 1)[1].split('_')[0]) - 1
             stimulus_size = stimuli.sizes[n]
             _, _, subject = name.split('.eye')[0].split('-')
             if subject not in subject_dict:
@@ -706,7 +720,7 @@ def get_cat2000_train(location=None):
             x = []
             y = []
             t = []
-            for i in range(0, fix_data.shape[0]):  # Skip first fixation like Judd does
+            for i in range(first_fixation, fix_data.shape[0]):  # Skip first fixation like Judd does via first_fixation=1
                 if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
                     continue
                 if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:

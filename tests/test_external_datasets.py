@@ -71,6 +71,51 @@ def test_toronto(location):
 @pytest.mark.slow
 @pytest.mark.download
 @pytest.mark.skip_octave
+def test_cat2000(location, matlab):
+    real_location = _location(location)
+
+    stimuli, fixations = pysaliency.external_datasets.get_cat2000_train(location=real_location)
+
+    if location is None:
+        assert isinstance(stimuli, pysaliency.Stimuli)
+        assert not isinstance(stimuli, pysaliency.FileStimuli)
+    else:
+        assert isinstance(stimuli, pysaliency.FileStimuli)
+        assert location.join('CAT2000_train/stimuli.hdf5').check()
+        assert location.join('CAT2000_train/fixations.hdf5').check()
+
+    assert len(stimuli.stimuli) == 2000
+    assert set(stimuli.sizes) == {(1080, 1920)}
+
+    assert len(fixations.x) == 672053
+
+    assert np.mean(fixations.x) == approx(977.9570036886972)
+    assert np.mean(fixations.y) == approx(536.8014098590438)
+    assert np.mean(fixations.t) == approx(10.95831429961625)
+    assert np.mean(fixations.lengths) == approx(9.95831429961625)
+
+    assert np.std(fixations.x) == approx(265.521305397389)
+    assert np.std(fixations.y) == approx(200.3874894751514)
+    assert np.std(fixations.t) == approx(6.881491455270027)
+    assert np.std(fixations.lengths) == approx(6.881491455270027)
+
+    assert kurtosis(fixations.x) == approx(0.8377433175079028)
+    assert kurtosis(fixations.y) == approx(0.15890436764279947)
+    assert kurtosis(fixations.t) == approx(0.08351046096368542)
+    assert kurtosis(fixations.lengths) == approx(0.08351046096368542)
+
+    assert skew(fixations.x) == approx(0.07428576098144545)
+    assert skew(fixations.y) == approx(0.27425191693049106)
+    assert skew(fixations.t) == approx(0.5874222148956657)
+    assert skew(fixations.lengths) == approx(0.5874222148956657)
+
+    assert entropy(fixations.n) == approx(10.955266908462857)
+    assert (fixations.n == 0).sum() == 307
+
+
+@pytest.mark.slow
+@pytest.mark.download
+@pytest.mark.skip_octave
 def test_mit1003(location, matlab):
     real_location = _location(location)
 
