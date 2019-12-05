@@ -647,9 +647,9 @@ def _get_cat2000_train(name, location, include_initial_fixation):
         http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
     """
     if include_initial_fixation:
-        first_fixation = 1
-    else:
         first_fixation = 0
+    else:
+        first_fixation = 1
 
     if location:
         location = os.path.join(location, name)
