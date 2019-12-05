@@ -652,7 +652,7 @@ def _get_cat2000_train(name, location, include_initial_fixation):
         first_fixation = 0
 
     if location:
-        location = os.path.join(location, 'CAT2000_train')
+        location = os.path.join(location, name)
         if os.path.exists(location):
             stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
             fixations = _load(os.path.join(location, 'fixations.hdf5'))
