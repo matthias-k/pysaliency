@@ -609,7 +609,7 @@ def get_cat2000_test(location=None):
 def get_cat2000_train(location=None, include_initial_fixation=False):
     name = 'CAT2000_train'
 
-    if not include_initial_fixation:
+    if include_initial_fixation:
         name += 'with_initial_fixation'
 
     return _get_cat2000_train(name=name, location=location, include_initial_fixation=include_initial_fixation)
