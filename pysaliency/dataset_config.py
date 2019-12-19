@@ -1,5 +1,5 @@
 from .datasets import read_hdf5
-from .filter_datasets import filter_fixations_by_number
+from .filter_datasets import filter_fixations_by_number, filter_stimuli_by_number
 
 from schema import Schema, Optional
 
@@ -28,6 +28,8 @@ def load_dataset_from_config(config):
 def apply_dataset_filter_config(stimuli, fixations, filter_config):
     if filter_config['type'] == 'filter_fixations_by_number':
         filter_fn = add_stimuli_argument(filter_fixations_by_number)
+    elif filter_config['type'] == 'filter_stimuli_by_number':
+        filter_fn = filter_stimuli_by_number
     else:
         raise ValueError("Invalid filter name: {}".format(filter_config['type']))
 

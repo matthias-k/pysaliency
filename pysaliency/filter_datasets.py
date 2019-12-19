@@ -114,6 +114,18 @@ def filter_fixations_by_number(fixations, intervals):
     return fixations[inds]
 
 
+def filter_stimuli_by_number(stimuli, fixations, intervals):
+    intervals = _check_intervals(intervals, type=int)
+    mask = np.zeros(len(stimuli), dtype=bool)
+
+    for n1, n2 in intervals:
+        mask[n1:n2] = True
+
+    indices = np.nonzero(mask)[0]
+
+    return create_subset(stimuli, fixations, indices)
+
+
 def _check_intervals(intervals, type=float):
     if isinstance(intervals, (float, int)):
         intervals = [intervals]
