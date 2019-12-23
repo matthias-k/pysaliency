@@ -450,3 +450,14 @@ class Cache(MutableMapping):
             else:
                 state['_cache'] = {}
         self.__dict__ = dict(state)
+
+
+def average_values(values, fixations, average='fixation'):
+    if average == 'fixation':
+        return np.mean(values)
+    elif average == 'image':
+        import pandas as pd
+        df = pd.DataFrame({'n': fixations.n, 'value': values})
+        return df.groupby('n')['value'].mean().mean()
+    else:
+        raise ValueError(average)

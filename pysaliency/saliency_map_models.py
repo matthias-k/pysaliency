@@ -15,8 +15,8 @@ from boltons.cacheutils import cached, LRU
 from .roc import general_roc, general_rocs_per_positive
 from .numba_utils import fill_fixation_map
 
-from .utils import TemporaryDirectory, run_matlab_cmd, Cache, get_minimal_unique_filenames
-from .datasets import Stimulus, Fixations, FileStimuli
+from .utils import TemporaryDirectory, run_matlab_cmd, Cache, average_values
+from .datasets import Stimulus, Fixations
 from .metrics import NSS
 from .sampling_models import SamplingModelMixin
 
@@ -193,16 +193,7 @@ class GeneralSaliencyMapModel(object):
                   or by image numbers (average=='image')
         """
         aucs = self.AUCs(stimuli, fixations, nonfixations=nonfixations, verbose=verbose)
-        if average == 'fixation':
-            return np.mean(aucs)
-        elif average == 'image':
-            image_scores = {}
-            for auc, image_index in zip(aucs, fixations.n):
-                image_scores.setdefault(image_index, []).append(auc)
-            image_scores = {k: np.mean(aucs) for k, aucs in image_scores.items()}
-            return np.mean(list(image_scores.values()))
-        else:
-            raise ValueError(average)
+        return average_values(aucs, fixations, average=average)
 
     def sAUCs(self, stimuli, fixations, verbose=False):
         return self.AUCs(stimuli, fixations, nonfixations='shuffled', verbose=verbose)
@@ -222,15 +213,8 @@ class GeneralSaliencyMapModel(object):
         return values
 
     def NSS(self, stimuli, fixations, average='fixation', verbose=False):
-        if average == 'fixation':
-            return self.NSSs(stimuli, fixations, verbose=verbose).mean()
-        elif average == 'image':
-            import pandas as pd
-            nsss = self.NSSs(stimuli, fixations, verbose=verbose)
-            df = pd.DataFrame({'n': fixations.n, 'nss': nsss})
-            return df.groupby('n')['nss'].mean().mean()
-        else:
-            raise ValueError(average)
+        nsss = self.NSSs(stimuli, fixations, verbose=verbose)
+        return average_values(nsss, fixations, average=average)
 
     def set_params(self, **kwargs):
         """

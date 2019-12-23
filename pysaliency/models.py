@@ -17,7 +17,7 @@ from .saliency_map_models import (GeneralSaliencyMapModel, SaliencyMapModel, han
                                   ExpSaliencyMapModel, DisjointUnionSaliencyMapModel)
 from .datasets import FixationTrains, get_image_hash, as_stimulus
 from .sampling_models import SamplingModelMixin
-from .utils import Cache
+from .utils import Cache, average_values
 from .tf_utils import tf_logsumexp
 
 
@@ -112,10 +112,13 @@ class GeneralModel(SamplingModelMixin, object):
 
         return log_likelihoods
 
-    def log_likelihood(self, stimuli, fixations, verbose=False):
-        return np.mean(self.log_likelihoods(stimuli, fixations, verbose=verbose))
+    def log_likelihood(self, stimuli, fixations, verbose=False, average='fixation'):
+        log_likelihoods = self.log_likelihoods(stimuli, fixations, verbose=verbose)
 
-    def information_gains(self, stimuli, fixations, baseline_model=None, verbose=False):
+
+        return average_values(self.log_likelihoods(stimuli, fixations, verbose=verbose), fixations, average=average)
+
+    def information_gains(self, stimuli, fixations, baseline_model=None, verbose=False, average='fixation'):
         if baseline_model is None:
             baseline_model = UniformModel()
 
@@ -123,8 +126,8 @@ class GeneralModel(SamplingModelMixin, object):
         baseline_log_likelihoods = baseline_model.log_likelihoods(stimuli, fixations, verbose=verbose)
         return (own_log_likelihoods - baseline_log_likelihoods) / np.log(2)
 
-    def information_gain(self, stimuli, fixations, baseline_model=None, verbose=False):
-        return np.mean(self.information_gains(stimuli, fixations, baseline_model, verbose=verbose))
+    def information_gain(self, stimuli, fixations, baseline_model=None, verbose=False, average='fixation'):
+        return average_values(self.information_gains(stimuli, fixations, baseline_model, verbose=verbose), fixations, average=average)
 
     def _expand_sample_arguments(self, stimuli, train_counts, lengths=None, stimulus_indices=None):
         if isinstance(train_counts, int):
