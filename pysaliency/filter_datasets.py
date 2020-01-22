@@ -121,7 +121,7 @@ def filter_stimuli_by_number(stimuli, fixations, intervals):
     for n1, n2 in intervals:
         mask[n1:n2] = True
 
-    indices = np.nonzero(mask)[0]
+    indices = list(np.nonzero(mask)[0])
 
     return create_subset(stimuli, fixations, indices)
 
