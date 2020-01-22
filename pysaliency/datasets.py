@@ -961,6 +961,17 @@ class FileStimuli(Stimuli):
     def load_stimulus(self, n):
         return imread(self.filenames[n])
 
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            index = list(range(len(self)))[index]
+
+        if isinstance(index, list):
+            filenames = [self.filenames[i] for i in index]
+            shapes = [self.shapes[i] for i in index]
+            return type(self)(filenames=filenames, shapes=shapes)
+        else:
+            return self.stimulus_objects[index]
+
     @hdf5_wrapper(mode='w')
     def to_hdf5(self, target):
         """ Write FileStimuli to hdf5 file or hdf5 group
