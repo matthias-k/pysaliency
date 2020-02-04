@@ -60,6 +60,7 @@ setup(
 		'numba',
 		'numpy',
 		'requests',
+		'schema',
 		'scipy',
 		'setuptools',
 	    'tqdm',
