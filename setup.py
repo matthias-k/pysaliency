@@ -54,6 +54,7 @@ setup(
 	license = 'MIT',
 	install_requires=[
 		'boltons',
+		'dill',
 		'imageio',
 		'natsort',
 		'numba',
