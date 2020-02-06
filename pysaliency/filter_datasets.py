@@ -89,6 +89,34 @@ def get_crossval_folds(crossval_folds, crossval_no, test_folds=1, val_folds=1):
     return _train_folds, _val_folds, _test_folds
 
 
+def iterate_crossvalidation(stimuli, fixations, crossval_folds, val_folds=1, test_folds=1, random=True):
+    """iterate over crossvalidation folds. Each fold will yield
+          train_stimuli, train_fixations, val_, test_stimuli, test_fixations
+    """
+    kwargs = {
+        'crossval_folds': crossval_folds,
+        'val_folds': val_folds,
+        'test_folds': test_folds,
+        'random': random
+    }
+
+    for fold_no in range(crossval_folds):
+        train_stimuli, train_fixations = train_split(
+            stimuli, fixations,
+            fold_no=fold_no,
+            **kwargs)
+        val_stimuli, val_fixations = validation_split(
+            stimuli, fixations,
+            fold_no=fold_no,
+            **kwargs)
+        test_stimuli, test_fixations = test_split(
+            stimuli, fixations,
+            fold_no=fold_no,
+            **kwargs)
+
+        yield train_stimuli, train_fixations, val_stimuli, val_fixations, test_stimuli, test_fixations
+
+
 def parse_list_of_intervals(description):
     """parses a string as "1.0:3.0,5.0:5.6,7" into [(1.0, 3.0), (5.0, 5.6), (7,)]
     """
