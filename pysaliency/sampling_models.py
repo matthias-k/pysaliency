@@ -3,6 +3,8 @@ from __future__ import print_function, absolute_import, division, unicode_litera
 from abc import ABCMeta, abstractmethod
 from six import add_metaclass
 
+from .utils import remove_trailing_nans
+
 
 @add_metaclass(ABCMeta)
 class SamplingModelMixin(object):
@@ -11,9 +13,12 @@ class SamplingModelMixin(object):
         self, stimulus, x_hist, y_hist, t_hist, samples, verbose=False, rst=None
     ):
         """return xs, ys, ts"""
-        xs = list(x_hist)
-        ys = list(y_hist)
-        ts = list(t_hist)
+        xs = list(remove_trailing_nans(x_hist))
+        ys = list(remove_trailing_nans(y_hist))
+        ts = list(remove_trailing_nans(t_hist))
+        if not len(xs) == len(ys) == len(ts):
+            raise ValueError("Histories for x, y and t have to be the same length")
+
         for i in range(samples):
             x, y, t = self.sample_fixation(stimulus, xs, ys, ts, verbose=verbose, rst=rst)
             xs.append(x)
