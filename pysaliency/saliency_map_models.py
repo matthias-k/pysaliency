@@ -159,6 +159,10 @@ class ScanpathSaliencyMapModel(object):
                 negatives = out[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
             else:
                 raise ValueError("Don't know how to handle nonfixations {}".format(nonfixations))
+
+            positives = positives.astype(float)
+            negatives = negatives.astype(float)
+
             this_roc, _, _ = general_roc(positives, negatives)
             rocs.setdefault(fixations.n[i], []).append(this_roc)
             rocs_per_fixation.append(this_roc)
