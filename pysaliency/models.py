@@ -12,12 +12,12 @@ from scipy.special import logsumexp
 from tqdm import tqdm
 
 from .generics import progressinfo
-from .saliency_map_models import (GeneralSaliencyMapModel, SaliencyMapModel, handle_stimulus,
+from .saliency_map_models import (ScanpathSaliencyMapModel, SaliencyMapModel, handle_stimulus,
                                   SubjectDependentSaliencyMapModel,
                                   ExpSaliencyMapModel, DisjointUnionSaliencyMapModel)
 from .datasets import FixationTrains, get_image_hash, as_stimulus
 from .sampling_models import SamplingModelMixin
-from .utils import Cache, average_values
+from .utils import Cache, average_values, deprecated_class
 from .tf_utils import tf_logsumexp
 
 
@@ -90,7 +90,7 @@ def sample_from_image(densities, count=None, rst=None):
 
 
 @add_metaclass(ABCMeta)
-class GeneralModel(SamplingModelMixin, object):
+class ScanpathModel(SamplingModelMixin, object):
     """
     General probabilistic saliency model.
 
@@ -223,7 +223,7 @@ class GeneralModel(SamplingModelMixin, object):
         return x, y, len(t_hist)
 
 
-class Model(GeneralModel):
+class Model(ScanpathModel):
     """
     Time independend probabilistic saliency model.
 
@@ -290,7 +290,7 @@ class Model(GeneralModel):
 
     def _sample_fixation_train(self, stimulus, length):
         """Sample one fixation train of given length from stimulus"""
-        # We could reuse the implementation from `GeneralModel`
+        # We could reuse the implementation from `ScanpathModel`
         # but this implementation is much faster for long trains.
         log_densities = self.log_density(stimulus)
         xs, ys = sample_from_image(np.exp(log_densities), count=length)
@@ -432,7 +432,7 @@ class ResizingModel(Model):
         return smap
 
 
-class DisjointUnionModel(GeneralModel, DisjointUnionSaliencyMapModel):
+class DisjointUnionModel(ScanpathModel, DisjointUnionSaliencyMapModel):
     def conditional_log_density(self, stimulus, *args, **kwargs):
         raise
 
@@ -473,9 +473,9 @@ class StimulusDependentModel(Model):
             raise ValueError('stimulus not provided by these models')
 
 
-class StimulusDependentGeneralModel(GeneralModel):
+class StimulusDependentScanpathModel(ScanpathModel):
     def __init__(self, stimuli_models, check_stimuli=True, **kwargs):
-        super(StimulusDependentGeneralModel, self).__init__(**kwargs)
+        super(StimulusDependentScanpathModel, self).__init__(**kwargs)
         self.stimuli_models = stimuli_models
         if check_stimuli:
             self.check_stimuli()
@@ -560,3 +560,6 @@ class ShuffledBaselineModel(Model):
 
         return prediction
 
+
+GeneralModel = deprecated_class(deprecated_in='0.2.16', removed_in='1.0.0', details="Use ScanpathModel instead")(ScanpathModel)
+StimulusDependentGeneralModel = deprecated_class(deprecated_in='0.2.16', removed_in='1.0.0', details="Use StimulusDependentScanpathModel instead")(StimulusDependentScanpathModel)

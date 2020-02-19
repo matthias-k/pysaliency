@@ -8,7 +8,7 @@ import numpy as np
 import io
 
 PACKAGE_NAME = 'pysaliency'
-VERSION = '0.2.14'
+VERSION = '0.2.16'
 DESCRIPTION = 'A Python Framework for Saliency Modeling and Evaluation'
 AUTHOR = 'Matthias Kümmerer'
 EMAIL = 'matthias.kuemmerer@bethgelab.org'
@@ -33,8 +33,8 @@ extensions = [
 setup(
     name = PACKAGE_NAME,
     version = VERSION,
-	description = 'python library to develop, evaluate and benchmark saliency models',
-	long_description = long_description,
+    description = 'python library to develop, evaluate and benchmark saliency models',
+    long_description = long_description,
     long_description_content_type='text/markdown',
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -48,23 +48,24 @@ setup(
         "Topic :: Scientific/Engineering",
     ],
     packages = find_packages(),
-	author = AUTHOR,
-	author_email = EMAIL,
-	url = URL,
-	license = 'MIT',
-	install_requires=[
-		'boltons',
-		'dill',
-		'imageio',
-		'natsort',
-		'numba',
-		'numpy',
-		'requests',
-		'schema',
-		'scipy',
-		'setuptools',
-	    'tqdm',
-	],
+    author = AUTHOR,
+    author_email = EMAIL,
+    url = URL,
+    license = 'MIT',
+    install_requires=[
+        'boltons',
+        'deprecation',
+        'dill',
+        'imageio',
+        'natsort',
+        'numba',
+        'numpy',
+        'requests',
+        'schema',
+        'scipy',
+        'setuptools',
+        'tqdm',
+    ],
     include_package_data = True,
     package_data={'pysaliency': ['scripts/*.m',
                                  'scripts/models/*.m',

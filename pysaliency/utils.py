@@ -18,6 +18,7 @@ from tempfile import mkdtemp
 import numpy as np
 
 from boltons.cacheutils import LRU
+import deprecation
 from tqdm import tqdm
 import requests
 
@@ -461,3 +462,15 @@ def average_values(values, fixations, average='fixation'):
         return df.groupby('n')['value'].mean().mean()
     else:
         raise ValueError(average)
+
+
+def deprecated_class(deprecated_in=None, removed_in=None, current_version=None, details=''):
+    def wrap(cls):
+        class DeprecatedClass(cls):
+            @deprecation.deprecated(deprecated_in=deprecated_in, removed_in=removed_in, current_version=current_version, details=details)
+            def __init__(self, *args, **kwargs):
+                super(DeprecatedClass, self).__init__(*args, **kwargs)
+
+        return DeprecatedClass
+
+    return wrap

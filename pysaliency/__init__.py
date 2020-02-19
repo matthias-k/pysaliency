@@ -21,6 +21,7 @@ from .dataset_config import load_dataset_from_config
 from .saliency_map_models import (
     SaliencyMapModel,
     GeneralSaliencyMapModel,
+    ScanpathSaliencyMapModel,
     GaussianSaliencyMapModel,
     FixationMap,
     CachedSaliencyMapModel,
@@ -38,6 +39,7 @@ from .saliency_map_models import (
 )
 from .sampling_models import SamplingModelMixin
 from .models import (
+    ScanpathModel,
     GeneralModel,
     Model,
     UniformModel,

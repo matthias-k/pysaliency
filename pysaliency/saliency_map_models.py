@@ -15,7 +15,7 @@ from boltons.cacheutils import cached, LRU
 from .roc import general_roc, general_rocs_per_positive
 from .numba_utils import fill_fixation_map
 
-from .utils import TemporaryDirectory, run_matlab_cmd, Cache, average_values
+from .utils import TemporaryDirectory, run_matlab_cmd, Cache, average_values, deprecated_class
 from .datasets import Stimulus, Fixations
 from .metrics import NSS
 from .sampling_models import SamplingModelMixin
@@ -85,7 +85,7 @@ def _get_unfixated_values(saliency_map, ys, xs):
 
 
 @add_metaclass(ABCMeta)
-class GeneralSaliencyMapModel(object):
+class ScanpathSaliencyMapModel(object):
     """
     Most general saliency model class. The model is neither
     assumed to be time-independet nor to be a probabilistic
@@ -226,7 +226,7 @@ class GeneralSaliencyMapModel(object):
             raise ValueError('Unkown parameters!', kwargs)
 
 
-class SaliencyMapModel(GeneralSaliencyMapModel):
+class SaliencyMapModel(ScanpathSaliencyMapModel):
     """
     Most model class for saliency maps. The model is assumed
     to be stationary in time (i.e. all fixations are independent)
@@ -920,7 +920,7 @@ class ResizingSaliencyMapModel(SaliencyMapModel):
         return smap
 
 
-class DisjointUnionSaliencyMapModel(GeneralSaliencyMapModel):
+class DisjointUnionSaliencyMapModel(ScanpathSaliencyMapModel):
     #def __init__(self):
     #
     def _split_fixations(self, stimuli, fixations):
@@ -1106,3 +1106,6 @@ class WTASamplingMixin(SamplingModelMixin):
             t = t_hist[-1] + np.mean(np.diff(t_hist))
 
         return x, y, t
+
+
+GeneralSaliencyMapModel = deprecated_class(deprecated_in='0.2.16', removed_in='1.0.0', details="Use ScanpathSaliencyMapModel instead")(ScanpathSaliencyMapModel)
