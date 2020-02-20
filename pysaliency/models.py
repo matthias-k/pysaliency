@@ -461,7 +461,7 @@ class SubjectDependentModel(DisjointUnionModel):
     def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None, **kwargs):
         if 'subjects' not in attributes:
             raise ValueError("SubjectDependentModel can't compute conditional log densities without subject indication!")
-        return self.subject_models[attributes['subjects']].conditional_saliency_map(
+        return self.subject_models[attributes['subjects']].conditional_log_density(
             stimulus, x_hist, y_hist, t_hist, attributes=attributes, **kwargs)
 
     def get_saliency_map_model_for_sAUC(self, baseline_model):
