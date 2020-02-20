@@ -93,7 +93,7 @@ class ScanpathSaliencyMapModel(object):
     """
 
     @abstractmethod
-    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, out=None):
+    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, out=None, **kwargs):
         """
         Return the models saliency map prediction depending on a fixation history
         for the n-th image.
@@ -924,16 +924,11 @@ class ResizingSaliencyMapModel(SaliencyMapModel):
         return smap
 
 
-class DisjointUnionSaliencyMapModel(ScanpathSaliencyMapModel):
-    #def __init__(self):
-    #
+class DisjointUnionMixin(object):
     def _split_fixations(self, stimuli, fixations):
         """ return list of [(inds, model)]
         """
         raise NotImplementedError()
-
-    def conditional_saliency_map(self, stimulus, *args, **kwargs):
-        raise
 
     def eval_metric(self, metric_name, stimuli, fixations, **kwargs):
         result = np.empty(len(fixations.x))
@@ -949,6 +944,8 @@ class DisjointUnionSaliencyMapModel(ScanpathSaliencyMapModel):
         assert all(done)
         return result
 
+
+class DisjointUnionSaliencyMapModel(DisjointUnionMixin, ScanpathSaliencyMapModel):
     def AUCs(self, stimuli, fixations, **kwargs):
         return self.eval_metric('AUCs', stimuli, fixations, **kwargs)
 
@@ -970,6 +967,9 @@ class SubjectDependentSaliencyMapModel(DisjointUnionSaliencyMapModel):
     def _split_fixations(self, stimuli, fixations):
         for s in self.subject_models:
             yield fixations.subjects == s, self.subject_models[s]
+
+    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, out=None, **kwargs):
+        raise NotImplementedError()
 
 
 class ExpSaliencyMapModel(SaliencyMapModel):

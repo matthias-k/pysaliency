@@ -13,8 +13,10 @@ from tqdm import tqdm
 
 from .generics import progressinfo
 from .saliency_map_models import (ScanpathSaliencyMapModel, SaliencyMapModel, handle_stimulus,
-                                  SubjectDependentSaliencyMapModel,
-                                  ExpSaliencyMapModel, DisjointUnionSaliencyMapModel)
+                                  #SubjectDependentSaliencyMapModel,
+                                  ExpSaliencyMapModel,
+                                  DisjointUnionMixin
+                                  )
 from .datasets import FixationTrains, get_image_hash, as_stimulus
 from .sampling_models import SamplingModelMixin
 from .utils import Cache, average_values, deprecated_class
@@ -432,7 +434,7 @@ class ResizingModel(Model):
         return smap
 
 
-class DisjointUnionModel(ScanpathModel, DisjointUnionSaliencyMapModel):
+class DisjointUnionModel(DisjointUnionMixin, ScanpathModel):
     def conditional_log_density(self, stimulus, *args, **kwargs):
         raise
 
@@ -440,7 +442,19 @@ class DisjointUnionModel(ScanpathModel, DisjointUnionSaliencyMapModel):
         return self.eval_metric('log_likelihoods', stimuli, fixations, **kwargs)
 
 
-class SubjectDependentModel(DisjointUnionModel, SubjectDependentSaliencyMapModel):
+class SubjectDependentModel(DisjointUnionModel):
+    def __init__(self, subject_models, **kwargs):
+        super(SubjectDependentSaliencyMapModel, self).__init__(**kwargs)
+        self.subject_models = subject_models
+
+    def _split_fixations(self, stimuli, fixations):
+        for s in self.subject_models:
+            yield fixations.subjects == s, self.subject_models[s]
+
+    #def conditional_log_density(self, stimulus, *args, **kwargs):
+    #    if not 'subjects' in  **kwargs:
+    #        print("Missing subject keyword argument!")
+
     def get_saliency_map_model_for_sAUC(self, baseline_model):
         return SubjectDependentSaliencyMapModel({
             s: ShuffledAUCSaliencyMapModel(self.subject_models[s], baseline_model)

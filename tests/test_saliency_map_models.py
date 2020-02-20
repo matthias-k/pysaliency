@@ -426,3 +426,13 @@ def test_wta_sampling(stimuli):
 
     np.testing.assert_allclose(xs, 0.5 * stimulus.shape[1], atol=0.6)
     np.testing.assert_allclose(ys, 0.5 * stimulus.shape[0], atol=0.6)
+
+
+def test_subject_specific_saliency_map_model(stimuli, fixation_trains):
+    one_model = ConstantSaliencyMapModel(value=1.0)
+    zero_model = ConstantSaliencyMapModel(value=0.0)
+    model = pysaliency.saliency_map_models.SubjectDependentSaliencyMapModel(subject_models={
+        0: zero_model,
+        1: one_model
+    })
+    np.testing.assert_allclose(model.AUC(stimuli, fixation_trains), 0.5)
