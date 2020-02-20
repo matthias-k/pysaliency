@@ -12,8 +12,8 @@ from scipy.special import logsumexp
 from tqdm import tqdm
 
 from .generics import progressinfo
-from .saliency_map_models import (ScanpathSaliencyMapModel, SaliencyMapModel, handle_stimulus,
-                                  #SubjectDependentSaliencyMapModel,
+from .saliency_map_models import (SaliencyMapModel, handle_stimulus,
+                                  SubjectDependentSaliencyMapModel,
                                   ExpSaliencyMapModel,
                                   DisjointUnionMixin
                                   )
@@ -451,7 +451,7 @@ class DisjointUnionModel(DisjointUnionMixin, ScanpathModel):
 
 class SubjectDependentModel(DisjointUnionModel):
     def __init__(self, subject_models, **kwargs):
-        super(SubjectDependentSaliencyMapModel, self).__init__(**kwargs)
+        super(SubjectDependentModel, self).__init__(**kwargs)
         self.subject_models = subject_models
 
     def _split_fixations(self, stimuli, fixations):
@@ -460,7 +460,7 @@ class SubjectDependentModel(DisjointUnionModel):
 
     def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None, **kwargs):
         if 'subjects' not in attributes:
-            raise ValueError("SubjectDependentSaliencyModel can't compute conditional log densities without subject indication!")
+            raise ValueError("SubjectDependentModel can't compute conditional log densities without subject indication!")
         return self.subject_models[attributes['subjects']].conditional_saliency_map(
             stimulus, x_hist, y_hist, t_hist, attributes=attributes, **kwargs)
 
