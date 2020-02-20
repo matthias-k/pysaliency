@@ -19,7 +19,7 @@ from .saliency_map_models import (ScanpathSaliencyMapModel, SaliencyMapModel, ha
                                   )
 from .datasets import FixationTrains, get_image_hash, as_stimulus
 from .sampling_models import SamplingModelMixin
-from .utils import Cache, average_values, deprecated_class
+from .utils import Cache, average_values, deprecated_class, remove_trailing_nans
 from .tf_utils import tf_logsumexp
 
 
@@ -100,16 +100,23 @@ class ScanpathModel(SamplingModelMixin, object):
     """
 
     @abstractmethod
-    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, out=None):
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
         raise NotImplementedError()
+
+    def conditional_log_density_for_fixation(self, stimuli, fixations, fixation_index, out=None):
+        return self.conditional_log_density(
+            stimuli.stimulus_objects[fixations.n[fixation_index]],
+            x_hist=remove_trailing_nans(fixations.x_hist[fixation_index]),
+            y_hist=remove_trailing_nans(fixations.y_hist[fixation_index]),
+            t_hist=remove_trailing_nans(fixations.t_hist[fixation_index]),
+            attributes={key: getattr(fixations, key)[fixation_index] for key in fixations.__attributes__},
+            out=out
+        )
 
     def log_likelihoods(self, stimuli, fixations, verbose=False):
         log_likelihoods = np.empty(len(fixations.x))
         for i in tqdm(range(len(fixations.x)), disable=not verbose):
-            conditional_log_density = self.conditional_log_density(stimuli.stimulus_objects[fixations.n[i]],
-                                                                   fixations.x_hist[i],
-                                                                   fixations.y_hist[i],
-                                                                   fixations.t_hist[i])
+            conditional_log_density = self.conditional_log_density_for_fixation(stimuli, fixations, i)
             log_likelihoods[i] = conditional_log_density[fixations.y_int[i], fixations.x_int[i]]
 
         return log_likelihoods
@@ -219,8 +226,8 @@ class ScanpathModel(SamplingModelMixin, object):
         """Sample one fixation train of given length from stimulus"""
         return self.sample_scanpath(stimulus, [], [], [], length)
 
-    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, verbose=False, rst=None):
-        log_densities = self.conditional_log_density(stimulus, x_hist, y_hist, t_hist)
+    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, attributes=None, verbose=False, rst=None):
+        log_densities = self.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes)
         x, y = sample_from_image(np.exp(log_densities))
         return x, y, len(t_hist)
 
@@ -247,7 +254,7 @@ class Model(ScanpathModel):
     def cache_location(self, value):
         self._cache.cache_location = value
 
-    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, out=None):
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
         return self.log_density(stimulus)
 
     def log_density(self, stimulus):
@@ -451,9 +458,11 @@ class SubjectDependentModel(DisjointUnionModel):
         for s in self.subject_models:
             yield fixations.subjects == s, self.subject_models[s]
 
-    #def conditional_log_density(self, stimulus, *args, **kwargs):
-    #    if not 'subjects' in  **kwargs:
-    #        print("Missing subject keyword argument!")
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None, **kwargs):
+        if 'subjects' not in attributes:
+            raise ValueError("SubjectDependentSaliencyModel can't compute conditional log densities without subject indication!")
+        return self.subject_models[attributes['subjects']].conditional_saliency_map(
+            stimulus, x_hist, y_hist, t_hist, attributes=attributes, **kwargs)
 
     def get_saliency_map_model_for_sAUC(self, baseline_model):
         return SubjectDependentSaliencyMapModel({
@@ -499,11 +508,11 @@ class StimulusDependentScanpathModel(ScanpathModel):
             if not set(s1.stimulus_ids).isdisjoint(s2.stimulus_ids):
                 raise ValueError('Stimuli not disjoint')
 
-    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, out=None):
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
         stimulus_hash = get_image_hash(as_stimulus(stimulus).stimulus_data)
         for stimuli, model in self.stimuli_models.items():
             if stimulus_hash in stimuli.stimulus_ids:
-                return model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, out=out)
+                return model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes, out=out)
         else:
             raise ValueError('stimulus not provided by these models')
 

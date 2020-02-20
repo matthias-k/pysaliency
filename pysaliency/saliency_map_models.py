@@ -15,7 +15,7 @@ from boltons.cacheutils import cached, LRU
 from .roc import general_roc, general_rocs_per_positive
 from .numba_utils import fill_fixation_map
 
-from .utils import TemporaryDirectory, run_matlab_cmd, Cache, average_values, deprecated_class
+from .utils import TemporaryDirectory, run_matlab_cmd, Cache, average_values, deprecated_class, remove_trailing_nans
 from .datasets import Stimulus, Fixations
 from .metrics import NSS
 from .sampling_models import SamplingModelMixin
@@ -93,12 +93,22 @@ class ScanpathSaliencyMapModel(object):
     """
 
     @abstractmethod
-    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, out=None, **kwargs):
+    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
         """
         Return the models saliency map prediction depending on a fixation history
         for the n-th image.
         """
         raise NotImplementedError()
+
+    def conditional_saliency_map_for_fixation(self, stimuli, fixations, fixation_index, out=None):
+        return self.conditional_saliency_map(
+            stimuli.stimulus_objects[fixations.n[fixation_index]],
+            x_hist=remove_trailing_nans(fixations.x_hist[fixation_index]),
+            y_hist=remove_trailing_nans(fixations.y_hist[fixation_index]),
+            t_hist=remove_trailing_nans(fixations.t_hist[fixation_index]),
+            attributes={key: getattr(fixations, key)[fixation_index] for key in fixations.__attributes__},
+            out=out
+        )
 
     def AUCs(self, stimuli, fixations, nonfixations='uniform', verbose=False):
         """
@@ -141,8 +151,7 @@ class ScanpathSaliencyMapModel(object):
             nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
 
         for i in tqdm(range(len(fixations.x)), total=len(fixations.x), disable=not verbose):
-            out = self.conditional_saliency_map(stimuli.stimulus_objects[fixations.n[i]], fixations.x_hist[i], fixations.y_hist[i],
-                                                fixations.t_hist[i], out=out)
+            out = self.conditional_saliency_map_for_fixation(stimuli, fixations, i, out=out)
             positives = np.asarray([out[fixations.y_int[i], fixations.x_int[i]]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
@@ -210,9 +219,7 @@ class ScanpathSaliencyMapModel(object):
         out = None
 
         for i in tqdm(range(len(fixations.x)), disable=not verbose, total=len(fixations.x)):
-            out = self.conditional_saliency_map(stimuli.stimulus_objects[fixations.n[i]], fixations.x_hist[i], fixations.y_hist[i],
-                                                fixations.t_hist[i], out=out)
-
+            out = self.conditional_saliency_map_for_fixation(stimuli, fixations, i, out=out)
             values[i] = NSS(out, fixations.x_int[i], fixations.y_int[i])
         return values
 
@@ -968,8 +975,11 @@ class SubjectDependentSaliencyMapModel(DisjointUnionSaliencyMapModel):
         for s in self.subject_models:
             yield fixations.subjects == s, self.subject_models[s]
 
-    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, out=None, **kwargs):
-        raise NotImplementedError()
+    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None, **kwargs):
+        if 'subjects' not in attributes:
+            raise ValueError("SubjectDependentSaliencyModel can't compute conditional saliency maps without subject indication!")
+        return self.subject_models[attributes['subjects']].conditional_saliency_map(
+            stimulus, x_hist, y_hist, t_hist, attributes=attributes, **kwargs)
 
 
 class ExpSaliencyMapModel(SaliencyMapModel):
@@ -1098,8 +1108,8 @@ def nd_argmax(array):
 
 
 class WTASamplingMixin(SamplingModelMixin):
-    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, verbose=False, rst=None):
-        conditional_saliency_map = self.conditional_saliency_map(stimulus, x_hist, y_hist, t_hist)
+    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, attributes=None, verbose=False, rst=None):
+        conditional_saliency_map = self.conditional_saliency_map(stimulus, x_hist, y_hist, t_hist, attributes=attributes)
         y, x = nd_argmax(conditional_saliency_map)
 
         if not t_hist:

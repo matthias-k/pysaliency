@@ -10,7 +10,7 @@ from .utils import remove_trailing_nans
 class SamplingModelMixin(object):
     """A sampling model is supports sampling fixations and whole scanpaths."""
     def sample_scanpath(
-        self, stimulus, x_hist, y_hist, t_hist, samples, verbose=False, rst=None
+        self, stimulus, x_hist, y_hist, t_hist, samples, attributes=None, verbose=False, rst=None
     ):
         """return xs, ys, ts"""
         xs = list(remove_trailing_nans(x_hist))
@@ -20,7 +20,7 @@ class SamplingModelMixin(object):
             raise ValueError("Histories for x, y and t have to be the same length")
 
         for i in range(samples):
-            x, y, t = self.sample_fixation(stimulus, xs, ys, ts, verbose=verbose, rst=rst)
+            x, y, t = self.sample_fixation(stimulus, xs, ys, ts, attributes=attributes, verbose=verbose, rst=rst)
             xs.append(x)
             ys.append(y)
             ts.append(t)
@@ -28,6 +28,6 @@ class SamplingModelMixin(object):
         return xs, ys, ts
 
     @abstractmethod
-    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, verbose=False, rst=None):
+    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, attributes=None, verbose=False, rst=None):
         """return x, y, t"""
         raise NotImplementedError()

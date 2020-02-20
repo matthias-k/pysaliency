@@ -61,6 +61,9 @@ def test_log_likelihood_gauss(stimuli, fixation_trains):
     log_likelihoods = gsmm.log_likelihoods(stimuli, fixation_trains)
     np.testing.assert_allclose(log_likelihoods, np.array([-10.276835,  -9.764182,  -9.286885,  -9.286885,
                                                           -9.286885,   -9.057075,  -8.067126,  -9.905604]))
+    log_likelihoods = pysaliency.ScanpathModel.log_likelihoods(gsmm, stimuli, fixation_trains)
+    np.testing.assert_allclose(log_likelihoods, np.array([-10.276835,  -9.764182,  -9.286885,  -9.286885,
+                                                          -9.286885,   -9.057075,  -8.067126,  -9.905604]))
 
 
 def test_shuffled_baseline_model(stimuli):
