@@ -12,6 +12,7 @@ before_install:
   - conda config --set always_yes yes --set changeps1 no
   - conda config --add channels conda-forge
   - conda update -q conda
+  - pip install tqdm
 install:
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION numpy scipy cython  six setuptools sphinx numpydoc pkg-config pillow tqdm boltons natsort requests dill tensorflow pytest theano imageio scikit-learn pandas
   - source activate test-env
