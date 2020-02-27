@@ -441,6 +441,33 @@ class ResizingModel(Model):
         return smap
 
 
+class ResizingScanpathModel(ScanpathModel):
+    def __init__(self, parent_model, verbose=True, **kwargs):
+        self.verbose = verbose
+        super(ResizingScanpathModel, self).__init__(**kwargs)
+        self.parent_model = parent_model
+
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
+        smap = self.parent_model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes, out=out)
+
+        target_shape = (stimulus.shape[0],
+                        stimulus.shape[1])
+
+        if smap.shape != target_shape:
+            if self.verbose:
+                print("Resizing saliency map", smap.shape, target_shape)
+            x_factor = target_shape[1] / smap.shape[1]
+            y_factor = target_shape[0] / smap.shape[0]
+
+            smap = zoom(smap, [y_factor, x_factor], order=1, mode='nearest')
+
+            smap -= logsumexp(smap)
+
+            assert smap.shape == target_shape
+
+        return smap
+
+
 class DisjointUnionModel(DisjointUnionMixin, ScanpathModel):
     def conditional_log_density(self, stimulus, *args, **kwargs):
         raise

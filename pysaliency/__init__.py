@@ -49,6 +49,7 @@ from .models import (
     SubjectDependentModel,
     ShuffledAUCSaliencyMapModel,
     ResizingModel,
+    ResizingScanpathModel,
     StimulusDependentModel,
 )
 from .saliency_map_conversion import (
