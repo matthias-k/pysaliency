@@ -28,9 +28,9 @@ before_install:
 #  - pip install tqdm
 install:
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION numpy scipy cython  six setuptools sphinx numpydoc pkg-config pillow tqdm boltons natsort requests dill pytest theano imageio scikit-learn pandas
-  - conda install -q -n test-env tensorflow=1.13.2
+#  - conda install -q -n test-env tensorflow=1.13.2
   - conda activate test-env
-  - pip install schema
+  - pip install tensorflow==1.13.2 schema
 before_script:
   - conda info
   - conda list
