@@ -37,7 +37,7 @@ from .saliency_map_models import (
     EqualizedSaliencyMapModel,
     WTASamplingMixin,
 )
-from .sampling_models import SamplingModelMixin
+from .sampling_models import SamplingModelMixin, ScanpathSamplingModelMixin
 from .models import (
     ScanpathModel,
     GeneralModel,

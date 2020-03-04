@@ -31,3 +31,18 @@ class SamplingModelMixin(object):
     def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, attributes=None, verbose=False, rst=None):
         """return x, y, t"""
         raise NotImplementedError()
+
+
+class ScanpathSamplingModelMixin(SamplingModelMixin):
+    """A sampling model which only has to implement sample_scanpath instead of sample_fixation"""
+    @abstractmethod
+    def sample_scanpath(
+            self, stimulus, x_hist, y_hist, t_hist, samples, attributes=None, verbose=False, rst=None
+    ):
+        raise NotImplementedError()
+
+    def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, attributes=None, verbose=False, rst=None):
+        samples = 1
+        xs, ys, ts = self.sample_scanpath(stimulus, x_hist, y_hist, t_hist, samples, attributes=attributes,
+                                          verbose=verbose, rst=rst)
+        return xs[-1], ys[-1], ts[-1]
