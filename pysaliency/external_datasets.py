@@ -586,14 +586,14 @@ def get_cat2000_test(location=None):
     with TemporaryDirectory(cleanup=True) as temp_dir:
         download_and_check('http://saliency.mit.edu/testSet.zip',
                            os.path.join(temp_dir, 'testSet.zip'),
-                           'bd2ad31a0c4f02616b735eed2051b903')
+                           '903ec668df2e5a8470aef9d8654e7985')
 
         # Stimuli
         print('Creating stimuli')
         f = zipfile.ZipFile(os.path.join(temp_dir, 'testSet.zip'))
         f.extractall(temp_dir)
 
-        stimuli_src_location = os.path.join(temp_dir, 'Stimuli')
+        stimuli_src_location = os.path.join(temp_dir, 'testSet', 'Stimuli')
         stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
         images = glob.glob(os.path.join(stimuli_src_location, '**', '*.jpg'))
         images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
