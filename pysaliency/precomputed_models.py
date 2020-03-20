@@ -1,5 +1,6 @@
 from __future__ import print_function, division, absolute_import
 
+import glob
 import os.path
 import warnings
 
@@ -97,10 +98,10 @@ class SaliencyMapModelFromDirectory(SaliencyMapModelFromFiles):
             raise TypeError('SaliencyMapModelFromDirectory works only with FileStimuli!')
 
         self.directory = directory
-        files = os.listdir(directory)
+        files = [os.path.relpath(filename, start=directory) for filename in glob.glob(os.path.join(directory, '**', '*'))]
         stems = [os.path.splitext(f)[0] for f in files]
 
-        stimuli_files = [os.path.basename(f) for f in stimuli.filenames]
+        stimuli_files = get_minimal_unique_filenames(stimuli.filenames)
         stimuli_stems = [os.path.splitext(f)[0] for f in stimuli_files]
 
         assert set(stimuli_stems).issubset(stems)
