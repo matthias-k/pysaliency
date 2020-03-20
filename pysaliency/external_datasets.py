@@ -594,7 +594,7 @@ def get_cat2000_test(location=None):
         f.extractall(temp_dir)
 
         stimuli_src_location = os.path.join(temp_dir, 'testSet', 'Stimuli')
-        stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
+        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
         images = glob.glob(os.path.join(stimuli_src_location, '**', '*.jpg'))
         images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
         stimuli_filenames = natsorted(images)
