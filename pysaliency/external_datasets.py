@@ -591,11 +591,14 @@ def get_cat2000_test(location=None):
         # Stimuli
         print('Creating stimuli')
         f = zipfile.ZipFile(os.path.join(temp_dir, 'testSet.zip'))
-        f.extractall(temp_dir)
+        namelist = f.namelist()
+        namelist = filter_files(namelist, ['Output'])
+        f.extractall(temp_dir, namelist)
 
         stimuli_src_location = os.path.join(temp_dir, 'testSet', 'Stimuli')
         stimuli_target_location = os.path.join(location, 'stimuli') if location else None
         images = glob.glob(os.path.join(stimuli_src_location, '**', '*.jpg'))
+        images = [i for i in images if not 'output' in i.lower()]
         images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
         stimuli_filenames = natsorted(images)
 
