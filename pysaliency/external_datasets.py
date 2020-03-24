@@ -549,33 +549,20 @@ def get_mit300(location=None):
 def get_cat2000_test(location=None):
     """
     Loads or downloads and caches the CAT2000 test dataset. The dataset
-    consists of 1003 natural indoor and outdoor scenes of
-    sizes: max dim: 1024px, other dim: 405-1024px
-    and the fixations of 15 subjects under
-    free viewing conditions with 3 seconds presentation time.
-
-    All fixations outside of the image are discarded. This includes
-    blinks.
-
+    consists of 2000 images of
+    sizes: 1080 x 1920.
+    
     @type  location: string, defaults to `None`
     @param location: If and where to cache the dataset. The dataset
                      will be stored in the subdirectory `toronto` of
                      location and read from there, if already present.
-    @return: Stimuli, FixationTrains
-
-    .. note::
-        This code needs a working matlab or octave installation as the original
-        matlab code by Judd et al. is used to extract the fixation from the
-        eyetracking data.
-
-        The first fixation of each fixation train is discarded as stated in the
-        paper (Judd et al. 2009).
+    @return: Stimuli
 
     .. seealso::
 
-        Tilke Judd, Krista Ehinger, Fredo Durand, Antonio Torralba. Learning to Predict where Humans Look [ICCV 2009]
+        Ali Borji, Laurent Itti. CAT2000: A Large Scale Fixation Dataset for Boosting Saliency Research [CVPR 2015 workshop on "Future of Datasets"]
 
-        http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
+        http://saliency.mit.edu/datasets.html
     """
     if location:
         location = os.path.join(location, 'CAT2000_test')
@@ -594,6 +581,15 @@ def get_cat2000_test(location=None):
         namelist = f.namelist()
         namelist = filter_files(namelist, ['Output'])
         f.extractall(temp_dir, namelist)
+
+        for filename in ['Pattern/134.jpg']:
+            import piexif
+            print("Fixing wrong exif rotation tag in '{}'".format(filename))
+            full_path = os.path.join(temp_dir, 'testSet', 'Stimuli', filename)
+            exif_dict = piexif.load(full_path)
+            exif_dict['0th'][piexif.ImageIFD.Orientation] = 1
+            exif_bytes = piexif.dump(exif_dict)
+            piexif.insert(exif_bytes, full_path)
 
         stimuli_src_location = os.path.join(temp_dir, 'testSet', 'Stimuli')
         stimuli_target_location = os.path.join(location, 'stimuli') if location else None
@@ -620,11 +616,11 @@ def get_cat2000_train(location=None, include_initial_fixation=True):
 
 def _get_cat2000_train(name, location, include_initial_fixation):
     """
-    Loads or downloads and caches the CAT2000 dataset. The dataset
-    consists of 1003 natural indoor and outdoor scenes of
-    sizes: max dim: 1024px, other dim: 405-1024px
-    and the fixations of 15 subjects under
-    free viewing conditions with 3 seconds presentation time.
+    Loads or downloads and caches the CAT2000 training dataset. The dataset
+    consists of 2000 images of
+    sizes: 1080 x 1920.
+    and the fixations of 18 subjects per image under
+    free viewing conditions with 5 seconds presentation time.
 
     All fixations outside of the image are discarded. This includes
     blinks.
@@ -636,18 +632,13 @@ def _get_cat2000_train(name, location, include_initial_fixation):
     @return: Stimuli, FixationTrains
 
     .. note::
-        This code needs a working matlab or octave installation as the original
-        matlab code by Judd et al. is used to extract the fixation from the
-        eyetracking data.
-
-        The first fixation of each fixation train is discarded as stated in the
-        paper (Judd et al. 2009).
+        This code needs a working matlab or octave installation.
 
     .. seealso::
 
-        Tilke Judd, Krista Ehinger, Fredo Durand, Antonio Torralba. Learning to Predict where Humans Look [ICCV 2009]
+        Ali Borji, Laurent Itti. CAT2000: A Large Scale Fixation Dataset for Boosting Saliency Research [CVPR 2015 workshop on "Future of Datasets"]
 
-        http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
+        http://saliency.mit.edu/datasets.html
     """
     if include_initial_fixation:
         first_fixation = 0
