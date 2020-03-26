@@ -591,7 +591,7 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
                 def __init__(self, model, minimum_value):
                     self.model = model
                     self.minimum_value = minimum_value
-                    super(SimpleProbabilisticModel, self).__init__()
+                    super(SimpleProbabilisticModel, self).__init__(caching=False)
 
                 def _normalize_saliency_map(self, smap):
                     if smap.min() < 0:
