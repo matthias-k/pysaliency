@@ -99,4 +99,4 @@ from .external_datasets import (
     get_NUSEF_public,
 )
 
-from .metric_optimization import maximize_expected_sim, SIMSaliencyMapModel
+from .metric_optimization import SIMSaliencyMapModel
