@@ -66,10 +66,11 @@ def test_log_likelihood_gauss(stimuli, fixation_trains):
                                                           -9.286885,   -9.057075,  -8.067126,  -9.905604]))
 
 
-def test_shuffled_baseline_model(stimuli):
+@pytest.mark.parametrize("library", ['tensorflow', 'torch', 'numpy'])
+def test_shuffled_baseline_model(stimuli, library):
     # TODO: implement actual test
     model = GaussianSaliencyModel()
-    shuffled_model = pysaliency.models.ShuffledBaselineModel(model, stimuli)
+    shuffled_model = pysaliency.models.ShuffledBaselineModel(model, stimuli, library=library)
 
     assert model.log_density(stimuli[0]).shape == shuffled_model.log_density(stimuli[0]).shape
 

@@ -20,7 +20,6 @@ from .saliency_map_models import (SaliencyMapModel, handle_stimulus,
 from .datasets import FixationTrains, get_image_hash, as_stimulus
 from .sampling_models import SamplingModelMixin
 from .utils import Cache, average_values, deprecated_class, remove_trailing_nans
-from .tf_utils import tf_logsumexp
 
 
 def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
@@ -558,9 +557,13 @@ class ShuffledBaselineModel(Model):
     """Predicts a mixture of all predictions for other images.
     
     This model will usually be used as baseline model for computing sAUC saliency maps.
+
+    use the library parameter to define whether the logsumexp should be computed
+    with torch (default), tensorflow or numpy.
     """
     def __init__(self, parent_model, stimuli, resized_predictions_cache_size=5000,
                  compute_size=(500, 500),
+                 library='torch',
                  **kwargs):
         super(ShuffledBaselineModel, self).__init__(**kwargs)
         self.parent_model = parent_model
@@ -570,6 +573,9 @@ class ShuffledBaselineModel(Model):
             max_size=resized_predictions_cache_size,
             on_miss=self._cache_miss
         )
+        if library not in ['torch', 'tensorflow', 'numpy']:
+            raise ValueError(library)
+        self.library = library
 
     def _resize_prediction(self, prediction, target_shape):
         if prediction.shape != target_shape:
@@ -593,7 +599,6 @@ class ShuffledBaselineModel(Model):
 
         predictions = []
         prediction = None
-        count = 0
 
         target_shape = (stimulus.shape[0], stimulus.shape[1])
 
@@ -604,7 +609,18 @@ class ShuffledBaselineModel(Model):
             predictions.append(other_prediction)
 
         predictions = np.array(predictions) - np.log(len(predictions))
-        prediction = tf_logsumexp(predictions, axis=0)
+
+        if self.library == 'tensorflow':
+            from .tf_utils import tf_logsumexp
+            prediction = tf_logsumexp(predictions, axis=0)
+        elif self.library == 'torch':
+            import torch
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            prediction = torch.logsumexp(torch.Tensor(predictions, device=device), dim=0).detach().cpu().numpy()
+        elif self.library == 'numpy':
+            prediction = logsumexp(predictions, axis=0)
+        else:
+            raise ValueError(self.library)
 
         prediction = self._resize_prediction(prediction, target_shape)
 
