@@ -98,7 +98,7 @@ class SaliencyMapModelFromDirectory(SaliencyMapModelFromFiles):
             raise TypeError('SaliencyMapModelFromDirectory works only with FileStimuli!')
 
         self.directory = directory
-        files = [os.path.relpath(filename, start=directory) for filename in glob.glob(os.path.join(directory, '**', '*'))]
+        files = [os.path.relpath(filename, start=directory) for filename in glob.glob(os.path.join(directory, '**', '*'), recursive=True)]
         stems = [os.path.splitext(f)[0] for f in files]
 
         stimuli_files = get_minimal_unique_filenames(stimuli.filenames)
