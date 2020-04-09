@@ -30,6 +30,7 @@ def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True
     assert isinstance(stimuli, FileStimuli)
 
     names = get_minimal_unique_filenames(stimuli.filenames)
+    print(names)
 
     import h5py
 
@@ -180,19 +181,21 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
         assert isinstance(stimuli, FileStimuli)
         self.stimuli = stimuli
         self.filename = filename
-        self.check_shape=check_shape
+        self.check_shape = check_shape
+
+        self.names = get_minimal_unique_filenames(stimuli.filenames)
+
         import h5py
         self.hdf5_file = h5py.File(self.filename, 'r')
 
     def _saliency_map(self, stimulus):
         stimulus_id = get_image_hash(stimulus)
         stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
-        stimulus_filename = self.stimuli.filenames[stimulus_index]
-        _, filename = os.path.split(stimulus_filename)
-        smap = self.hdf5_file[filename][:]
+        stimulus_filename = self.names[stimulus_index]
+        smap = self.hdf5_file[stimulus_filename][:]
         if not smap.shape == (stimulus.shape[0], stimulus.shape[1]):
             if self.check_shape:
-                warnings.warn('Wrong shape for stimulus {}'.format(filename))
+                warnings.warn('Wrong shape for stimulus {}'.format(stimulus_filename))
         return smap
 
 
