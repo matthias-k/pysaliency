@@ -7,10 +7,12 @@ from hashlib import sha1
 from collections import Sequence
 import json
 from functools import wraps
+from weakref import WeakValueDictionary
 
 from six.moves import range as xrange
 from six import string_types
 
+from boltons.cacheutils import cached
 import numpy as np
 from imageio import imread
 from PIL import Image
@@ -63,9 +65,7 @@ def _split_crossval(fixations, part, partcount):
 
 def read_hdf5(source):
     if isinstance(source, str):
-        import h5py
-        with h5py.File(source, 'r') as hdf5_file:
-            return read_hdf5(hdf5_file)
+        return _read_hdf5_from_file(source)
 
     data_type = decode_string(source.attrs['type'])
 
@@ -79,6 +79,13 @@ def read_hdf5(source):
         return FileStimuli.read_hdf5(source)
     else:
         raise ValueError("Invalid HDF content type:", data_type)
+
+
+@cached(WeakValueDictionary())
+def _read_hdf5_from_file(source):
+    import h5py
+    with h5py.File(source, 'r') as hdf5_file:
+        return read_hdf5(hdf5_file)
 
 
 class Fixations(object):

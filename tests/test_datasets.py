@@ -4,6 +4,7 @@ import unittest
 import os.path
 from six.moves import cPickle
 import dill
+import pytest
 
 import numpy as np
 from imageio import imwrite
@@ -292,6 +293,38 @@ class TestFileStimuli(TestWithData):
             self.assertEqual(ss.stimulus_ids[k], stimuli.stimulus_ids[i])
             self.assertEqual(ss.shapes[k], stimuli.shapes[i])
             self.assertEqual(list(ss.sizes[k]), list(stimuli.sizes[i]))
+
+
+@pytest.fixture
+def fixation_trains():
+    xs_trains = [
+        [0, 1, 2],
+        [2, 2],
+        [1, 5, 3]]
+    ys_trains = [
+        [10, 11, 12],
+        [12, 12],
+        [21, 25, 33]]
+    ts_trains = [
+        [0, 200, 600],
+        [100, 400],
+        [50, 500, 900]]
+    ns = [0, 0, 1]
+    subjects = [0, 1, 1]
+    return pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+
+
+def test_read_hdf5_caching(fixation_trains, tmp_path):
+    filename = tmp_path / 'fixations.hdf5'
+    fixation_trains.to_hdf5(str(filename))
+
+    new_fixations = pysaliency.read_hdf5(str(filename))
+
+    assert new_fixations is not fixation_trains
+
+    new_fixations2 = pysaliency.read_hdf5(str(filename))
+    assert new_fixations2 is new_fixations, "objects should not be read into memory multiple times"
+
 
 if __name__ == '__main__':
     unittest.main()
