@@ -30,7 +30,6 @@ install:
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION numpy scipy cython  six setuptools sphinx numpydoc pkg-config pillow tqdm boltons natsort requests dill pytest theano imageio scikit-learn pandas pytorch
 #  - conda install -q -n test-env tensorflow=1.13.2
   - conda activate test-env
-  - pip install tensorflow==1.13.2 schema
 before_script:
   - conda info
   - conda list
@@ -40,7 +39,9 @@ script:
   # Make sure the library installs.
   - python setup.py install
   - python setup.py build_ext --inplace
-  - python -c "import pysaliency"
+  - python -c "import pysaliency"  # make sure can be installed without theano, pytorch, and tensorflow
+  - conda install theano pytorch
+  - pip install tensorflow==1.13.2 schema
   - python -m pytest --nomatlab tests
   - python setup.py sdist
   - pip install dist/*.tar.gz

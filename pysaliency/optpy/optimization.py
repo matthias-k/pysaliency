@@ -13,6 +13,33 @@ import scipy.optimize
 from .jacobian import FunctionWithApproxJacobian
 
 
+# TODO: Remove, once https://github.com/scipy/scipy/pull/11872 is merged and published
+class MemoizeJac(object):
+    """ Decorator that caches the value and gradient of function each time it
+    is called. """
+
+    def __init__(self, fun):
+        self.fun = fun
+        self.jac = None
+        self.value = None
+        self.x = None
+
+    def compute_if_needed(self, x, *args):
+        if self.value is None or self.jac is None or not np.all(x == self.x):
+            self.x = np.asarray(x).copy()
+            fg = self.fun(x, *args)
+            self.jac = fg[1]
+            self.value = fg[0]
+
+    def __call__(self, x, *args):
+        self.compute_if_needed(x, *args)
+        return self.value
+
+    def derivative(self, x, *args):
+        self.compute_if_needed(x, *args)
+        return self.jac
+
+
 class ParameterManager(object):
     def __init__(self, parameters, optimize, **kwargs):
         """ Create a parameter manager
@@ -151,6 +178,11 @@ def minimize(f, parameter_manager_or_x0, optimize=None, args=(), kwargs=None, me
         jac_ = fun.jac
         fun_ = fun.func
 
+    # TODO: Remove once https://github.com/scipy/scipy/pull/11872 is merged
+    if jac_ is True:
+        fun_ = MemoizeJac(fun_)
+        jac_ = fun_.derivative
+
     # Adapt constraints
     if isinstance(constraints, dict):
         constraints = [constraints]
@@ -169,7 +201,9 @@ def minimize(f, parameter_manager_or_x0, optimize=None, args=(), kwargs=None, me
             else:
                 length = parameter_manager.get_length(param_name)
                 for i in range(length):
-                    new_bounds.append((None, None))
+                    new_bounds.append((-np.inf, np.inf))
+        lb, ub = np.array(new_bounds).T
+        new_bounds = scipy.optimize.Bounds(lb, ub, keep_feasible=True)
     else:
         new_bounds = None
     if callback is not None:

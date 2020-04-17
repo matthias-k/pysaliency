@@ -585,33 +585,8 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
         new (different!) probabilistic model, set `convert_gold_standard` to False.
         """
         def convert_model(model, minimum_value):
-            from .models import Model
-
-            class SimpleProbabilisticModel(Model):
-                def __init__(self, model, minimum_value):
-                    self.model = model
-                    self.minimum_value = minimum_value
-                    super(SimpleProbabilisticModel, self).__init__(caching=False)
-
-                def _normalize_saliency_map(self, smap):
-                    if smap.min() < 0:
-                        smap = smap - smap.min()
-                    smap = smap + self.minimum_value
-
-                    smap_sum = smap.sum()
-                    if smap_sum:
-                        smap = smap / smap_sum
-                    else:
-                        smap[:] = 1.0
-                        smap /= smap.sum()
-
-                    return smap
-
-                def _log_density(self, stimulus):
-                    smap = self._normalize_saliency_map(self.model.saliency_map(stimulus))
-                    return np.log(smap)
-
-            return SimpleProbabilisticModel(model, minimum_value)
+            from .models import SaliencyMapNormalizingModel
+            return SaliencyMapNormalizingModel(model, minimum_value=minimum_value)
 
         prob_model = convert_model(self, minimum_value)
         if convert_gold_standard:
@@ -845,9 +820,11 @@ class MatlabSaliencyMapModel(SaliencyMapModel):
 
 class GaussianSaliencyMapModel(SaliencyMapModel):
     """Gaussian saliency map model with given width"""
-    def __init__(self, width=0.5, **kwargs):
+    def __init__(self, width=0.5, center_x=0.5, center_y=0.5, **kwargs):
         super(GaussianSaliencyMapModel, self).__init__(**kwargs)
         self.width = width
+        self.center_x = center_x
+        self.center_y = center_y
 
     def _saliency_map(self, stimulus):
         height = stimulus.shape[0]
@@ -855,8 +832,8 @@ class GaussianSaliencyMapModel(SaliencyMapModel):
         YS, XS = np.mgrid[:height, :width].astype(float)
         XS /= width
         YS /= height
-        XS -= 0.5
-        YS -= 0.5
+        XS -= self.center_x
+        YS -= self.center_y
         r_squared = XS**2 + YS**2
         return np.ones((stimulus.shape[0], stimulus.shape[1]))*np.exp(-0.5*r_squared/(self.width)**2)
 

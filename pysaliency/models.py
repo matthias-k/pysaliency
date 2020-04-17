@@ -15,7 +15,8 @@ from .generics import progressinfo
 from .saliency_map_models import (SaliencyMapModel, handle_stimulus,
                                   SubjectDependentSaliencyMapModel,
                                   ExpSaliencyMapModel,
-                                  DisjointUnionMixin
+                                  DisjointUnionMixin,
+                                  GaussianSaliencyMapModel,
                                   )
 from .datasets import FixationTrains, get_image_hash, as_stimulus
 from .sampling_models import SamplingModelMixin
@@ -173,7 +174,7 @@ class ScanpathModel(SamplingModelMixin, object):
 
         return stimuli, train_counts, lengths, stimulus_indices
 
-    def sample(self, stimuli, train_counts, lengths=1, stimulus_indices=None):
+    def sample(self, stimuli, train_counts, lengths=1, stimulus_indices=None, rst=None):
         """
         Sample fixations for given stimuli
 
@@ -213,7 +214,7 @@ class ScanpathModel(SamplingModelMixin, object):
         for stimulus_index, ls in progressinfo(zip(stimulus_indices, lengths)):
             stimulus = stimuli[stimulus_index]
             for l in ls:
-                this_xs, this_ys, this_ts = self._sample_fixation_train(stimulus, l)
+                this_xs, this_ys, this_ts = self._sample_fixation_train(stimulus, l, rst=rst)
                 xs.append(this_xs)
                 ys.append(this_ys)
                 ts.append(this_ts)
@@ -221,13 +222,13 @@ class ScanpathModel(SamplingModelMixin, object):
                 subjects.append(0)
         return FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
 
-    def _sample_fixation_train(self, stimulus, length):
+    def _sample_fixation_train(self, stimulus, length, rst=None):
         """Sample one fixation train of given length from stimulus"""
-        return self.sample_scanpath(stimulus, [], [], [], length)
+        return self.sample_scanpath(stimulus, [], [], [], length, rst=rst)
 
     def sample_fixation(self, stimulus, x_hist, y_hist, t_hist, attributes=None, verbose=False, rst=None):
         log_densities = self.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes)
-        x, y = sample_from_image(np.exp(log_densities))
+        x, y = sample_from_image(np.exp(log_densities), rst=rst)
         return x, y, len(t_hist)
 
 
@@ -296,12 +297,12 @@ class Model(ScanpathModel):
 
         return log_likelihoods
 
-    def _sample_fixation_train(self, stimulus, length):
+    def _sample_fixation_train(self, stimulus, length, rst=None):
         """Sample one fixation train of given length from stimulus"""
         # We could reuse the implementation from `ScanpathModel`
         # but this implementation is much faster for long trains.
         log_densities = self.log_density(stimulus)
-        xs, ys = sample_from_image(np.exp(log_densities), count=length)
+        xs, ys = sample_from_image(np.exp(log_densities), count=length, rst=rst)
         ts = np.arange(len(xs))
         return xs, ys, ts
 
@@ -625,6 +626,46 @@ class ShuffledBaselineModel(Model):
         prediction = self._resize_prediction(prediction, target_shape)
 
         return prediction
+
+
+class GaussianModel(Model):
+    def __init__(self, width=0.5, center_x=0.5, center_y=0.5, **kwargs):
+        super(GaussianModel, self).__init__(**kwargs)
+        self.parent_model = GaussianSaliencyMapModel(width=width, center_x=center_x, center_y=center_y)
+
+    def _log_density(self, stimulus):
+        saliency_map = self.parent_model.saliency_map(stimulus)
+
+        density = saliency_map / saliency_map.sum()
+        return np.log(density)
+
+
+class SaliencyMapNormalizingModel(Model):
+    """ Probabilistic model that converts saliency maps into
+        fixation densities by dividing by their sum
+    """
+    def __init__(self, model, minimum_value=0.0):
+        self.model = model
+        self.minimum_value = minimum_value
+        super(SaliencyMapNormalizingModel, self).__init__(caching=False)
+
+    def _normalize_saliency_map(self, smap):
+        if smap.min() < 0:
+            smap = smap - smap.min()
+        smap = smap + self.minimum_value
+
+        smap_sum = smap.sum()
+        if smap_sum:
+            smap = smap / smap_sum
+        else:
+            smap[:] = 1.0
+            smap /= smap.sum()
+
+        return smap
+
+    def _log_density(self, stimulus):
+        smap = self._normalize_saliency_map(self.model.saliency_map(stimulus))
+        return np.log(smap)
 
 
 GeneralModel = deprecated_class(deprecated_in='0.2.16', removed_in='1.0.0', details="Use ScanpathModel instead")(ScanpathModel)

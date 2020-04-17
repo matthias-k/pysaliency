@@ -53,8 +53,6 @@ from .models import (
     StimulusDependentModel,
 )
 from .saliency_map_conversion import (
-    SaliencyMapConvertor,
-    JointSaliencyMapConvertor,
     optimize_for_information_gain,
 )
 from .precomputed_models import (

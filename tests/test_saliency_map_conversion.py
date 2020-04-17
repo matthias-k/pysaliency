@@ -1,96 +1,79 @@
 import numpy as np
-import dill
 import pytest
 
-from pysaliency import SaliencyMapConvertor, SaliencyMapModel, Stimuli, Fixations, optimize_for_information_gain
+import pysaliency
+from pysaliency import optimize_for_information_gain
+from pysaliency.models import SaliencyMapNormalizingModel
 
 
-class GaussianSaliencyMapModel(SaliencyMapModel):
-    def _saliency_map(self, stimulus):
-        height = stimulus.shape[0]
-        width = stimulus.shape[1]
-        YS, XS = np.mgrid[:height, :width]
-        r_squared = (XS-0.5*width)**2 + (YS-0.5*height)**2
-        size = np.sqrt(width**2+height**2)
-        return np.ones((stimulus.shape[0], stimulus.shape[1]))*np.exp(-0.5*(r_squared/size))
+@pytest.fixture
+def stimuli():
+    return pysaliency.Stimuli([np.random.randint(0, 255, size=(25, 30, 3)) for i in range(50)])
 
 
-@pytest.mark.theano
-@pytest.mark.parametrize("optimize", [
-    None,
-    ['nonlinearity'],
-    ['nonlinearity', 'centerbias'],
-    ['nonlinearity', 'alpha', 'centerbias'],
-    ['centerbias'],
-    ['blur_radius'],
-    ['blur_radius', 'nonlinearity']
-])
-def test_optimize_for_IG(optimize):
-    # To speed up testing, we disable some optimizations
-    import theano
-    old_optimizer = theano.config.optimizer
-    theano.config.optimizer = 'fast_compile'
+@pytest.fixture
+def saliency_model():
+    return pysaliency.GaussianSaliencyMapModel(center_x=0.15, center_y=0.85, width=0.2)
 
-    model = GaussianSaliencyMapModel()
-    stimulus = np.random.randn(100, 100, 3)
-    stimuli = Stimuli([stimulus])
 
-    rst = np.random.RandomState(seed=42)
-    N = 100000
-    fixations = Fixations.create_without_history(
-        x = rst.rand(N)*100,
-        y = rst.rand(N)*100,
-        n = np.zeros(N, dtype=int)
+@pytest.fixture
+def transformed_saliency_model(saliency_model):
+    return pysaliency.saliency_map_models.LambdaSaliencyMapModel(
+        [saliency_model],
+        fn=lambda smaps: np.sqrt(smaps[0]),
     )
 
-    smc, res = optimize_for_information_gain(
-        model,
+
+@pytest.fixture
+def probabilistic_model(saliency_model):
+    blurred_model = pysaliency.BluringSaliencyMapModel(saliency_model, kernel_size=5.0)
+    centerbias_model = pysaliency.saliency_map_models.LambdaSaliencyMapModel(
+        [pysaliency.GaussianSaliencyMapModel(width=0.5)],
+        fn=lambda smaps: 1.0 * smaps[0],
+    )
+    model_with_centerbias = blurred_model * centerbias_model
+    probabilistic_model = SaliencyMapNormalizingModel(model_with_centerbias)
+
+    return probabilistic_model
+
+
+@pytest.fixture
+def fixations(stimuli, probabilistic_model):
+    return probabilistic_model.sample(stimuli, 1000, rst=np.random.RandomState(seed=42))
+
+
+@pytest.fixture(params=["torch", "theano"])
+def framework(request):
+
+    if request.param == 'theano':
+        import theano
+        old_optimizer = theano.config.optimizer
+        theano.config.optimizer = 'fast_compile'
+
+    yield request.param
+
+    if request.param == 'theano':
+        theano.config.optimize = old_optimizer
+
+
+def test_optimize_for_information_gain(stimuli, fixations, transformed_saliency_model, probabilistic_model, framework):
+    expected_information_gain = probabilistic_model.information_gain(stimuli, fixations, average='image')
+
+    model1, ret1 = optimize_for_information_gain(
+        transformed_saliency_model,
         stimuli,
         fixations,
-        optimize=optimize,
-        blur_radius=3,
+        average='fixations',
         verbose=2,
-        maxiter=10,
-        return_optimization_result=True)
+        batch_size=1 if framework == 'theano' else 10,
+        minimize_options={'verbose': 10} if framework == 'torch' else None,
+        maxiter=50,
+        blur_radius=2.0,
+        return_optimization_result=True,
+        framework=framework,
+    )
 
-    theano.config.optimizer = old_optimizer
+    reached_information_gain = model1.information_gain(stimuli, fixations, average='image')
 
-    assert res.status in [
-        0,  # success
-        9,  # max iter reached
-    ]
-
-    assert smc
-
-
-@pytest.mark.theano
-def test_saliency_map_converter(tmpdir):
-    import theano
-    theano.config.floatX = 'float64'
-    old_optimizer = theano.config.optimizer
-    theano.config.optimizer = 'fast_compile'
-
-    model = GaussianSaliencyMapModel()
-    smc = SaliencyMapConvertor(model)
-    smc.set_params(nonlinearity=np.ones(20),
-                   centerbias = np.ones(12)*2,
-                   alpha=3,
-                   blur_radius=4,
-                   saliency_min=5,
-                   saliency_max=6)
-
-    theano.config.optimizer = old_optimizer
-
-    pickle_file = tmpdir.join('object.pydat')
-    with pickle_file.open(mode='wb') as f:
-        dill.dump(smc, f)
-
-    with pickle_file.open(mode='rb') as f:
-        smc2 = dill.load(f)
-
-    np.testing.assert_allclose(smc2.saliency_map_processing.nonlinearity_ys.get_value(), np.ones(20))
-    np.testing.assert_allclose(smc2.saliency_map_processing.centerbias_ys.get_value(), np.ones(12)*2)
-    np.testing.assert_allclose(smc2.saliency_map_processing.alpha.get_value(), 3)
-    np.testing.assert_allclose(smc2.saliency_map_processing.blur_radius.get_value(), 4)
-    np.testing.assert_allclose(smc2.saliency_min, 5)
-    np.testing.assert_allclose(smc2.saliency_max, 6)
+    print(expected_information_gain, reached_information_gain)
+    assert reached_information_gain >= expected_information_gain - 0.01
