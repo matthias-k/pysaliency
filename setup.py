@@ -8,7 +8,7 @@ import numpy as np
 import io
 
 PACKAGE_NAME = 'pysaliency'
-VERSION = '0.2.18'
+VERSION = '0.2.19'
 DESCRIPTION = 'A Python Framework for Saliency Modeling and Evaluation'
 AUTHOR = 'Matthias Kümmerer'
 EMAIL = 'matthias.kuemmerer@bethgelab.org'
