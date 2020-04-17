@@ -1,0 +1,7 @@
+Cython
+dill
+h5py
+imageio
+natsort
+numpy
+scipy
