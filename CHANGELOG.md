@@ -1,6 +1,6 @@
 # Changelog
 
-* 0.2.19 (unpublished):
+* 0.2.19:
   * added pytorch implementation for optimization of similarity metric as alternative
     to tensorflow implementation which still uses tensorflow 1.x
   * added pytorch implementation for saliency map processing as alternative
