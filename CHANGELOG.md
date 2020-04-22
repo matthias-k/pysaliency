@@ -1,5 +1,10 @@
 # Changelog
 
+* 0.2.20 (unpublished):
+  * Stimuli now support attributes, just like Fixations. The CAT2000 train and test
+    datasets now have the stimulus categories as attribute.
+  * failure to download and setup a dataset will no longer result in leftover
+    dataset files that keep pysaliency from trying again.
 * 0.2.19:
   * added pytorch implementation for optimization of similarity metric as alternative
     to tensorflow implementation which still uses tensorflow 1.x

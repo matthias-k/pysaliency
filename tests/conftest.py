@@ -7,6 +7,7 @@ def pytest_addoption(parser):
     parser.addoption("--runslow", action="store_true",
                      default=False, help="run slow tests")
     parser.addoption("--nomatlab", action="store_true", default=False, help="don't run matlab tests")
+    parser.addoption("--nooctave", action="store_true", default=False, help="don't run octave tests")
     parser.addoption("--notheano", action="store_true", default=False, help="don't run slow theano tests")
 
 
@@ -23,15 +24,17 @@ def pytest_collection_modifyitems(config, items):
         if "matlab" in item.keywords and no_matlab:
             item.add_marker(skip_matlab)
         if "theano" in item.keywords and no_theano:
-             item.add_marker(skip_theano)
+            item.add_marker(skip_theano)
 
 
 @pytest.fixture(params=["matlab", "octave"])
-def matlab(request):
+def matlab(request, pytestconfig):
     if request.param == "matlab":
         pysaliency.utils.MatlabOptions.matlab_names = ['matlab', 'matlab.exe']
         pysaliency.utils.MatlabOptions.octave_names = []
     elif request.param == 'octave':
+        if pytestconfig.getoption("--nooctave"):
+            pytest.skip("skipped octave")
         pysaliency.utils.MatlabOptions.matlab_names = []
         pysaliency.utils.MatlabOptions.octave_names = ['octave', 'octave.exe']
 

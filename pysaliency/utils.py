@@ -2,7 +2,7 @@ from __future__ import print_function, absolute_import, division
 from collections import Sequence, MutableMapping
 from itertools import chain
 from glob import iglob
-
+from contextlib import contextmanager, ExitStack
 import warnings as _warnings
 import os as _os
 import sys as _sys
@@ -10,6 +10,7 @@ import os
 import hashlib
 from functools import partial
 import warnings
+import shutil
 from six.moves import urllib, filterfalse, map
 from six import iterkeys
 import subprocess as sp
@@ -227,6 +228,16 @@ class TemporaryDirectory(object):
             self._rmdir(path)
         except OSError:
             pass
+
+
+@contextmanager
+def atomic_directory_setup(directory):
+    """ context manager that makes sure that directory is deleted in case of exceptions. """
+    with ExitStack() as stack:
+        if directory is not None:
+            stack.callback(lambda: shutil.rmtree(directory))
+        yield
+        stack.pop_all()
 
 
 def which(program):

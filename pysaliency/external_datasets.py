@@ -18,20 +18,27 @@ from boltons.fileutils import mkdir_p
 from tqdm import tqdm
 
 from .datasets import FileStimuli, Stimuli, FixationTrains, Fixations, read_hdf5
-from .utils import TemporaryDirectory, filter_files, run_matlab_cmd, download_and_check, download_file_from_google_drive, check_file_hash
+from .utils import (
+    TemporaryDirectory,
+    filter_files,
+    run_matlab_cmd,
+    download_and_check,
+    download_file_from_google_drive,
+    check_file_hash,
+    atomic_directory_setup)
 from .generics import progressinfo
 
 
-def create_memory_stimuli(filenames):
+def create_memory_stimuli(filenames, attributes=None):
     """
     Create a `Stimuli`-class from a list of filenames by reading the them
     """
     tmp_stimuli = FileStimuli(filenames)
     stimuli = list(tmp_stimuli.stimuli)  # Read all stimuli
-    return Stimuli(stimuli)
+    return Stimuli(stimuli, attributes=attributes)
 
 
-def create_stimuli(stimuli_location, filenames, location=None):
+def create_stimuli(stimuli_location, filenames, location=None, attributes=None):
     """
     Create a Stimuli class of stimuli.
 
@@ -60,11 +67,11 @@ def create_stimuli(stimuli_location, filenames, location=None):
                         location)
         filenames = [os.path.join(location, f) for f in filenames]
 
-        return FileStimuli(filenames)
+        return FileStimuli(filenames, attributes=attributes)
 
     else:
         filenames = [os.path.join(stimuli_location, f) for f in filenames]
-        return create_memory_stimuli(filenames)
+        return create_memory_stimuli(filenames, attributes=attributes)
 
 
 def _load(filename):
@@ -73,7 +80,7 @@ def _load(filename):
         return read_hdf5(filename)
 
     stem, ext = os.path.splitext(filename)
-    pydat_filename = stem+'.pydat'
+    pydat_filename = stem + '.pydat'
 
     return dill.load(open(pydat_filename, 'rb'))
 
@@ -109,39 +116,40 @@ def get_toronto(location=None):
             fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
-    with TemporaryDirectory() as temp_dir:
-        src = 'http://www-sop.inria.fr/members/Neil.Bruce/eyetrackingdata.zip'
-        target = os.path.join(temp_dir, 'eyetrackingdata.zip')
-        md5_sum = '38d5c02217060d4d2d1a4649cc632af1'
-        download_and_check(src, target, md5_sum)
-        z = zipfile.ZipFile(target)
-        print('Extracting')
-        z.extractall(temp_dir)
+    with atomic_directory_setup(location):
+        with TemporaryDirectory() as temp_dir:
+            src = 'http://www-sop.inria.fr/members/Neil.Bruce/eyetrackingdata.zip'
+            target = os.path.join(temp_dir, 'eyetrackingdata.zip')
+            md5_sum = '38d5c02217060d4d2d1a4649cc632af1'
+            download_and_check(src, target, md5_sum)
+            z = zipfile.ZipFile(target)
+            print('Extracting')
+            z.extractall(temp_dir)
 
-        # Stimuli
-        stimuli_src_location = os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'Original Image Set')
-        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
-        stimuli_filenames = ['{}.jpg'.format(i) for i in range(1, 121)]
+            # Stimuli
+            stimuli_src_location = os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'Original Image Set')
+            stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+            stimuli_filenames = ['{}.jpg'.format(i) for i in range(1, 121)]
 
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
-        points = loadmat(os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'origfixdata.mat'))['white']
-        ts = []
-        xs = []
-        ys = []
-        ns = []
-        subjects = []
-        for n in range(len(stimuli.stimuli)):
-            _ys, _xs = np.nonzero(points[0, n])
-            xs.extend([[x] for x in _xs])
-            ys.extend([[y] for y in _ys])
-            ns.extend([n for x in _xs])
-            ts.extend([[0] for x in _xs])
-            subjects.extend([0 for x in _xs])
-        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
+            points = loadmat(os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'origfixdata.mat'))['white']
+            ts = []
+            xs = []
+            ys = []
+            ns = []
+            subjects = []
+            for n in range(len(stimuli.stimuli)):
+                _ys, _xs = np.nonzero(points[0, n])
+                xs.extend([[x] for x in _xs])
+                ys.extend([[y] for y in _ys])
+                ns.extend([n for x in _xs])
+                ts.extend([[0] for x in _xs])
+                subjects.extend([0 for x in _xs])
+            fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
+        if location:
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -174,78 +182,79 @@ def get_toronto_with_subjects(location=None):
     if location:
         location = os.path.join(location, 'toronto')
         os.makedirs(location)
-    with TemporaryDirectory() as temp_dir:
-        src = 'http://www-sop.inria.fr/members/Neil.Bruce/eyetrackingdata.zip'
-        target = os.path.join(temp_dir, 'eyetrackingdata.zip')
-        md5_sum = '38d5c02217060d4d2d1a4649cc632af1'
-        download_and_check(src, target, md5_sum)
-        z = zipfile.ZipFile(target)
-        print('Extracting')
-        z.extractall(temp_dir)
+    with atomic_directory_setup(location):
+        with TemporaryDirectory() as temp_dir:
+            src = 'http://www-sop.inria.fr/members/Neil.Bruce/eyetrackingdata.zip'
+            target = os.path.join(temp_dir, 'eyetrackingdata.zip')
+            md5_sum = '38d5c02217060d4d2d1a4649cc632af1'
+            download_and_check(src, target, md5_sum)
+            z = zipfile.ZipFile(target)
+            print('Extracting')
+            z.extractall(temp_dir)
 
-        # Stimuli
-        stimuli_src_location = os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'Original Image Set')
-        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
-        stimuli_filenames = ['{}.jpg'.format(i) for i in range(1, 121)]
+            # Stimuli
+            stimuli_src_location = os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'Original Image Set')
+            stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+            stimuli_filenames = ['{}.jpg'.format(i) for i in range(1, 121)]
 
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
-        print("Getting fixations")
-        raw_path = os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'Raw')
-        subjects = os.listdir(raw_path)
-        train_xs = []
-        train_ys = []
-        train_ts = []
-        train_ns = []
-        train_subjects = []
-        subjects = [s for s in subjects if s != 'processed']
-        subjects = sorted(subjects)
-        for subject_nr, subject in enumerate(subjects):
-            print("Doing subject", subject)
-            for n, image in enumerate(stimuli_filenames):
-                imagename = os.path.splitext(os.path.split(image)[-1])[0]
-                content = open(os.path.join(raw_path, subject, imagename+'.fix')).read()
-                content = content.replace('\r', '')
-                if 'No fixations' in content:
-                    print("No fixations for {}, skipping".format(image))
-                    continue
-                subject_fixations = content.split('Fixation Listing')[1].split('\n\n')[1].split('Average')[0]
-                _xs = []
-                _ys = []
-                _ts = []
-                for line in subject_fixations.split('\n'):
-                    if not line:
+            print("Getting fixations")
+            raw_path = os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'Raw')
+            subjects = os.listdir(raw_path)
+            train_xs = []
+            train_ys = []
+            train_ts = []
+            train_ns = []
+            train_subjects = []
+            subjects = [s for s in subjects if s != 'processed']
+            subjects = sorted(subjects)
+            for subject_nr, subject in enumerate(subjects):
+                print("Doing subject", subject)
+                for n, image in enumerate(stimuli_filenames):
+                    imagename = os.path.splitext(os.path.split(image)[-1])[0]
+                    content = open(os.path.join(raw_path, subject, imagename + '.fix')).read()
+                    content = content.replace('\r', '')
+                    if 'No fixations' in content:
+                        print("No fixations for {}, skipping".format(image))
                         continue
-                    parts = line.split()
-                    parts = [p.replace(',', '') for p in parts]
-                    _xs.append(int(parts[1]))
-                    _ys.append(int(parts[2]))
-                    _ts.append(float(parts[3]))
-                _xs = np.array(_xs, dtype=np.float)
-                _ys = np.array(_ys, dtype=np.float)
-                _ts = np.array(_ts, dtype=np.float)
-                xs = []
-                ys = []
-                ts = []
-                for i in range(len(_xs)):
-                    if _xs[i] > 680:
-                        continue
-                    if _ys[i] > 510:
-                        continue
-                    xs.append(_xs[i])
-                    ys.append(_ys[i])
-                    ts.append(_ts[i])
-                train_xs.append(xs)
-                train_ys.append(ys)
-                train_ts.append(ts)
-                train_ns.append(n)
-                train_subjects.append(subject_nr)
+                    subject_fixations = content.split('Fixation Listing')[1].split('\n\n')[1].split('Average')[0]
+                    _xs = []
+                    _ys = []
+                    _ts = []
+                    for line in subject_fixations.split('\n'):
+                        if not line:
+                            continue
+                        parts = line.split()
+                        parts = [p.replace(',', '') for p in parts]
+                        _xs.append(int(parts[1]))
+                        _ys.append(int(parts[2]))
+                        _ts.append(float(parts[3]))
+                    _xs = np.array(_xs, dtype=np.float)
+                    _ys = np.array(_ys, dtype=np.float)
+                    _ts = np.array(_ts, dtype=np.float)
+                    xs = []
+                    ys = []
+                    ts = []
+                    for i in range(len(_xs)):
+                        if _xs[i] > 680:
+                            continue
+                        if _ys[i] > 510:
+                            continue
+                        xs.append(_xs[i])
+                        ys.append(_ys[i])
+                        ts.append(_ts[i])
+                    train_xs.append(xs)
+                    train_ys.append(ys)
+                    train_ts.append(ts)
+                    train_ns.append(n)
+                    train_subjects.append(subject_nr)
 
-        fixations = FixationTrains.from_fixation_trains(train_xs, train_ys, train_ts, train_ns, train_subjects)
+            fixations = FixationTrains.from_fixation_trains(train_xs, train_ys, train_ts, train_ns, train_subjects)
 
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
+        if location:
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -270,121 +279,122 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
             fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        download_and_check('http://people.csail.mit.edu/tjudd/WherePeopleLook/ALLSTIMULI.zip',
-                           os.path.join(temp_dir, 'ALLSTIMULI.zip'),
-                           '0d7df8b954ecba69b6796e77b9afe4b6')
-        download_and_check('http://people.csail.mit.edu/tjudd/WherePeopleLook/DATA.zip',
-                           os.path.join(temp_dir, 'DATA.zip'),
-                           'ea19d74ad0a0144428c53e9d75c2d71c')
-        download_and_check('http://people.csail.mit.edu/tjudd/WherePeopleLook/Code/DatabaseCode.zip',
-                           os.path.join(temp_dir, 'DatabaseCode.zip'),
-                           'd8e5e2b6ec827f4115ddbff59b0bdf1d')
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
+            download_and_check('http://people.csail.mit.edu/tjudd/WherePeopleLook/ALLSTIMULI.zip',
+                               os.path.join(temp_dir, 'ALLSTIMULI.zip'),
+                               '0d7df8b954ecba69b6796e77b9afe4b6')
+            download_and_check('http://people.csail.mit.edu/tjudd/WherePeopleLook/DATA.zip',
+                               os.path.join(temp_dir, 'DATA.zip'),
+                               'ea19d74ad0a0144428c53e9d75c2d71c')
+            download_and_check('http://people.csail.mit.edu/tjudd/WherePeopleLook/Code/DatabaseCode.zip',
+                               os.path.join(temp_dir, 'DatabaseCode.zip'),
+                               'd8e5e2b6ec827f4115ddbff59b0bdf1d')
 
-        # Stimuli
-        print('Creating stimuli')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'ALLSTIMULI.zip'))
-        namelist = f.namelist()
-        namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
-        f.extractall(temp_dir, namelist)
+            # Stimuli
+            print('Creating stimuli')
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'ALLSTIMULI.zip'))
+            namelist = f.namelist()
+            namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
+            f.extractall(temp_dir, namelist)
 
-        stimuli_src_location = os.path.join(temp_dir, 'ALLSTIMULI')
-        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
-        images = glob.glob(os.path.join(stimuli_src_location, '*.jpeg'))
-        images = [os.path.split(img)[1] for img in images]
-        stimuli_filenames = natsorted(images)
+            stimuli_src_location = os.path.join(temp_dir, 'ALLSTIMULI')
+            stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+            images = glob.glob(os.path.join(stimuli_src_location, '*.jpeg'))
+            images = [os.path.split(img)[1] for img in images]
+            stimuli_filenames = natsorted(images)
 
-        if only_1024_by_768:
-            def check_size(f):
-                img = Image.open(os.path.join(stimuli_src_location, f))
-                return img.size == (1024, 768)
+            if only_1024_by_768:
+                def check_size(f):
+                    img = Image.open(os.path.join(stimuli_src_location, f))
+                    return img.size == (1024, 768)
 
-            stimuli_filenames = [s for s in stimuli_filenames if check_size(s)]
+                stimuli_filenames = [s for s in stimuli_filenames if check_size(s)]
 
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
-        # FixationTrains
+            # FixationTrains
 
-        print('Creating fixations')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'DATA.zip'))
-        namelist = f.namelist()
-        namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
-        f.extractall(temp_dir, namelist)
+            print('Creating fixations')
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'DATA.zip'))
+            namelist = f.namelist()
+            namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
+            f.extractall(temp_dir, namelist)
 
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'DatabaseCode.zip'))
-        namelist = f.namelist()
-        namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
-        f.extractall(temp_dir, namelist)
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'DatabaseCode.zip'))
+            namelist = f.namelist()
+            namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
+            f.extractall(temp_dir, namelist)
 
-        subjects = glob.glob(os.path.join(temp_dir, 'DATA', '*'))
-        # Exclude files
-        subjects = [s for s in subjects if not os.path.splitext(s)[1]]
-        subjects = [os.path.basename(s) for s in subjects]
-        subjects = sorted(subjects)
+            subjects = glob.glob(os.path.join(temp_dir, 'DATA', '*'))
+            # Exclude files
+            subjects = [s for s in subjects if not os.path.splitext(s)[1]]
+            subjects = [os.path.basename(s) for s in subjects]
+            subjects = sorted(subjects)
 
-        with open(os.path.join(temp_dir, 'extract_fixations.m'), 'wb') as f:
-            f.write(resource_string(__name__, 'scripts/{}'.format('extract_fixations.m')))
+            with open(os.path.join(temp_dir, 'extract_fixations.m'), 'wb') as f:
+                f.write(resource_string(__name__, 'scripts/{}'.format('extract_fixations.m')))
 
-        cmds = []
-        # It is vital _not_ to store the extracted fixations in the main
-        # directory where matlab is running, as matlab will check the timestamp
-        # of all files in this directory very often. This leads to heavy
-        # performance penalties and would make matlab run for more than an
-        # hour.
-        out_path = 'extracted'
-        os.makedirs(os.path.join(temp_dir, out_path))
-        total_cmd_count = len(stimuli_filenames) * len(subjects)
-        for n, stimulus in enumerate(stimuli_filenames):
-            for subject_id, subject in enumerate(subjects):
-                subject_path = os.path.join('DATA', subject)
-                outfile = '{0}_{1}.mat'.format(stimulus, subject)
-                outfile = os.path.join(out_path, outfile)
-                cmds.append("fprintf('%d/%d\\n', {}, {});".format(n*len(subjects)+subject_id, total_cmd_count))
-                cmds.append("extract_fixations('{0}', '{1}', '{2}');".format(stimulus, subject_path, outfile))
+            cmds = []
+            # It is vital _not_ to store the extracted fixations in the main
+            # directory where matlab is running, as matlab will check the timestamp
+            # of all files in this directory very often. This leads to heavy
+            # performance penalties and would make matlab run for more than an
+            # hour.
+            out_path = 'extracted'
+            os.makedirs(os.path.join(temp_dir, out_path))
+            total_cmd_count = len(stimuli_filenames) * len(subjects)
+            for n, stimulus in enumerate(stimuli_filenames):
+                for subject_id, subject in enumerate(subjects):
+                    subject_path = os.path.join('DATA', subject)
+                    outfile = '{0}_{1}.mat'.format(stimulus, subject)
+                    outfile = os.path.join(out_path, outfile)
+                    cmds.append("fprintf('%d/%d\\n', {}, {});".format(n * len(subjects) + subject_id, total_cmd_count))
+                    cmds.append("extract_fixations('{0}', '{1}', '{2}');".format(stimulus, subject_path, outfile))
 
-        print('Running original code to extract fixations. This can take some minutes.')
-        print('Warning: In the IPython Notebook, the output is shown on the console instead of the notebook.')
-        with open(os.path.join(temp_dir, 'extract_all_fixations.m'), 'w') as f:
-            for cmd in cmds:
-                f.write('{}\n'.format(cmd))
+            print('Running original code to extract fixations. This can take some minutes.')
+            print('Warning: In the IPython Notebook, the output is shown on the console instead of the notebook.')
+            with open(os.path.join(temp_dir, 'extract_all_fixations.m'), 'w') as f:
+                for cmd in cmds:
+                    f.write('{}\n'.format(cmd))
 
-        run_matlab_cmd('extract_all_fixations;', cwd=temp_dir)
-        xs = []
-        ys = []
-        ts = []
-        ns = []
-        train_subjects = []
-        for n, stimulus in enumerate(stimuli_filenames):
-            stimulus_size = stimuli.sizes[n]
-            for subject_id, subject in enumerate(subjects):
-                subject_name = os.path.split(subject)[-1]
-                outfile = '{0}_{1}.mat'.format(stimulus, subject_name)
-                mat_data = loadmat(os.path.join(temp_dir, out_path, outfile))
-                fix_data = mat_data['fixations']
-                starts = mat_data['starts']
-                x = []
-                y = []
-                t = []
-                # if first_fixation == 1 the first fixation is skipped, as done
-                # by Judd.
-                for i in range(first_fixation, fix_data.shape[0]):
-                    if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
-                        continue
-                    if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
-                        continue
-                    x.append(fix_data[i, 0])
-                    y.append(fix_data[i, 1])
-                    t.append(starts[0, i]/240.0)  # Eye Tracker rate = 240Hz
-                xs.append(x)
-                ys.append(y)
-                ts.append(t)
-                ns.append(n)
-                train_subjects.append(subject_id)
-        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
+            run_matlab_cmd('extract_all_fixations;', cwd=temp_dir)
+            xs = []
+            ys = []
+            ts = []
+            ns = []
+            train_subjects = []
+            for n, stimulus in enumerate(stimuli_filenames):
+                stimulus_size = stimuli.sizes[n]
+                for subject_id, subject in enumerate(subjects):
+                    subject_name = os.path.split(subject)[-1]
+                    outfile = '{0}_{1}.mat'.format(stimulus, subject_name)
+                    mat_data = loadmat(os.path.join(temp_dir, out_path, outfile))
+                    fix_data = mat_data['fixations']
+                    starts = mat_data['starts']
+                    x = []
+                    y = []
+                    t = []
+                    # if first_fixation == 1 the first fixation is skipped, as done
+                    # by Judd.
+                    for i in range(first_fixation, fix_data.shape[0]):
+                        if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
+                            continue
+                        if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
+                            continue
+                        x.append(fix_data[i, 0])
+                        y.append(fix_data[i, 1])
+                        t.append(starts[0, i] / 240.0)  # Eye Tracker rate = 240Hz
+                    xs.append(x)
+                    ys.append(y)
+                    ts.append(t)
+                    ns.append(n)
+                    train_subjects.append(subject_id)
+            fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
+        if location:
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -521,28 +531,29 @@ def get_mit300(location=None):
             stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
             return stimuli
         os.makedirs(location)
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        download_and_check('http://saliency.mit.edu/BenchmarkIMAGES.zip',
-                           os.path.join(temp_dir, 'BenchmarkIMAGES.zip'),
-                           '03ed32bdf5e4289950cd28df89451260')
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
+            download_and_check('http://saliency.mit.edu/BenchmarkIMAGES.zip',
+                               os.path.join(temp_dir, 'BenchmarkIMAGES.zip'),
+                               '03ed32bdf5e4289950cd28df89451260')
 
-        # Stimuli
-        print('Creating stimuli')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'BenchmarkIMAGES.zip'))
-        namelist = f.namelist()
-        namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
-        f.extractall(temp_dir, namelist)
+            # Stimuli
+            print('Creating stimuli')
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'BenchmarkIMAGES.zip'))
+            namelist = f.namelist()
+            namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
+            f.extractall(temp_dir, namelist)
 
-        stimuli_src_location = os.path.join(temp_dir, 'BenchmarkIMAGES')
-        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
-        images = glob.glob(os.path.join(stimuli_src_location, '*.jpg'))
-        images = [os.path.split(img)[1] for img in images]
-        stimuli_filenames = natsorted(images)
+            stimuli_src_location = os.path.join(temp_dir, 'BenchmarkIMAGES')
+            stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+            images = glob.glob(os.path.join(stimuli_src_location, '*.jpg'))
+            images = [os.path.split(img)[1] for img in images]
+            stimuli_filenames = natsorted(images)
 
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+        if location:
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
     return stimuli
 
 
@@ -551,7 +562,7 @@ def get_cat2000_test(location=None):
     Loads or downloads and caches the CAT2000 test dataset. The dataset
     consists of 2000 images of
     sizes: 1080 x 1920.
-    
+
     @type  location: string, defaults to `None`
     @param location: If and where to cache the dataset. The dataset
                      will be stored in the subdirectory `toronto` of
@@ -570,38 +581,44 @@ def get_cat2000_test(location=None):
             stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
             return stimuli
         os.makedirs(location)
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        download_and_check('http://saliency.mit.edu/testSet.zip',
-                           os.path.join(temp_dir, 'testSet.zip'),
-                           '903ec668df2e5a8470aef9d8654e7985')
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
+            download_and_check('http://saliency.mit.edu/testSet.zip',
+                               os.path.join(temp_dir, 'testSet.zip'),
+                               '903ec668df2e5a8470aef9d8654e7985')
 
-        # Stimuli
-        print('Creating stimuli')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'testSet.zip'))
-        namelist = f.namelist()
-        namelist = filter_files(namelist, ['Output'])
-        f.extractall(temp_dir, namelist)
+            # Stimuli
+            print('Creating stimuli')
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'testSet.zip'))
+            namelist = f.namelist()
+            namelist = filter_files(namelist, ['Output'])
+            f.extractall(temp_dir, namelist)
 
-        for filename in ['Pattern/134.jpg']:
-            import piexif
-            print("Fixing wrong exif rotation tag in '{}'".format(filename))
-            full_path = os.path.join(temp_dir, 'testSet', 'Stimuli', filename)
-            exif_dict = piexif.load(full_path)
-            exif_dict['0th'][piexif.ImageIFD.Orientation] = 1
-            exif_bytes = piexif.dump(exif_dict)
-            piexif.insert(exif_bytes, full_path)
+            for filename in ['Pattern/134.jpg']:
+                import piexif
+                print("Fixing wrong exif rotation tag in '{}'".format(filename))
+                full_path = os.path.join(temp_dir, 'testSet', 'Stimuli', filename)
+                exif_dict = piexif.load(full_path)
+                exif_dict['0th'][piexif.ImageIFD.Orientation] = 1
+                exif_bytes = piexif.dump(exif_dict)
+                piexif.insert(exif_bytes, full_path)
 
-        stimuli_src_location = os.path.join(temp_dir, 'testSet', 'Stimuli')
-        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
-        images = glob.glob(os.path.join(stimuli_src_location, '**', '*.jpg'))
-        images = [i for i in images if not 'output' in i.lower()]
-        images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
-        stimuli_filenames = natsorted(images)
+            stimuli_src_location = os.path.join(temp_dir, 'testSet', 'Stimuli')
+            stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+            images = glob.glob(os.path.join(stimuli_src_location, '**', '*.jpg'))
+            images = [i for i in images if 'output' not in i.lower()]
+            images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
+            stimuli_filenames = natsorted(images)
 
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            stimulus_category_names = [os.path.dirname(filename) for filename in stimuli_filenames]
+            category_names = sorted(set(stimulus_category_names))
+            categories = [category_names.index(category_name) for category_name in stimulus_category_names]
+            attributes = {'category': categories}
 
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location, attributes=attributes)
+
+        if location:
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
     return stimuli
 
 
@@ -652,88 +669,90 @@ def _get_cat2000_train(name, location, include_initial_fixation):
             fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        download_and_check('http://saliency.mit.edu/trainSet.zip',
-                           os.path.join(temp_dir, 'trainSet.zip'),
-                           '56ad5c77e6c8f72ed9ef2901628d6e48')
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
+            download_and_check('http://saliency.mit.edu/trainSet.zip',
+                               os.path.join(temp_dir, 'trainSet.zip'),
+                               '56ad5c77e6c8f72ed9ef2901628d6e48')
 
-        # Stimuli
-        print('Creating stimuli')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'trainSet.zip'))
-        f.extractall(temp_dir)
+            # Stimuli
+            print('Creating stimuli')
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'trainSet.zip'))
+            f.extractall(temp_dir)
 
-        stimuli_src_location = os.path.join(temp_dir, 'trainSet', 'Stimuli')
-        stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
-        images = glob.glob(os.path.join(stimuli_src_location, '**', '*.jpg'))
-        images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
-        stimuli_filenames = natsorted(images)
+            stimuli_src_location = os.path.join(temp_dir, 'trainSet', 'Stimuli')
+            stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
+            images = glob.glob(os.path.join(stimuli_src_location, '**', '*.jpg'))
+            images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
+            stimuli_filenames = natsorted(images)
+            stimulus_category_names = [os.path.dirname(filename) for filename in stimuli_filenames]
+            category_names = sorted(set(stimulus_category_names))
+            categories = [category_names.index(category_name) for category_name in stimulus_category_names]
+            attributes = {'category': categories}
 
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location, attributes=attributes)
 
-        # FixationTrains
+            # FixationTrains
 
-        print('Creating fixations')
+            print('Creating fixations')
 
-        with open(os.path.join(temp_dir, 'load_cat2000.m'), 'wb') as f:
-            f.write(resource_string(__name__, 'scripts/{}'.format('load_cat2000.m')))
+            with open(os.path.join(temp_dir, 'load_cat2000.m'), 'wb') as f:
+                f.write(resource_string(__name__, 'scripts/{}'.format('load_cat2000.m')))
 
-        cmds = []
-        # It is vital _not_ to store the extracted fixations in the main
-        # directory where matlab is running, as matlab will check the timestamp
-        # of all files in this directory very often. This leads to heavy
-        # performance penalties and would make matlab run for more than an
-        # hour.
-        out_path = 'extracted'
-        os.makedirs(os.path.join(temp_dir, out_path))
-        run_matlab_cmd('load_cat2000;', cwd=temp_dir)
+            # It is vital _not_ to store the extracted fixations in the main
+            # directory where matlab is running, as matlab will check the timestamp
+            # of all files in this directory very often. This leads to heavy
+            # performance penalties and would make matlab run for more than an
+            # hour.
+            out_path = 'extracted'
+            os.makedirs(os.path.join(temp_dir, out_path))
+            run_matlab_cmd('load_cat2000;', cwd=temp_dir)
 
-        print('Extracting fixations. This can take some minutes.')
-        print('Warning: In the IPython Notebook, the output is shown on the console instead of the notebook.')
+            print('Extracting fixations. This can take some minutes.')
+            print('Warning: In the IPython Notebook, the output is shown on the console instead of the notebook.')
 
-        #run_matlab_cmd('extract_all_fixations;', cwd=temp_dir)
-        #
-        xs = []
-        ys = []
-        ts = []
-        ns = []
-        train_subjects = []
-        subject_dict = {}
+            xs = []
+            ys = []
+            ts = []
+            ns = []
+            train_subjects = []
+            subject_dict = {}
 
-        files = natsorted(glob.glob(os.path.join(temp_dir, out_path, '*.mat')))
-        for f in progressinfo(files):
-            mat_data = loadmat(f)
-            fix_data = mat_data['data']
-            name = mat_data['name'][0]
-            n = int(os.path.basename(f).split('fix', 1)[1].split('_')[0]) - 1
-            stimulus_size = stimuli.sizes[n]
-            _, _, subject = name.split('.eye')[0].split('-')
-            if subject not in subject_dict:
-                subject_dict[subject] = len(subject_dict)
-            subject_id = subject_dict[subject]
+            files = natsorted(glob.glob(os.path.join(temp_dir, out_path, '*.mat')))
+            for f in progressinfo(files):
+                mat_data = loadmat(f)
+                fix_data = mat_data['data']
+                name = mat_data['name'][0]
+                n = int(os.path.basename(f).split('fix', 1)[1].split('_')[0]) - 1
+                stimulus_size = stimuli.sizes[n]
+                _, _, subject = name.split('.eye')[0].split('-')
+                if subject not in subject_dict:
+                    subject_dict[subject] = len(subject_dict)
+                subject_id = subject_dict[subject]
 
-            x = []
-            y = []
-            t = []
-            for i in range(first_fixation, fix_data.shape[0]):  # Skip first fixation like Judd does via first_fixation=1
-                if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
-                    continue
-                if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
-                    continue
-                if any(np.isnan(fix_data[i])):  # skip invalid data
-                    continue
-                x.append(fix_data[i, 0])
-                y.append(fix_data[i, 1])
-                t.append(len(x))  # Eye Tracker rate = 240Hz
-            xs.append(x)
-            ys.append(y)
-            ts.append(t)
-            ns.append(n)
-            train_subjects.append(subject_id)
-        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
+                x = []
+                y = []
+                t = []
+                for i in range(first_fixation, fix_data.shape[0]):  # Skip first fixation like Judd does via first_fixation=1
+                    if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
+                        continue
+                    if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
+                        continue
+                    if any(np.isnan(fix_data[i])):  # skip invalid data
+                        continue
+                    x.append(fix_data[i, 0])
+                    y.append(fix_data[i, 1])
+                    t.append(len(x))  # Eye Tracker rate = 240Hz
+                xs.append(x)
+                ys.append(y)
+                ts.append(t)
+                ns.append(n)
+                train_subjects.append(subject_id)
+            fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
+        if location:
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -764,81 +783,82 @@ def get_iSUN(location=None):
             fixations_validation = _load(os.path.join(location, 'fixations_validation.hdf5'))
             return stimuli_training, stimuli_validation, stimuli_testing, fixations_training, fixations_validation
         os.makedirs(location)
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/training.mat',
-                           os.path.join(temp_dir, 'training.mat'),
-                           '5a8b15134b17c7a3f69b087845db1363')
-        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/validation.mat',
-                           os.path.join(temp_dir, 'validation.mat'),
-                           'f68e9b011576e48d2460b883854fd86c')
-        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/testing.mat',
-                           os.path.join(temp_dir, 'testing.mat'),
-                           'be008ef0330467dcb9c9cd9cc96a8546')
-        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/fixation.zip',
-                           os.path.join(temp_dir, 'fixation.zip'),
-                           'aadc15784e1b0023cda4536335b7839c')
-        download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/image.zip',
-                           os.path.join(temp_dir, 'image.zip'),
-                           '0a3af01c5307f1d44f5dd309f71ea963')
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
+            download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/training.mat',
+                               os.path.join(temp_dir, 'training.mat'),
+                               '5a8b15134b17c7a3f69b087845db1363')
+            download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/validation.mat',
+                               os.path.join(temp_dir, 'validation.mat'),
+                               'f68e9b011576e48d2460b883854fd86c')
+            download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/testing.mat',
+                               os.path.join(temp_dir, 'testing.mat'),
+                               'be008ef0330467dcb9c9cd9cc96a8546')
+            download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/fixation.zip',
+                               os.path.join(temp_dir, 'fixation.zip'),
+                               'aadc15784e1b0023cda4536335b7839c')
+            download_and_check('http://lsun.cs.princeton.edu/challenge/2015/eyetracking/data/image.zip',
+                               os.path.join(temp_dir, 'image.zip'),
+                               '0a3af01c5307f1d44f5dd309f71ea963')
 
-        # Stimuli
-        print('Creating stimuli')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'image.zip'))
-        namelist = f.namelist()
-        namelist = filter_files(namelist, ['.DS_Store'])
-        f.extractall(temp_dir, namelist)
+            # Stimuli
+            print('Creating stimuli')
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'image.zip'))
+            namelist = f.namelist()
+            namelist = filter_files(namelist, ['.DS_Store'])
+            f.extractall(temp_dir, namelist)
 
-        def get_stimuli_names(name):
-            data_file = os.path.join(temp_dir, '{}.mat'.format(name))
-            data = loadmat(data_file)[name]
-            stimuli_names = [d[0] for d in data['image'][:, 0]]
-            stimuli_names = ['{}.jpg'.format(n) for n in stimuli_names]
-            return stimuli_names
+            def get_stimuli_names(name):
+                data_file = os.path.join(temp_dir, '{}.mat'.format(name))
+                data = loadmat(data_file)[name]
+                stimuli_names = [d[0] for d in data['image'][:, 0]]
+                stimuli_names = ['{}.jpg'.format(n) for n in stimuli_names]
+                return stimuli_names
 
-        stimulis = []
-        stimuli_src_location = os.path.join(temp_dir, 'images')
-        for name in ['training', 'validation', 'testing']:
-            print("Creating {} stimuli".format(name))
-            stimuli_target_location = os.path.join(location, 'stimuli_{}'.format(name)) if location else None
-            images = get_stimuli_names(name)
-            stimulis.append(create_stimuli(stimuli_src_location, images, stimuli_target_location))
+            stimulis = []
+            stimuli_src_location = os.path.join(temp_dir, 'images')
+            for name in ['training', 'validation', 'testing']:
+                print("Creating {} stimuli".format(name))
+                stimuli_target_location = os.path.join(location, 'stimuli_{}'.format(name)) if location else None
+                images = get_stimuli_names(name)
+                stimulis.append(create_stimuli(stimuli_src_location, images, stimuli_target_location))
 
-        # FixationTrains
-        print('Creating fixations')
+            # FixationTrains
+            print('Creating fixations')
 
-        def get_fixations(name):
-            data_file = os.path.join(temp_dir,'{}.mat'.format(name))
-            data = loadmat(data_file)[name]
-            gaze = data['gaze'][:, 0]
-            ns = []
-            train_xs = []
-            train_ys = []
-            train_ts = []
-            train_subjects = []
-            for n in range(len(gaze)):
-                fixation_trains = gaze[n]['fixation'][0, :]
-                for train in fixation_trains:
-                    xs = train[:, 0]
-                    ys = train[:, 1]
-                    ns.append(n)
-                    train_xs.append(xs)
-                    train_ys.append(ys)
-                    train_ts.append(range(len(xs)))
-                    train_subjects.append(0)
-            fixations = FixationTrains.from_fixation_trains(train_xs, train_ys, train_ts, ns, train_subjects)
-            return fixations
+            def get_fixations(name):
+                data_file = os.path.join(temp_dir, '{}.mat'.format(name))
+                data = loadmat(data_file)[name]
+                gaze = data['gaze'][:, 0]
+                ns = []
+                train_xs = []
+                train_ys = []
+                train_ts = []
+                train_subjects = []
+                for n in range(len(gaze)):
+                    fixation_trains = gaze[n]['fixation'][0, :]
+                    for train in fixation_trains:
+                        xs = train[:, 0]
+                        ys = train[:, 1]
+                        ns.append(n)
+                        train_xs.append(xs)
+                        train_ys.append(ys)
+                        train_ts.append(range(len(xs)))
+                        train_subjects.append(0)
+                fixations = FixationTrains.from_fixation_trains(train_xs, train_ys, train_ts, ns, train_subjects)
+                return fixations
 
-        fixations = []
-        for name in ['training', 'validation']:
-            print("Creating {} fixations".format(name))
-            fixations.append(get_fixations(name))
+            fixations = []
+            for name in ['training', 'validation']:
+                print("Creating {} fixations".format(name))
+                fixations.append(get_fixations(name))
 
-    if location:
-        stimulis[0].to_hdf5(os.path.join(location, 'stimuli_training.hdf5'))
-        stimulis[1].to_hdf5(os.path.join(location, 'stimuli_validation.hdf5'))
-        stimulis[2].to_hdf5(os.path.join(location, 'stimuli_test.hdf5'))
-        fixations[0].to_hdf5(os.path.join(location, 'fixations_training.hdf5'))
-        fixations[1].to_hdf5(os.path.join(location, 'fixations_validation.hdf5'))
+        if location:
+            stimulis[0].to_hdf5(os.path.join(location, 'stimuli_training.hdf5'))
+            stimulis[1].to_hdf5(os.path.join(location, 'stimuli_validation.hdf5'))
+            stimulis[2].to_hdf5(os.path.join(location, 'stimuli_test.hdf5'))
+            fixations[0].to_hdf5(os.path.join(location, 'fixations_training.hdf5'))
+            fixations[1].to_hdf5(os.path.join(location, 'fixations_validation.hdf5'))
 
     return stimulis + fixations
 
@@ -917,13 +937,13 @@ def _get_SALICON_obsolete(data_type, stimuli_url, stimuli_hash, fixation_url, fi
                 for ann in anns:
                     fs = ann['fixations']
                     # SALICON annotations are 1-indexed, not 0-indexed.
-                    xs = np.array([f[1]-1 for f in fs])
-                    ys = np.array([f[0]-1 for f in fs])
-                    ns.append(np.ones(len(xs), dtype=int)*n)
+                    xs = np.array([f[1] - 1 for f in fs])
+                    ys = np.array([f[0] - 1 for f in fs])
+                    ns.append(np.ones(len(xs), dtype=int) * n)
                     train_xs.append(xs)
                     train_ys.append(ys)
                     train_ts.append(range(len(xs)))
-                    train_subjects.append(np.ones(len(xs), dtype=int)*ann['worker_id'])
+                    train_subjects.append(np.ones(len(xs), dtype=int) * ann['worker_id'])
 
             xs = np.hstack(train_xs)
             ys = np.hstack(train_ys)
@@ -941,7 +961,6 @@ def _get_SALICON_obsolete(data_type, stimuli_url, stimuli_hash, fixation_url, fi
         if fixations is not None:
             fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
-
 
 
 def get_SALICON(edition='2015', fixation_type='mouse', location=None):
@@ -1026,44 +1045,42 @@ def _get_SALICON_stimuli(location, name, edition='2015', fixation_type='mouse'):
                 return stimuli_train, stimuli_val, stimuli_test
         os.makedirs(location, exist_ok=True)
 
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        stimuli_file = os.path.join(temp_dir, 'stimuli.zip')
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
+            stimuli_file = os.path.join(temp_dir, 'stimuli.zip')
 
-        download_and_check(
-            'http://lsun.cs.princeton.edu/challenge/2015/eyetracking_salicon/data/image.zip',
-            stimuli_file,
-            '856e451461b8c164f556ebef96dad1a2'
-        )
+            download_file_from_google_drive('1g8j-hTT-51IG1UFwP0xTGhLdgIUCW5e5', stimuli_file)
+            check_file_hash(stimuli_file, 'eb2a1bb706633d1b31fc2e01422c5757')
 
-        print("Extracting stimuli")
+            print("Extracting stimuli")
 
-        f = zipfile.ZipFile(stimuli_file)
-        f.extractall(temp_dir)
+            f = zipfile.ZipFile(stimuli_file)
+            f.extractall(temp_dir)
 
-        stimuli_train = create_stimuli(
-            stimuli_location = os.path.join(temp_dir, 'images'),
-            filenames = [os.path.basename(f) for f in sorted(glob.glob(os.path.join(temp_dir, 'images', 'COCO_train*')))],
-            location=os.path.join(location, 'stimuli', 'train') if location else None
-        )
+            stimuli_train = create_stimuli(
+                stimuli_location=os.path.join(temp_dir, 'images', 'train'),
+                filenames=[os.path.basename(f) for f in sorted(glob.glob(os.path.join(temp_dir, 'images', 'train', 'COCO_train*')))],
+                location=os.path.join(location, 'stimuli', 'train') if location else None
+            )
 
-        stimuli_val = create_stimuli(
-            stimuli_location = os.path.join(temp_dir, 'images'),
-            filenames = [os.path.basename(f) for f in sorted(glob.glob(os.path.join(temp_dir, 'images', 'COCO_val*')))],
-            location=os.path.join(location, 'stimuli', 'val') if location else None
-        )
+            stimuli_val = create_stimuli(
+                stimuli_location=os.path.join(temp_dir, 'images', 'val'),
+                filenames=[os.path.basename(f) for f in sorted(glob.glob(os.path.join(temp_dir, 'images', 'val', 'COCO_val*')))],
+                location=os.path.join(location, 'stimuli', 'val') if location else None
+            )
 
-        stimuli_test = create_stimuli(
-            stimuli_location = os.path.join(temp_dir, 'images'),
-            filenames = [os.path.basename(f) for f in sorted(glob.glob(os.path.join(temp_dir, 'images', 'COCO_test*')))],
-            location=os.path.join(location, 'stimuli', 'test') if location else None
-        )
+            stimuli_test = create_stimuli(
+                stimuli_location=os.path.join(temp_dir, 'images', 'test'),
+                filenames=[os.path.basename(f) for f in sorted(glob.glob(os.path.join(temp_dir, 'images', 'test', 'COCO_test*')))],
+                location=os.path.join(location, 'stimuli', 'test') if location else None
+            )
 
-        if location is not None:
-            stimuli_train.to_hdf5(os.path.join(location, 'stimuli_train.hdf5'))
-            stimuli_val.to_hdf5(os.path.join(location, 'stimuli_val.hdf5'))
-            stimuli_test.to_hdf5(os.path.join(location, 'stimuli_test.hdf5'))
+            if location is not None:
+                stimuli_train.to_hdf5(os.path.join(location, 'stimuli_train.hdf5'))
+                stimuli_val.to_hdf5(os.path.join(location, 'stimuli_val.hdf5'))
+                stimuli_test.to_hdf5(os.path.join(location, 'stimuli_test.hdf5'))
 
-        return stimuli_train, stimuli_val, stimuli_test
+    return stimuli_train, stimuli_val, stimuli_test
 
 
 def _get_SALICON_fixations(location, name, edition='2015', fixation_type='mouse'):
@@ -1082,63 +1099,64 @@ def _get_SALICON_fixations(location, name, edition='2015', fixation_type='mouse'
                 return fixations_train, fixations_val
         os.makedirs(location, exist_ok=True)
 
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        fixations_file = os.path.join(temp_dir, 'fixations.zip')
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
+            fixations_file = os.path.join(temp_dir, 'fixations.zip')
 
-        if edition == '2015':
-            download_file_from_google_drive('0B2hsWbciDVedWHFiMUVVWFRZTE0', fixations_file)
-            check_file_hash(fixations_file, '9a22db9d718200fb90252e5010c004c4')
-        elif edition == '2017':
-            download_file_from_google_drive('0B2hsWbciDVedS1lBZHprdXFoZkU', fixations_file)
-            check_file_hash(fixations_file, '462b70f4f9e8ea446ac628e46cea8d3d')
+            if edition == '2015':
+                download_file_from_google_drive('0B2hsWbciDVedWHFiMUVVWFRZTE0', fixations_file)
+                check_file_hash(fixations_file, '9a22db9d718200fb90252e5010c004c4')
+            elif edition == '2017':
+                download_file_from_google_drive('0B2hsWbciDVedS1lBZHprdXFoZkU', fixations_file)
+                check_file_hash(fixations_file, '462b70f4f9e8ea446ac628e46cea8d3d')
 
-        f = zipfile.ZipFile(fixations_file)
-        f.extractall(os.path.join(temp_dir, 'fixations'))
+            f = zipfile.ZipFile(fixations_file)
+            f.extractall(os.path.join(temp_dir, 'fixations'))
 
-        fixations = []
+            fixations = []
 
-        if fixation_type == 'mouse':
-            fixation_attr = 'location'
-        elif fixation_type == 'fixations':
-            fixation_attr = 'fixations'
+            if fixation_type == 'mouse':
+                fixation_attr = 'location'
+            elif fixation_type == 'fixations':
+                fixation_attr = 'fixations'
 
-        for dataset in ['train', 'val']:
-            ns = []
-            train_xs = []
-            train_ys = []
-            train_ts = []
-            train_subjects = []
+            for dataset in ['train', 'val']:
+                ns = []
+                train_xs = []
+                train_ys = []
+                train_ts = []
+                train_subjects = []
 
-            subject_id = 0
+                subject_id = 0
 
-            data_files = list(sorted(glob.glob(os.path.join(temp_dir, 'fixations', dataset, '*.mat'))))
-            for n, filename in enumerate(tqdm(data_files)):
-                fixation_data = loadmat(filename)
-                for subject_data in fixation_data['gaze'].flatten():
-                    train_xs.append(subject_data[fixation_attr][:, 0] - 1)  # matlab: one-based indexing
-                    train_ys.append(subject_data[fixation_attr][:, 1] - 1)
-                    if fixation_type == 'mouse':
-                        train_ts.append(subject_data['timestamp'].flatten())
-                    elif fixation_type == 'fixations':
-                        train_ts.append(range(len(train_xs[-1])))
+                data_files = list(sorted(glob.glob(os.path.join(temp_dir, 'fixations', dataset, '*.mat'))))
+                for n, filename in enumerate(tqdm(data_files)):
+                    fixation_data = loadmat(filename)
+                    for subject_data in fixation_data['gaze'].flatten():
+                        train_xs.append(subject_data[fixation_attr][:, 0] - 1)  # matlab: one-based indexing
+                        train_ys.append(subject_data[fixation_attr][:, 1] - 1)
+                        if fixation_type == 'mouse':
+                            train_ts.append(subject_data['timestamp'].flatten())
+                        elif fixation_type == 'fixations':
+                            train_ts.append(range(len(train_xs[-1])))
 
-                    train_subjects.append(np.ones(len(train_xs[-1]), dtype=int)*subject_id)
-                    ns.append(np.ones(len(train_xs[-1]), dtype=int)*n)
-                    subject_id += 1
+                        train_subjects.append(np.ones(len(train_xs[-1]), dtype=int) * subject_id)
+                        ns.append(np.ones(len(train_xs[-1]), dtype=int) * n)
+                        subject_id += 1
 
-            xs = np.hstack(train_xs)
-            ys = np.hstack(train_ys)
-            ts = np.hstack(train_ts)
-            subjects = np.hstack(train_subjects)
-            ns = np.hstack(ns)
+                xs = np.hstack(train_xs)
+                ys = np.hstack(train_ys)
+                ts = np.hstack(train_ts)
+                subjects = np.hstack(train_subjects)
+                ns = np.hstack(ns)
 
-            fixations.append(Fixations.FixationsWithoutHistory(xs, ys, ts, ns, subjects))
+                fixations.append(Fixations.FixationsWithoutHistory(xs, ys, ts, ns, subjects))
 
-        fixations_train, fixations_val = fixations
+            fixations_train, fixations_val = fixations
 
-        if location is not None:
-            fixations_train.to_hdf5(os.path.join(location, 'fixations_train.hdf5'))
-            fixations_val.to_hdf5(os.path.join(location, 'fixations_val.hdf5'))
+            if location is not None:
+                fixations_train.to_hdf5(os.path.join(location, 'fixations_train.hdf5'))
+                fixations_val.to_hdf5(os.path.join(location, 'fixations_val.hdf5'))
 
         return fixations_train, fixations_val
 
@@ -1158,7 +1176,7 @@ def get_SALICON_train(edition='2015', fixation_type='mouse', location=None):
     return stimuli_train, fixations_train
 
 
-def get_SALICON_val(edition='2015', fixation_type='mouse',  location=None):
+def get_SALICON_val(edition='2015', fixation_type='mouse', location=None):
     """
     Loads or downloads and caches the SALICON validation dataset. See `get_SALICON` for more details.
     """
@@ -1205,16 +1223,16 @@ def _get_koehler_fixations(data, task, n_stimuli):
     subject_ids = range(data_x.shape[0])
 
     for n, subject_id in tqdm(list(itertools.product(range(n_stimuli), subject_ids))):
-            x = data_x[subject_id, n, :] - 1
-            y = data_y[subject_id, n, :] - 1
-            inds = np.logical_not(np.isnan(x))
-            x = x[inds]
-            y = y[inds]
-            xs.append(x)
-            ys.append(y)
-            ts.append(range(len(x)))
-            ns.append(n)
-            subjects.append(subject_id)
+        x = data_x[subject_id, n, :] - 1
+        y = data_y[subject_id, n, :] - 1
+        inds = np.logical_not(np.isnan(x))
+        x = x[inds]
+        y = y[inds]
+        xs.append(x)
+        ys.append(y)
+        ts.append(range(len(x)))
+        ns.append(n)
+        subjects.append(subject_id)
     return FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
 
 
@@ -1257,32 +1275,33 @@ def get_koehler(location=None, datafile=None):
         raise ValueError('The Koehler dataset is not freely available! You have to '
                          'request the data file from the authors and provide it to '
                          'this function via the datafile argument')
-    with TemporaryDirectory() as temp_dir:
-        z = zipfile.ZipFile(datafile)
-        print('Extracting')
-        z.extractall(temp_dir)
+    with atomic_directory_setup(location):
+        with TemporaryDirectory() as temp_dir:
+            z = zipfile.ZipFile(datafile)
+            print('Extracting')
+            z.extractall(temp_dir)
 
-        # Stimuli
-        stimuli_src_location = os.path.join(temp_dir, 'Images')
-        stimuli_target_location = os.path.join(location, 'stimuli') if location else None
-        stimuli_filenames = ['image_r_{}.jpg'.format(i) for i in range(1, 801)]
+            # Stimuli
+            stimuli_src_location = os.path.join(temp_dir, 'Images')
+            stimuli_target_location = os.path.join(location, 'stimuli') if location else None
+            stimuli_filenames = ['image_r_{}.jpg'.format(i) for i in range(1, 801)]
 
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
-        # Fixations
+            # Fixations
 
-        data = loadmat(os.path.join(temp_dir, 'ObserverData.mat'))
+            data = loadmat(os.path.join(temp_dir, 'ObserverData.mat'))
 
-        fs = []
+            fs = []
 
-        for task in ['freeviewing', 'objectsearch', 'saliencysearch']:
-            fs.append(_get_koehler_fixations(data, task, len(stimuli)))
+            for task in ['freeviewing', 'objectsearch', 'saliencysearch']:
+                fs.append(_get_koehler_fixations(data, task, len(stimuli)))
 
-        if location:
-            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-            fs[0].to_hdf5(os.path.join(location, 'fixations_freeviewing.hdf5'))
-            fs[1].to_hdf5(os.path.join(location, 'fixations_objectsearch.hdf5'))
-            fs[2].to_hdf5(os.path.join(location, 'fixations_saliencysearch.hdf5'))
+            if location:
+                stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+                fs[0].to_hdf5(os.path.join(location, 'fixations_freeviewing.hdf5'))
+                fs[1].to_hdf5(os.path.join(location, 'fixations_objectsearch.hdf5'))
+                fs[2].to_hdf5(os.path.join(location, 'fixations_saliencysearch.hdf5'))
     return [stimuli] + fs
 
 
@@ -1300,7 +1319,7 @@ def _load_FIGRIM_data(filename, stimuli_indices, stimulus_type):
 
     for stimulus_data in data:
         n = stimuli_indices[stimulus_data['filename'][0]]
-        category = stimulus_data['category'][0]  # TODO: use
+        # category = stimulus_data['category'][0]  # TODO: use
         for subject, subject_data in enumerate(stimulus_data['userdata'].flatten()):
             if not subject_data['trial']:
                 # No data for this subject and this stimulus
@@ -1310,8 +1329,8 @@ def _load_FIGRIM_data(filename, stimuli_indices, stimulus_type):
                 fixations = subject_data['fixations'][0, 0][which_time]
                 if not len(fixations):
                     continue
-                #if len(fixations) and which_time != 'enc':
-                #    print("Problem:", n, subject_name, which_time)
+                # if len(fixations) and which_time != 'enc':
+                #     print("Problem:", n, subject_name, which_time)
                 subject_response = subject_data['SDT'][0][which_time_names.index(which_time)]
 
                 xs.append(fixations[:, 0])
@@ -1360,88 +1379,89 @@ def get_FIGRIM(location=None):
             fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        download_and_check('http://figrim.mit.edu/Fillers.zip',
-                           os.path.join(temp_dir, 'Fillers.zip'),
-                           'dc0bc9561b5bc90e158ec32074dd1060')
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
+            download_and_check('http://figrim.mit.edu/Fillers.zip',
+                               os.path.join(temp_dir, 'Fillers.zip'),
+                               'dc0bc9561b5bc90e158ec32074dd1060')
 
-        download_and_check('http://figrim.mit.edu/Targets.zip',
-                           os.path.join(temp_dir, 'Targets.zip'),
-                           '2ad3a42ebc377efe4b39064405568201')
+            download_and_check('http://figrim.mit.edu/Targets.zip',
+                               os.path.join(temp_dir, 'Targets.zip'),
+                               '2ad3a42ebc377efe4b39064405568201')
 
-        download_and_check('https://github.com/cvzoya/figrim/blob/master/targetData/allImages_release.mat?raw=True',
-                           os.path.join(temp_dir, 'allImages_release.mat'),
-                           'c72843b05e95ab27594c1d11c849c897')
+            download_and_check('https://github.com/cvzoya/figrim/blob/master/targetData/allImages_release.mat?raw=True',
+                               os.path.join(temp_dir, 'allImages_release.mat'),
+                               'c72843b05e95ab27594c1d11c849c897')
 
-        download_and_check('https://github.com/cvzoya/figrim/blob/master/fillerData/allImages_fillers.mat?raw=True',
-                           os.path.join(temp_dir, 'allImages_fillers.mat'),
-                           'ce4f8b4961005d62f7a21191a64cab5e')
+            download_and_check('https://github.com/cvzoya/figrim/blob/master/fillerData/allImages_fillers.mat?raw=True',
+                               os.path.join(temp_dir, 'allImages_fillers.mat'),
+                               'ce4f8b4961005d62f7a21191a64cab5e')
 
-        # Stimuli
-        mkdir_p(os.path.join(temp_dir, 'stimuli'))
-        print('Creating stimuli')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'Fillers.zip'))
-        f.extractall(os.path.join(temp_dir, 'stimuli'))
+            # Stimuli
+            mkdir_p(os.path.join(temp_dir, 'stimuli'))
+            print('Creating stimuli')
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'Fillers.zip'))
+            f.extractall(os.path.join(temp_dir, 'stimuli'))
 
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'Targets.zip'))
-        f.extractall(os.path.join(temp_dir, 'stimuli'))
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'Targets.zip'))
+            f.extractall(os.path.join(temp_dir, 'stimuli'))
 
-        stimuli_src_location = os.path.join(temp_dir, 'stimuli')
-        stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
-        images = glob.glob(os.path.join(stimuli_src_location, '**', '**', '*.jpg'))
-        images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
-        stimuli_filenames = natsorted(images)
+            stimuli_src_location = os.path.join(temp_dir, 'stimuli')
+            stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
+            images = glob.glob(os.path.join(stimuli_src_location, '**', '**', '*.jpg'))
+            images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
+            stimuli_filenames = natsorted(images)
 
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
-        stimuli_basenames = [os.path.basename(filename) for filename in stimuli_filenames]
-        stimulus_indices = {s: stimuli_basenames.index(s) for s in stimuli_basenames}
+            stimuli_basenames = [os.path.basename(filename) for filename in stimuli_filenames]
+            stimulus_indices = {s: stimuli_basenames.index(s) for s in stimuli_basenames}
 
-        # FixationTrains
+            # FixationTrains
 
-        print('Creating fixations')
+            print('Creating fixations')
 
-        print('Fillers...')
-        (xs_filler,
-         ys_filler,
-         ts_filler,
-         ns_filler,
-         train_subjects_filler,
-         which_times_filler,
-         stimulus_types_filler,
-         responses_filler) = _load_FIGRIM_data(os.path.join(temp_dir, 'allImages_fillers.mat'), stimulus_indices, stimulus_type=0)
+            print('Fillers...')
+            (xs_filler,
+             ys_filler,
+             ts_filler,
+             ns_filler,
+             train_subjects_filler,
+             which_times_filler,
+             stimulus_types_filler,
+             responses_filler) = _load_FIGRIM_data(os.path.join(temp_dir, 'allImages_fillers.mat'), stimulus_indices, stimulus_type=0)
 
-        print("Targets...")
-        (xs_target,
-         ys_target,
-         ts_target,
-         ns_target,
-         train_subjects_target,
-         which_times_target,
-         stimulus_types_target,
-         responses_target) = _load_FIGRIM_data(os.path.join(temp_dir, 'allImages_release.mat'), stimulus_indices, stimulus_type=0)
+            print("Targets...")
+            (xs_target,
+             ys_target,
+             ts_target,
+             ns_target,
+             train_subjects_target,
+             which_times_target,
+             stimulus_types_target,
+             responses_target) = _load_FIGRIM_data(os.path.join(temp_dir, 'allImages_release.mat'), stimulus_indices, stimulus_type=0)
 
-        print("Finalizing...")
-        xs = xs_filler + xs_target
-        ys = ys_filler + ys_target
-        ts = ts_filler + ts_target
-        ns = ns_filler + ns_target
-        train_subjects = train_subjects_filler + train_subjects_target
-        which_times = which_times_filler + which_times_target
-        stimulus_types = stimulus_types_filler + stimulus_types_target
-        responses = responses_filler + responses_target
+            print("Finalizing...")
+            xs = xs_filler + xs_target
+            ys = ys_filler + ys_target
+            ts = ts_filler + ts_target
+            ns = ns_filler + ns_target
+            train_subjects = train_subjects_filler + train_subjects_target
+            which_times = which_times_filler + which_times_target
+            stimulus_types = stimulus_types_filler + stimulus_types_target
+            responses = responses_filler + responses_target
 
-        fixations = FixationTrains.from_fixation_trains(
-            xs, ys, ts, ns, train_subjects,
-            attributes={
-                'which_time': which_times,
-                'stimulus_type': stimulus_types,
-                'response': responses
-            })
+            fixations = FixationTrains.from_fixation_trains(
+                xs, ys, ts, ns, train_subjects,
+                attributes={
+                    'which_time': which_times,
+                    'stimulus_type': stimulus_types,
+                    'response': responses
+                })
 
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
+        if location:
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -1471,60 +1491,61 @@ def get_OSIE(location=None):
             fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
-    with TemporaryDirectory(cleanup=True) as temp_dir:
-        stimuli_src_location = os.path.join(temp_dir, 'stimuli')
-        mkdir_p(stimuli_src_location)
-        images = []
-        for i in tqdm(list(range(700))):
-            filename = '{}.jpg'.format(i+1001)
-            target_name = os.path.join(stimuli_src_location, filename)
-            urllib.request.urlretrieve(
-                'https://github.com/NUS-VIP/predicting-human-gaze-beyond-pixels/raw/master/data/stimuli/'+filename,
-                target_name)
-            images.append(filename)
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
+            stimuli_src_location = os.path.join(temp_dir, 'stimuli')
+            mkdir_p(stimuli_src_location)
+            images = []
+            for i in tqdm(list(range(700))):
+                filename = '{}.jpg'.format(i + 1001)
+                target_name = os.path.join(stimuli_src_location, filename)
+                urllib.request.urlretrieve(
+                    'https://github.com/NUS-VIP/predicting-human-gaze-beyond-pixels/raw/master/data/stimuli/' + filename,
+                    target_name)
+                images.append(filename)
 
-        download_and_check('https://github.com/NUS-VIP/predicting-human-gaze-beyond-pixels/blob/master/data/eye/fixations.mat?raw=true',
-                           os.path.join(temp_dir, 'fixations.mat'),
-                           '8efdf6fe66f38b6e70f854c7ff45aa70')
+            download_and_check('https://github.com/NUS-VIP/predicting-human-gaze-beyond-pixels/blob/master/data/eye/fixations.mat?raw=true',
+                               os.path.join(temp_dir, 'fixations.mat'),
+                               '8efdf6fe66f38b6e70f854c7ff45aa70')
 
-        # Stimuli
-        print('Creating stimuli')
+            # Stimuli
+            print('Creating stimuli')
 
-        stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
-        stimuli = create_stimuli(stimuli_src_location, images, stimuli_target_location)
+            stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
+            stimuli = create_stimuli(stimuli_src_location, images, stimuli_target_location)
 
-        stimulus_indices = {s: images.index(s) for s in images}
+            stimulus_indices = {s: images.index(s) for s in images}
 
-        # FixationTrains
+            # FixationTrains
 
-        print('Creating fixations')
-        data = loadmat(os.path.join(temp_dir, 'fixations.mat'))['fixations'].flatten()
+            print('Creating fixations')
+            data = loadmat(os.path.join(temp_dir, 'fixations.mat'))['fixations'].flatten()
 
-        xs = []
-        ys = []
-        ts = []
-        ns = []
-        train_subjects = []
+            xs = []
+            ys = []
+            ts = []
+            ns = []
+            train_subjects = []
 
-        for stimulus_data in data:
-            stimulus_data = stimulus_data[0, 0]
-            n = stimulus_indices[stimulus_data['img'][0]]
-            for subject, subject_data in enumerate(stimulus_data['subjects'].flatten()):
-                fixations = subject_data[0, 0]
-                if not len(fixations['fix_x'].flatten()):
-                    continue
+            for stimulus_data in data:
+                stimulus_data = stimulus_data[0, 0]
+                n = stimulus_indices[stimulus_data['img'][0]]
+                for subject, subject_data in enumerate(stimulus_data['subjects'].flatten()):
+                    fixations = subject_data[0, 0]
+                    if not len(fixations['fix_x'].flatten()):
+                        continue
 
-                xs.append(fixations['fix_x'].flatten())
-                ys.append(fixations['fix_y'].flatten())
-                ts.append(np.arange(len(xs[-1])))
-                ns.append(n)
-                train_subjects.append(subject)
+                    xs.append(fixations['fix_x'].flatten())
+                    ys.append(fixations['fix_y'].flatten())
+                    ts.append(np.arange(len(xs[-1])))
+                    ns.append(n)
+                    train_subjects.append(subject)
 
-    fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
+        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
+        if location:
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations
 
 
@@ -1560,85 +1581,86 @@ def get_NUSEF_public(location=None):
             fixations = _load(os.path.join(location, 'fixations.hdf5'))
             return stimuli, fixations
         os.makedirs(location)
-    with TemporaryDirectory(cleanup=True) as temp_dir:
+    with atomic_directory_setup(location):
+        with TemporaryDirectory(cleanup=True) as temp_dir:
 
-        download_and_check('http://mmas.comp.nus.edu.sg/NUSEF_database.zip',
-                           os.path.join(temp_dir, 'NUSEF_database.zip'),
-                           '429a78ad92184e8a4b37419988d98953')
+            download_and_check('http://mmas.comp.nus.edu.sg/NUSEF_database.zip',
+                               os.path.join(temp_dir, 'NUSEF_database.zip'),
+                               '429a78ad92184e8a4b37419988d98953')
 
-        # Stimuli
-        print('Creating stimuli')
-        f = zipfile.ZipFile(os.path.join(temp_dir, 'NUSEF_database.zip'))
-        f.extractall(temp_dir)
+            # Stimuli
+            print('Creating stimuli')
+            f = zipfile.ZipFile(os.path.join(temp_dir, 'NUSEF_database.zip'))
+            f.extractall(temp_dir)
 
-        stimuli_src_location = os.path.join(temp_dir, 'NUSEF_database', 'stimuli')
-        images = glob.glob(os.path.join(stimuli_src_location, '*.jpg'))
-        images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
-        stimuli_filenames = sorted(images)
+            stimuli_src_location = os.path.join(temp_dir, 'NUSEF_database', 'stimuli')
+            images = glob.glob(os.path.join(stimuli_src_location, '*.jpg'))
+            images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
+            stimuli_filenames = sorted(images)
 
-        stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
-        stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
-        stimuli_basenames = [os.path.basename(f) for f in stimuli_filenames]
-        stimuli_indices = {s: stimuli_basenames.index(s) for s in stimuli_basenames}
+            stimuli_basenames = [os.path.basename(f) for f in stimuli_filenames]
+            stimuli_indices = {s: stimuli_basenames.index(s) for s in stimuli_basenames}
 
-        # FixationTrains
+            # FixationTrains
 
-        print('Creating fixations')
+            print('Creating fixations')
 
-        xs = []
-        ys = []
-        ts = []
-        ns = []
-        train_subjects = []
+            xs = []
+            ys = []
+            ts = []
+            ns = []
+            train_subjects = []
 
-        scale_x = 1024 / 260
-        scale_y = 768 / 280
+            scale_x = 1024 / 260
+            scale_y = 768 / 280
 
-        fix_location = os.path.join(temp_dir, 'NUSEF_database', 'fix_data')
-        for sub_dir in tqdm(os.listdir(fix_location)):
-            if not sub_dir+'.jpg' in stimuli_indices:
-                # one of the non public images
-                continue
-            n = stimuli_indices[sub_dir+'.jpg']
-            for subject_data in glob.glob(os.path.join(fix_location, sub_dir, '*.fix')):
-                data = open(subject_data).read().replace('\r\n', '\n')
-                data = data.split('COLS=', 1)[1]
-                data = data.split('[Fix Segment Summary')[0]
-                lines = data.split('\n')[1:]
-                lines = [l for l in lines if l]
-                x = []
-                y = []
-                t = []
-                for line in lines:
-                    (_,
-                     seg_no,
-                     fix_no,
-                     pln_no,
-                     start_time,
-                     fix_dur,
-                     interfix_dur,
-                     interfix_deg,
-                     hor_pos,
-                     ver_pos,
-                     pupil_diam,
-                     eye_scn_dist,
-                     no_of_flags,
-                     fix_loss,
-                     interfix_loss) = line.split()
-                    x.append(float(hor_pos)*scale_x)
-                    y.append(float(ver_pos)*scale_y)
-                    t.append(float(start_time.split(':')[-1]))
+            fix_location = os.path.join(temp_dir, 'NUSEF_database', 'fix_data')
+            for sub_dir in tqdm(os.listdir(fix_location)):
+                if not sub_dir + '.jpg' in stimuli_indices:
+                    # one of the non public images
+                    continue
+                n = stimuli_indices[sub_dir + '.jpg']
+                for subject_data in glob.glob(os.path.join(fix_location, sub_dir, '*.fix')):
+                    data = open(subject_data).read().replace('\r\n', '\n')
+                    data = data.split('COLS=', 1)[1]
+                    data = data.split('[Fix Segment Summary')[0]
+                    lines = data.split('\n')[1:]
+                    lines = [l for l in lines if l]
+                    x = []
+                    y = []
+                    t = []
+                    for line in lines:
+                        (_,
+                         seg_no,
+                         fix_no,
+                         pln_no,
+                         start_time,
+                         fix_dur,
+                         interfix_dur,
+                         interfix_deg,
+                         hor_pos,
+                         ver_pos,
+                         pupil_diam,
+                         eye_scn_dist,
+                         no_of_flags,
+                         fix_loss,
+                         interfix_loss) = line.split()
+                        x.append(float(hor_pos) * scale_x)
+                        y.append(float(ver_pos) * scale_y)
+                        t.append(float(start_time.split(':')[-1]))
 
-                xs.append(x)
-                ys.append(y)
-                ts.append(t)
-                ns.append(n)
-                train_subjects.append(0)
+                    xs.append(x)
+                    ys.append(y)
+                    ts.append(t)
+                    ns.append(n)
+                    train_subjects.append(0)
 
-    fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
+        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
 
-    if location:
-        stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-        fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
+        if location:
+            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
+            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
     return stimuli, fixations

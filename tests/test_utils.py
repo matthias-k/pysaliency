@@ -7,7 +7,7 @@ import os
 
 import numpy as np
 
-from pysaliency.utils import LazyList, TemporaryDirectory, Cache, get_minimal_unique_filenames
+from pysaliency.utils import LazyList, TemporaryDirectory, Cache, get_minimal_unique_filenames, atomic_directory_setup
 from test_helpers import TestWithData
 
 
@@ -26,14 +26,13 @@ def test_minimal_unique_filenames():
     assert get_minimal_unique_filenames(filenames) == ['c/d.e', 'c/f.g', 'c/h.i', 'C/j.k']
 
 
-
 class TestLazyList(TestWithData):
     def test_lazy_list(self):
         calls = []
 
         def gen(i):
             calls.append(i)
-            print ('calling with {} yielding {}'.format(i, i**2))
+            print('calling with {} yielding {}'.format(i, i**2))
             return i**2
 
         length = 20
@@ -82,6 +81,51 @@ class TestTemporaryDirectory(unittest.TestCase):
 
         self.assertFalse(os.path.isdir(tmp_dir))
         self.assertFalse(os.path.exists(tmp_dir))
+
+
+def test_atomic_directory_setup_success(tmp_path):
+    directory = tmp_path / 'testdirectory'
+    assert not directory.exists()
+    with atomic_directory_setup(str(directory)):
+        directory.mkdir()
+        assert directory.exists()
+
+    assert directory.exists()
+
+
+def test_atomic_directory_setup_failure(tmp_path):
+    directory = tmp_path / 'testdirectory'
+    assert not directory.exists()
+    try:
+        with atomic_directory_setup(str(directory)):
+            directory.mkdir()
+            assert directory.exists()
+            raise ValueError()
+    except ValueError:
+        pass
+    else:
+        assert False
+
+    assert not directory.exists()
+
+
+def test_atomic_directory_setup_success_no_location():
+    with atomic_directory_setup(None):
+        assert True
+    assert True
+
+
+def test_atomic_directory_setup_failure_no_location():
+    try:
+        with atomic_directory_setup(None):
+            assert True
+            raise ValueError()
+    except ValueError:
+        pass
+    else:
+        assert False
+
+    assert True
 
 
 class TestCache(TestWithData):

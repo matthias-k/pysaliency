@@ -71,7 +71,7 @@ def test_toronto(location):
 @pytest.mark.slow
 @pytest.mark.download
 @pytest.mark.skip_octave
-def test_cat2000(location, matlab):
+def test_cat2000_train(location, matlab):
     real_location = _location(location)
 
     stimuli, fixations = pysaliency.external_datasets.get_cat2000_train(location=real_location)
@@ -86,6 +86,9 @@ def test_cat2000(location, matlab):
 
     assert len(stimuli.stimuli) == 2000
     assert set(stimuli.sizes) == {(1080, 1920)}
+    assert set(stimuli.attributes.keys()) == {'category'}
+    assert np.all(np.array(stimuli.attributes['category'][0:100]) == 0)
+    assert np.all(np.array(stimuli.attributes['category'][100:200]) == 1)
 
     assert len(fixations.x) == 672053
 
@@ -111,6 +114,28 @@ def test_cat2000(location, matlab):
 
     assert entropy(fixations.n) == approx(10.955266908462857)
     assert (fixations.n == 0).sum() == 307
+
+
+@pytest.mark.slow
+@pytest.mark.download
+@pytest.mark.skip_octave
+def test_cat2000_test(location):
+    real_location = _location(location)
+
+    stimuli = pysaliency.external_datasets.get_cat2000_test(location=real_location)
+
+    if location is None:
+        assert isinstance(stimuli, pysaliency.Stimuli)
+        assert not isinstance(stimuli, pysaliency.FileStimuli)
+    else:
+        assert isinstance(stimuli, pysaliency.FileStimuli)
+        assert location.join('CAT2000_test/stimuli.hdf5').check()
+
+    assert len(stimuli.stimuli) == 2000
+    assert set(stimuli.sizes) == {(1080, 1920)}
+    assert set(stimuli.attributes.keys()) == {'category'}
+    assert np.all(np.array(stimuli.attributes['category'][0:100]) == 0)
+    assert np.all(np.array(stimuli.attributes['category'][100:200]) == 1)
 
 
 @pytest.mark.slow

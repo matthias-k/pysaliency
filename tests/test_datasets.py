@@ -114,12 +114,12 @@ class TestFixations(TestWithData):
         compare_fix(_f, f, equivalent_indices)
 
         ## second order filtering
-        #inds = np.nonzero(f.n == 10)[0]
-        #_f = f.filter(inds)
-        #inds2 = np.nonzero(_f.subjects == 0)[0]
-        #__f = _f.filter(inds2)
-        #cum_inds = inds[inds2]
-        #compare_fix(__f, f, cum_inds)
+        # inds = np.nonzero(f.n == 10)[0]
+        # _f = f.filter(inds)
+        # inds2 = np.nonzero(_f.subjects == 0)[0]
+        # __f = _f.filter(inds2)
+        # cum_inds = inds[inds2]
+        # compare_fix(__f, f, cum_inds)
 
     def test_save_and_load(self):
         xs_trains = [
@@ -225,7 +225,6 @@ class TestStimuli(TestWithData):
             self.assertEqual(ss.sizes[k], stimuli.sizes[i])
 
 
-
 class TestFileStimuli(TestWithData):
     def test_file_stimuli(self):
         img1 = np.random.randint(255, size=(100, 200, 3)).astype('uint8')
@@ -267,7 +266,6 @@ class TestFileStimuli(TestWithData):
             filename = os.path.join(self.data_path, 'img{}.png'.format(i))
             imwrite(filename, img)
             filenames.append(filename)
-
 
         stimuli = pysaliency.FileStimuli(filenames)
         for i in range(count):
@@ -324,6 +322,73 @@ def test_read_hdf5_caching(fixation_trains, tmp_path):
 
     new_fixations2 = pysaliency.read_hdf5(str(filename))
     assert new_fixations2 is new_fixations, "objects should not be read into memory multiple times"
+
+
+@pytest.fixture
+def stimuli_with_attributes():
+    stimuli_data = [np.random.randint(0, 255, size=(25, 30, 3)) for i in range(10)]
+    attributes = {
+        'dva': list(range(10)),
+        'other_stuff': np.random.randn(10),
+    }
+    return pysaliency.Stimuli(stimuli_data, attributes=attributes)
+
+
+def test_stimuli_attributes(stimuli_with_attributes, tmp_path):
+    filename = tmp_path / 'stimuli.hdf5'
+    stimuli_with_attributes.to_hdf5(str(filename))
+
+    new_stimuli = pysaliency.read_hdf5(str(filename))
+
+    assert stimuli_with_attributes.attributes.keys() == new_stimuli.attributes.keys()
+
+    partial_stimuli = stimuli_with_attributes[:5]
+    assert stimuli_with_attributes.attributes.keys() == partial_stimuli.attributes.keys()
+    assert stimuli_with_attributes.attributes['dva'][:5] == partial_stimuli.attributes['dva']
+
+
+@pytest.fixture
+def file_stimuli_with_attributes(tmpdir):
+    filenames = []
+    for i in range(3):
+        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
+        imwrite(str(filename), np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+        filenames.append(str(filename))
+
+    for sub_directory_index in range(3):
+        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
+        sub_directory.mkdir()
+        for i in range(5):
+            filename = sub_directory.join('stimulus_{:04d}.png'.format(i))
+            imwrite(str(filename), np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+            filenames.append(str(filename))
+    attributes = {
+        'dva': list(range(len(filenames))),
+        'other_stuff': np.random.randn(len(filenames)),
+    }
+    return pysaliency.FileStimuli(filenames=filenames, attributes=attributes)
+
+
+def test_file_stimuli_attributes(file_stimuli_with_attributes, tmp_path):
+    filename = tmp_path / 'stimuli.hdf5'
+    print(file_stimuli_with_attributes.__attributes__)
+    file_stimuli_with_attributes.to_hdf5(str(filename))
+
+    new_stimuli = pysaliency.read_hdf5(str(filename))
+
+    assert file_stimuli_with_attributes.attributes.keys() == new_stimuli.attributes.keys()
+
+    partial_stimuli = file_stimuli_with_attributes[:5]
+    assert file_stimuli_with_attributes.attributes.keys() == partial_stimuli.attributes.keys()
+    assert file_stimuli_with_attributes.attributes['dva'][:5] == partial_stimuli.attributes['dva']
+
+
+def test_concatenate_stimuli_with_attributes(stimuli_with_attributes, file_stimuli_with_attributes):
+    concatenated_stimuli = pysaliency.datasets.concatenate_stimuli([stimuli_with_attributes, file_stimuli_with_attributes])
+
+    assert file_stimuli_with_attributes.attributes.keys() == concatenated_stimuli.attributes.keys()
+    np.testing.assert_allclose(stimuli_with_attributes.attributes['dva'], concatenated_stimuli.attributes['dva'][:len(stimuli_with_attributes)])
+    np.testing.assert_allclose(file_stimuli_with_attributes.attributes['dva'], concatenated_stimuli.attributes['dva'][len(stimuli_with_attributes):])
 
 
 if __name__ == '__main__':
