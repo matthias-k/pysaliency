@@ -5,6 +5,7 @@
     datasets now have the stimulus categories as attribute.
   * failure to download and setup a dataset will no longer result in leftover
     dataset files that keep pysaliency from trying again.
+  * crossvalidation splits now support stratifying stimulus attributes
 * 0.2.19:
   * added pytorch implementation for optimization of similarity metric as alternative
     to tensorflow implementation which still uses tensorflow 1.x

@@ -7,27 +7,27 @@ from boltons.iterutils import chunked
 from .datasets import create_subset
 
 
-def train_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True):
-    return crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='train')
+def train_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True, stratified_attributes=None):
+    return crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='train', stratified_attributes=stratified_attributes)
 
 
-def validation_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True):
-    return crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='val')
+def validation_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True, stratified_attributes=None):
+    return crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='val', stratified_attributes=stratified_attributes)
 
 
-def test_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True):
-    return crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='test')
+def test_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True, stratified_attributes=None):
+    return crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='test', stratified_attributes=stratified_attributes)
 
 
-def crossval_splits(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True):
+def crossval_splits(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True, stratified_attributes=None):
     return (
-        crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='train'),
-        crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='val'),
-        crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='test'),
+        crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='train', stratified_attributes=stratified_attributes),
+        crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='val', stratified_attributes=stratified_attributes),
+        crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=val_folds, test_folds=test_folds, random=random, split='test', stratified_attributes=stratified_attributes),
     )
 
 
-def crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True, split='train'):
+def crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True, split='train', stratified_attributes=None):
     train_folds, val_folds, test_folds = get_crossval_folds(crossval_folds, fold_no, test_folds=test_folds, val_folds=val_folds)
 
     if split == 'train':
@@ -39,10 +39,13 @@ def crossval_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, tes
     else:
         raise ValueError(split)
 
-    return _get_crossval_split(stimuli, fixations, crossval_folds, included_splits=folds, random=random)
+    return _get_crossval_split(stimuli, fixations, crossval_folds, included_splits=folds, random=random, stratified_attributes=stratified_attributes)
 
 
-def _get_crossval_split(stimuli, fixations, split_count, included_splits, random=True):
+def _get_crossval_split(stimuli, fixations, split_count, included_splits, random=True, stratified_attributes=None):
+    if stratified_attributes is not None:
+        return _get_stratified_crossval_split(stimuli, fixations, split_count, included_splits, random=random, stratified_attributes=stratified_attributes)
+
     inds = list(range(len(stimuli)))
     if random:
         print("Using random shuffles for crossvalidation")
@@ -55,6 +58,29 @@ def _get_crossval_split(stimuli, fixations, split_count, included_splits, random
     inds = []
     for split_nr in included_splits:
         inds.extend(chunks[split_nr])
+
+    stimuli, fixations = create_subset(stimuli, fixations, inds)
+    return stimuli, fixations
+
+
+def _get_stratified_crossval_split(stimuli, fixations, split_count, included_splits, random=True, stratified_attributes=None):
+    from sklearn.model_selection import StratifiedKFold
+    labels = []
+    for attribute_name in stratified_attributes:
+        attribute_data = np.array(stimuli.attributes[attribute_name])
+        if attribute_data.ndim == 1:
+            attribute_data = attribute_data[:, np.newaxis]
+        labels.append(attribute_data)
+    labels = np.vstack(labels)
+    X = np.ones((len(stimuli), 1))
+
+    rst = np.random.RandomState(42)
+
+    inds = []
+    k_fold = StratifiedKFold(n_splits=split_count, shuffle=random, random_state=rst)
+    for i, (train_index, test_index) in enumerate(k_fold.split(X, labels)):
+        if i in included_splits:
+            inds.extend(test_index)
 
     stimuli, fixations = create_subset(stimuli, fixations, inds)
     return stimuli, fixations
@@ -89,7 +115,7 @@ def get_crossval_folds(crossval_folds, crossval_no, test_folds=1, val_folds=1):
     return _train_folds, _val_folds, _test_folds
 
 
-def iterate_crossvalidation(stimuli, fixations, crossval_folds, val_folds=1, test_folds=1, random=True):
+def iterate_crossvalidation(stimuli, fixations, crossval_folds, val_folds=1, test_folds=1, random=True, stratified_attributes=None):
     """iterate over crossvalidation folds. Each fold will yield
           train_stimuli, train_fixations, val_, test_stimuli, test_fixations
     """
@@ -97,7 +123,8 @@ def iterate_crossvalidation(stimuli, fixations, crossval_folds, val_folds=1, tes
         'crossval_folds': crossval_folds,
         'val_folds': val_folds,
         'test_folds': test_folds,
-        'random': random
+        'random': random,
+        'stratified_attributes': stratified_attributes,
     }
 
     for fold_no in range(crossval_folds):
