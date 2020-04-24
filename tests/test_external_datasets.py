@@ -9,6 +9,7 @@ from scipy.stats import kurtosis, skew
 
 import pysaliency
 import pysaliency.external_datasets
+from pysaliency.utils import remove_trailing_nans
 
 
 def _location(location):
@@ -182,6 +183,10 @@ def test_mit1003(location, matlab):
 
     assert entropy(fixations.n) == approx(9.954348058662386)
     assert (fixations.n == 0).sum() == 121
+
+    assert 'duration_hist' in fixations.__attributes__
+    for i in range(len(fixations.x)):
+        assert len(remove_trailing_nans(fixations.duration_hist[i])) == len(remove_trailing_nans(fixations.x_hist[i]))
 
 
 @pytest.mark.slow

@@ -7,7 +7,7 @@ import os
 
 import numpy as np
 
-from pysaliency.utils import LazyList, TemporaryDirectory, Cache, get_minimal_unique_filenames, atomic_directory_setup
+from pysaliency.utils import LazyList, TemporaryDirectory, Cache, get_minimal_unique_filenames, atomic_directory_setup, build_padded_2d_array
 from test_helpers import TestWithData
 
 
@@ -37,41 +37,41 @@ class TestLazyList(TestWithData):
 
         length = 20
 
-        l = LazyList(gen, length)
-        self.assertEqual(len(l), length)
+        lazy_list = LazyList(gen, length)
+        self.assertEqual(len(lazy_list), length)
 
         for i in range(length):
-            self.assertEqual(l[i], i**2)
+            self.assertEqual(lazy_list[i], i**2)
 
         self.assertEqual(calls, list(range(length)))
 
     def test_pickle_no_cache(self):
         def gen(i):
-            print ('calling with {} yielding {}'.format(i, i**2))
+            print('calling with {} yielding {}'.format(i, i**2))
             return i**2
 
         length = 20
-        l = LazyList(gen, length)
+        lazy_list = LazyList(gen, length)
 
-        l = self.pickle_and_reload(l, pickler=dill)
+        lazy_list = self.pickle_and_reload(lazy_list, pickler=dill)
 
-        self.assertEqual(l._cache, {})
-        self.assertEqual(list(l), [i**2 for i in range(length)])
+        self.assertEqual(lazy_list._cache, {})
+        self.assertEqual(list(lazy_list), [i**2 for i in range(length)])
 
     def test_pickle_with_cache(self):
         def gen(i):
-            print ('calling with {} yielding {}'.format(i, i**2))
+            print('calling with {} yielding {}'.format(i, i**2))
             return i**2
 
         length = 20
-        l = LazyList(gen, length, pickle_cache=True)
+        lazy_list = LazyList(gen, length, pickle_cache=True)
 
-        list(l)  # make sure all list items are generated
+        list(lazy_list)  # make sure all list items are generated
 
-        l = self.pickle_and_reload(l, pickler=dill)
+        lazy_list = self.pickle_and_reload(lazy_list, pickler=dill)
 
-        self.assertEqual(l._cache, {i: i**2 for i in range(length)})
-        self.assertEqual(list(l), [i**2 for i in range(length)])
+        self.assertEqual(lazy_list._cache, {i: i**2 for i in range(length)})
+        self.assertEqual(list(lazy_list), [i**2 for i in range(length)])
 
 
 class TestTemporaryDirectory(unittest.TestCase):
@@ -145,7 +145,7 @@ class TestCache(TestWithData):
         self.assertEqual(len(cache), 0)
 
     def test_cache_to_disk(self):
-        cache = Cache(cache_location = self.data_path)
+        cache = Cache(cache_location=self.data_path)
 
         self.assertEqual(len(cache), 0)
 
@@ -158,7 +158,7 @@ class TestCache(TestWithData):
         self.assertEqual(list(cache.keys()), ['foo'])
         np.testing.assert_allclose(cache['foo'], data)
 
-        cache = Cache(cache_location = self.data_path)
+        cache = Cache(cache_location=self.data_path)
         self.assertEqual(cache._cache, {})
         self.assertEqual(list(cache.keys()), ['foo'])
         np.testing.assert_allclose(cache['foo'], data)
@@ -170,7 +170,7 @@ class TestCache(TestWithData):
 
     def test_cache_to_disk_nonexisting_location(self):
         cache_location = os.path.join(self.data_path, 'cache')
-        cache = Cache(cache_location = cache_location)
+        cache = Cache(cache_location=cache_location)
 
         self.assertEqual(len(cache), 0)
 
@@ -183,7 +183,7 @@ class TestCache(TestWithData):
         self.assertEqual(list(cache.keys()), ['foo'])
         np.testing.assert_allclose(cache['foo'], data)
 
-        cache = Cache(cache_location = cache_location)
+        cache = Cache(cache_location=cache_location)
         self.assertEqual(cache._cache, {})
         self.assertEqual(list(cache.keys()), ['foo'])
         np.testing.assert_allclose(cache['foo'], data)
@@ -208,9 +208,8 @@ class TestCache(TestWithData):
         self.assertEqual(cache2._cache, {})
         self.assertEqual(len(cache2), 0)
 
-
     def test_pickle_cache_with_location(self):
-        cache = Cache(cache_location = self.data_path)
+        cache = Cache(cache_location=self.data_path)
 
         self.assertEqual(len(cache), 0)
 
@@ -227,6 +226,29 @@ class TestCache(TestWithData):
         self.assertEqual(cache2._cache, {})
         self.assertEqual(len(cache2), 1)
         np.testing.assert_allclose(cache2['foo'], data)
+
+
+def test_build_padded_2d_array():
+    arrays = [
+        [0.1, 1, 2],
+        [0, 1],
+        [0, 1, 2, 4],
+        [0, 3]
+    ]
+
+    expected = np.array([
+        [0.1, 1, 2, np.nan],
+        [0, 1, np.nan, np.nan],
+        [0, 1, 2, 4],
+        [0, 3, np.nan, np.nan]
+    ])
+    actual = build_padded_2d_array(arrays)
+
+    np.testing.assert_allclose(actual, expected)
+
+    expected = np.hstack((actual, np.ones((4, 1)) * np.nan))
+    actual = build_padded_2d_array(arrays, max_length=5)
+    np.testing.assert_allclose(actual, expected)
 
 
 if __name__ == '__main__':

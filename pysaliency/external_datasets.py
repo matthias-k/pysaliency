@@ -25,7 +25,8 @@ from .utils import (
     download_and_check,
     download_file_from_google_drive,
     check_file_hash,
-    atomic_directory_setup)
+    atomic_directory_setup,
+    build_padded_2d_array)
 from .generics import progressinfo
 
 
@@ -364,6 +365,7 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
             ts = []
             ns = []
             train_subjects = []
+            duration_hist = []
             for n, stimulus in enumerate(stimuli_filenames):
                 stimulus_size = stimuli.sizes[n]
                 for subject_id, subject in enumerate(subjects):
@@ -372,11 +374,16 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                     mat_data = loadmat(os.path.join(temp_dir, out_path, outfile))
                     fix_data = mat_data['fixations']
                     starts = mat_data['starts']
+                    _durations = mat_data['durations']
                     x = []
                     y = []
                     t = []
+                    duration = []
                     # if first_fixation == 1 the first fixation is skipped, as done
                     # by Judd.
+                    # TODO: This contains a subtle bug: if the first fixation is invalid,
+                    # the next fixation is not fixed. Therefore, the dataset still
+                    # contains a few initial fixations.
                     for i in range(first_fixation, fix_data.shape[0]):
                         if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
                             continue
@@ -385,12 +392,18 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                         x.append(fix_data[i, 0])
                         y.append(fix_data[i, 1])
                         t.append(starts[0, i] / 240.0)  # Eye Tracker rate = 240Hz
+                        duration_hist.append(np.array(duration))
+                        duration.append(_durations[0, i] / 1000)  # data is in ms, we want seconds
                     xs.append(x)
                     ys.append(y)
                     ts.append(t)
                     ns.append(n)
                     train_subjects.append(subject_id)
-            fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
+
+            attributes = {
+                'duration_hist': build_padded_2d_array(duration_hist),
+            }
+            fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects, attributes=attributes)
 
         if location:
             stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))

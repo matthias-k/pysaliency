@@ -18,7 +18,7 @@ from imageio import imread
 from PIL import Image
 from tqdm import tqdm
 
-from .utils import LazyList
+from .utils import LazyList, build_padded_2d_array
 
 
 def hdf5_wrapper(mode=None):
@@ -341,7 +341,7 @@ class FixationTrains(Fixations):
         train_subjects: 1d array (number_of_trains)
 
     """
-    def __init__(self, train_xs, train_ys, train_ts, train_ns, train_subjects, attributes=None):
+    def __init__(self, train_xs, train_ys, train_ts, train_ns, train_subjects, scanpath_attributes=None, attributes=None):
         self.__attributes__ = list(self.__attributes__)
         self.__attributes__.append('scanpath_index')
         self.train_xs = train_xs
@@ -382,9 +382,9 @@ class FixationTrains(Fixations):
                 self.t_hist[out_index][:fix_index] = self.train_ts[train_index][:fix_index]
                 out_index += 1
 
-        if attributes:
+        if scanpath_attributes:
             self.__attributes__ = list(self.__attributes__)
-            for key, value in attributes.items():
+            for key, value in scanpath_attributes.items():
                 assert key != 'subjects'
                 assert key != 'scanpath_index'
                 assert len(value) == len(self.train_xs)
@@ -396,6 +396,16 @@ class FixationTrains(Fixations):
                 for scanpath_index in range(self.train_xs.shape[0]):
                     indices = self.scanpath_index == scanpath_index
                     fixation_values[indices] = value[scanpath_index]
+
+        if attributes:
+            self.__attributes__ = list(self.__attributes__)
+            for key, value in attributes.items():
+                assert key != 'subjects'
+                assert key != 'scanpath_index'
+                assert len(value) == len(self.x)
+                self.__attributes__.append(key)
+                value = np.array(value)
+                setattr(self, key, value)
 
         self.full_nonfixations = None
 

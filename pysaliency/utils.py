@@ -24,6 +24,18 @@ from tqdm import tqdm
 import requests
 
 
+def build_padded_2d_array(arrays, max_length=None, padding_value=np.nan):
+    if max_length is None:
+        max_length = np.max([len(a) for a in arrays])
+
+    output = np.ones((len(arrays), max_length), dtype=np.asarray(arrays[0]).dtype)
+    output *= padding_value
+    for i, array in enumerate(arrays):
+        output[i, :len(array)] = array
+
+    return output
+
+
 def full_split(filename):
     """ split filename into all parts """
     path, basename = os.path.split(filename)

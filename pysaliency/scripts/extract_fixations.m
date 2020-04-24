@@ -12,4 +12,5 @@ function [ ] = extract_fixations(filename, datafolder, outname)
 	fixs = find(eyeData(:,3)==0); % these are the indices of the fixations in the eyeData for a given image and user
 	fixations = Fix.medianXY;
 	starts = Fix.start;
-	save(outname, 'fixations', 'starts', '-v6')  % version 6 makes octave files compatible with scipy
+	durations = Fix.duration;
+	save(outname, 'fixations', 'starts', 'durations', '-v6')  % version 6 makes octave files compatible with scipy
