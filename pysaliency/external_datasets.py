@@ -366,6 +366,7 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
             ns = []
             train_subjects = []
             duration_hist = []
+            train_durations = []
             for n, stimulus in enumerate(stimuli_filenames):
                 stimulus_size = stimuli.sizes[n]
                 for subject_id, subject in enumerate(subjects):
@@ -399,11 +400,15 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                     ts.append(t)
                     ns.append(n)
                     train_subjects.append(subject_id)
+                    train_durations.append(duration)
 
             attributes = {
                 'duration_hist': build_padded_2d_array(duration_hist),
             }
-            fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects, attributes=attributes)
+            scanpath_attributes = {
+                'train_durations': build_padded_2d_array(train_durations),
+            }
+            fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects, attributes=attributes, scanpath_attributes=scanpath_attributes)
 
         if location:
             stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))

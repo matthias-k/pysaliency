@@ -382,20 +382,11 @@ class FixationTrains(Fixations):
                 self.t_hist[out_index][:fix_index] = self.train_ts[train_index][:fix_index]
                 out_index += 1
 
-        if scanpath_attributes:
-            self.__attributes__ = list(self.__attributes__)
-            for key, value in scanpath_attributes.items():
-                assert key != 'subjects'
-                assert key != 'scanpath_index'
-                assert len(value) == len(self.train_xs)
-                self.__attributes__.append(key)
-                value = np.array(value)
-
-                fixation_values = np.empty(N_trains, dtype=value.dtype)
-                setattr(self, key, fixation_values)
-                for scanpath_index in range(self.train_xs.shape[0]):
-                    indices = self.scanpath_index == scanpath_index
-                    fixation_values[indices] = value[scanpath_index]
+        if scanpath_attributes is not None:
+            assert isinstance(scanpath_attributes, dict)
+            self.scanpath_attributes = scanpath_attributes
+        else:
+            self.scanpath_attributes = {}
 
         if attributes:
             self.__attributes__ = list(self.__attributes__)
@@ -420,7 +411,8 @@ class FixationTrains(Fixations):
         train_ts = self.train_ts[indices]
         train_ns = self.train_ns[indices]
         train_subjects = self.train_subjects[indices]
-        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
+        scanpath_attributes = {key: value[inds] for key, value in self.scanpath_attributes.items()}
+        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects, scanpath_attributes=scanpath_attributes)
 
     def fixation_trains(self):
         """Yield for every fixation train of the dataset:
@@ -436,7 +428,7 @@ class FixationTrains(Fixations):
             yield xs, ys, ts, n, subject
 
     @classmethod
-    def from_fixation_trains(cls, xs, ys, ts, ns, subjects, attributes=None):
+    def from_fixation_trains(cls, xs, ys, ts, ns, subjects, attributes=None, scanpath_attributes=None):
         """ Create Fixation object from fixation trains.
               - xs, ys, ts: Lists of array_like of double. Each array has to contain
                     the data from one fixation train.
@@ -461,7 +453,7 @@ class FixationTrains(Fixations):
             #print ns[i], train_ns[i]
             train_ns[i] = ns[i]
             train_subjects[i] = subjects[i]
-        return cls(train_xs, train_ys, train_ts, train_ns, train_subjects, attributes=attributes)
+        return cls(train_xs, train_ys, train_ts, train_ns, train_subjects, attributes=attributes, scanpath_attributes=scanpath_attributes)
 
     def generate_crossval(self, splitcount = 10):
         train_xs_training = []
@@ -703,15 +695,19 @@ class FixationTrains(Fixations):
         """
 
         target.attrs['type'] = np.string_('FixationTrains')
-        target.attrs['version'] = np.string_('1.0')
+        target.attrs['version'] = np.string_('1.1')
 
         for attribute in ['train_xs', 'train_ys', 'train_ts', 'train_ns', 'train_subjects'] + self.__attributes__:
             if attribute in ['subjects', 'scanpath_index']:
                 continue
             target.create_dataset(attribute, data=getattr(self, attribute))
 
-        #target.create_dataset('__attributes__', data=self.__attributes__)
         target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
+
+        scanpath_attributes_group = target.create_group('scanpath_attributes')
+        for attribute_name, attribute_value in self.scanpath_attributes.items():
+            scanpath_attributes_group.create_dataset(attribute_name, data=attribute_value)
+        scanpath_attributes_group.attrs['__attributes__'] = np.string_(json.dumps(sorted(self.scanpath_attributes.keys())))
 
     @classmethod
     @hdf5_wrapper(mode='r')
@@ -724,8 +720,9 @@ class FixationTrains(Fixations):
         if data_type != 'FixationTrains':
             raise ValueError("Invalid type! Expected 'FixationTrains', got", data_type)
 
-        if data_version != '1.0':
-            raise ValueError("Invalid version! Expected '1.0', got", data_version)
+        valid_versions = ['1.0', '1.1']
+        if data_version not in valid_versions:
+            raise ValueError("Invalid version! Expected one of {}, got {}".format(', '.join(valid_versions), data_version))
 
         data = {key: source[key][...] for key in ['train_xs', 'train_ys', 'train_ts', 'train_ns', 'train_subjects']}
 
@@ -741,6 +738,20 @@ class FixationTrains(Fixations):
             attributes[key] = source[key][...]
 
         data['attributes'] = attributes
+
+        if data_version < '1.1':
+            scanpath_attributes = {}
+        else:
+            scanpath_attributes_group = source['scanpath_attributes']
+
+            json_attributes = scanpath_attributes_group.attrs['__attributes__']
+            if not isinstance(json_attributes, string_types):
+                json_attributes = json_attributes.decode('utf8')
+            __attributes__ = json.loads(json_attributes)
+
+            scanpath_attributes = {attribute: scanpath_attributes_group[attribute][...] for attribute in __attributes__}
+
+        data['scanpath_attributes'] = scanpath_attributes
 
         fixations = cls(**data)
 

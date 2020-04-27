@@ -185,8 +185,14 @@ def test_mit1003(location, matlab):
     assert (fixations.n == 0).sum() == 121
 
     assert 'duration_hist' in fixations.__attributes__
+    assert len(fixations.duration_hist) == len(fixations.x)
     for i in range(len(fixations.x)):
         assert len(remove_trailing_nans(fixations.duration_hist[i])) == len(remove_trailing_nans(fixations.x_hist[i]))
+
+    assert 'train_durations' in fixations.scanpath_attributes
+    assert len(fixations.scanpath_attributes['train_durations']) == len(fixations.train_xs)
+    for i in range(len(fixations.train_xs)):
+        assert len(remove_trailing_nans(fixations.scanpath_attributes['train_durations'][i])) == len(remove_trailing_nans(fixations.train_xs[i]))
 
 
 @pytest.mark.slow
