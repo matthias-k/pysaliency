@@ -544,6 +544,24 @@ class StimulusDependentScanpathModel(ScanpathModel):
             raise ValueError('stimulus not provided by these models')
 
 
+class FixationIndexDependentModel(ScanpathModel):
+    """ a scanpath that uses different models depending of the index of a fixation within a scanpath. """
+    def __init__(self, models, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.models = models
+
+    def _get_model_for_index(self, fixation_index):
+        for (start, end), model in self.models.items():
+            if start <= fixation_index < end:
+                return model
+        raise KeyError(fixation_index)
+
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
+        fixation_index = len(remove_trailing_nans(x_hist))
+        return self._get_model_for_index(fixation_index).log_density(stimulus)
+
+
 class ShuffledAUCSaliencyMapModel(SaliencyMapModel):
     def __init__(self, probabilistic_model, baseline_model):
         super(ShuffledAUCSaliencyMapModel, self).__init__(caching=False)

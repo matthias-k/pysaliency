@@ -7,6 +7,7 @@
     dataset files that keep pysaliency from trying again.
   * crossvalidation splits now support stratifying stimulus attributes
   * the MIT1003 dataset now also contains the history of fixation durations
+  * FixationIndexDependentModel
 * 0.2.19:
   * added pytorch implementation for optimization of similarity metric as alternative
     to tensorflow implementation which still uses tensorflow 1.x
