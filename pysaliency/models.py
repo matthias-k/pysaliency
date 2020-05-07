@@ -559,7 +559,7 @@ class FixationIndexDependentModel(ScanpathModel):
 
     def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
         fixation_index = len(remove_trailing_nans(x_hist))
-        return self._get_model_for_index(fixation_index).log_density(stimulus)
+        return self._get_model_for_index(fixation_index).conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes, out=out)
 
 
 class ShuffledAUCSaliencyMapModel(SaliencyMapModel):
