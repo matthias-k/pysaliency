@@ -17,7 +17,7 @@ from .numba_utils import fill_fixation_map
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache, average_values, deprecated_class, remove_trailing_nans
 from .datasets import Stimulus, Fixations
-from .metrics import NSS
+from .metrics import CC, NSS
 from .sampling_models import SamplingModelMixin
 
 
@@ -630,20 +630,9 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
         """
         coeffs = []
 
-        def normalize(saliency_map):
-            saliency_map -= saliency_map.mean()
-            std = saliency_map.std()
-
-            if std:
-                saliency_map /= std
-
-            return saliency_map
-
         for s in tqdm(stimuli, disable=not verbose):
-            smap1 = normalize(self.saliency_map(s).copy())
-            smap2 = normalize(other.saliency_map(s).copy())
+            coeffs.append(CC(self.saliency_map(s), other.saliency_map(s)))
 
-            coeffs.append(np.corrcoef(smap1.flatten(), smap2.flatten())[0, 1])
         return np.asarray(coeffs)
 
     def CC(self, stimuli, other, verbose=False):

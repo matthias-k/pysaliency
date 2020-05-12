@@ -8,6 +8,8 @@
   * crossvalidation splits now support stratifying stimulus attributes
   * the MIT1003 dataset now also contains the history of fixation durations
   * FixationIndexDependentModel
+  * Bugfix: The CC of a constant saliency map wrt to a nonconstant one
+    now returns zero (instead of nan as previously).
 * 0.2.19:
   * added pytorch implementation for optimization of similarity metric as alternative
     to tensorflow implementation which still uses tensorflow 1.x

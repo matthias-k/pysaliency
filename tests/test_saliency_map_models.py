@@ -224,13 +224,17 @@ def test_nss_uniform(stimuli, fixation_trains):
     np.testing.assert_allclose(nss, 0)
 
 
+def test_cc_constant(stimuli, fixation_trains):
+    model = ConstantSaliencyMapModel()
+    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size=10, ignore_doublicates=True)
+
+    cc = model.CC(stimuli, gold)
+    np.testing.assert_allclose(cc, 0)
+
+
 def test_cc_gauss(stimuli, fixation_trains):
     gsmm = GaussianSaliencyMapModel()
-    #constant_gold = ConstantSaliencyMapModel()
-    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size = 10, ignore_doublicates=True)
-
-    #cc = gsmm.CC(stimuli, constant_gold)
-    #np.testing.assert_allclose(cc, np.nan)
+    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size=10, ignore_doublicates=True)
 
     cc = gsmm.CC(stimuli, gold)
     np.testing.assert_allclose(cc, -0.1542654)
