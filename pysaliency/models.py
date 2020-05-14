@@ -635,7 +635,7 @@ class ShuffledBaselineModel(Model):
         elif self.library == 'torch':
             import torch
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            prediction = torch.logsumexp(torch.Tensor(predictions, device=device), dim=0).detach().cpu().numpy()
+            prediction = torch.logsumexp(torch.Tensor(predictions).to(device), dim=0).detach().cpu().numpy()
         elif self.library == 'numpy':
             prediction = logsumexp(predictions, axis=0)
         else:
