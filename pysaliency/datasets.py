@@ -116,7 +116,7 @@ class Fixations(object):
     """
     __attributes__ = ['subjects']
 
-    def __init__(self, x, y, t, x_hist, y_hist, t_hist, n, subjects):
+    def __init__(self, x, y, t, x_hist, y_hist, t_hist, n, subjects, attributes=None):
         x = np.asarray(x)
         y = np.asarray(y)
         t = np.asarray(t)
@@ -130,6 +130,11 @@ class Fixations(object):
         self.n = n
         self.subjects = subjects
         self.lengths = (1 - np.isnan(self.x_hist)).sum(axis=-1)
+
+        if attributes is not None:
+            self.__attributes__ = list(self.__attributes__)
+            for name, value in attributes.items():
+                setattr(self, name, value)
 
     @classmethod
     def create_without_history(cls, x, y, n, subjects=None):
