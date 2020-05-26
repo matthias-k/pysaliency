@@ -1,6 +1,6 @@
 # Changelog
 
-* 0.2.20 (unpublished):
+* 0.2.20:
   * Stimuli now support attributes, just like Fixations. The CAT2000 train and test
     datasets now have the stimulus categories as attribute.
   * failure to download and setup a dataset will no longer result in leftover
