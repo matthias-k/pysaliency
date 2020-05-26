@@ -333,6 +333,48 @@ def test_image_based_kldiv_gauss(stimuli, fixation_trains):
     np.testing.assert_allclose(ib_kl, 0.0)
 
 
+def test_image_based_kldiv_gauss_functions(stimuli, fixation_trains):
+    gsmm = GaussianSaliencyMapModel()
+    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size=10, ignore_doublicates=True)
+
+    stimuli, fixation_trains = pysaliency.create_subset(stimuli, fixation_trains, [0])
+    saliency_map_1 = gsmm.saliency_map(stimuli[0])
+    saliency_map_2 = gold.saliency_map(stimuli[0])
+
+    value1 = gsmm.image_based_kl_divergence(stimuli, gsmm)
+    value2 = pysaliency.metrics.image_based_kl_divergence(saliency_map_1, saliency_map_1)
+    np.testing.assert_allclose(value1, value2)
+
+    constant_gold = ConstantSaliencyMapModel()
+    saliency_map_1 = gsmm.saliency_map(stimuli[0])
+    saliency_map_2 = constant_gold.saliency_map(stimuli[0])
+    value1 = gsmm.image_based_kl_divergence(stimuli, constant_gold)
+    value2 = pysaliency.metrics.image_based_kl_divergence(saliency_map_1, saliency_map_2)
+    np.testing.assert_allclose(value1, value2)
+
+    constant_gold = ConstantSaliencyMapModel(value=0.0)
+    saliency_map_2 = constant_gold.saliency_map(stimuli[0])
+    value1 = gsmm.image_based_kl_divergence(stimuli, constant_gold)
+    value2 = pysaliency.metrics.image_based_kl_divergence(saliency_map_1, saliency_map_2)
+    np.testing.assert_allclose(value1, value2)
+
+    # test MIT Benchmarking settings
+    # (minimum_value=0 can be problematic for constant models)
+    value1 = gsmm.image_based_kl_divergence(
+        stimuli, constant_gold,
+        minimum_value=0,
+        log_regularization=2.2204e-16,
+        quotient_regularization=2.2204e-16
+    )
+    value2 = pysaliency.metrics.MIT_KLDiv(saliency_map_1, saliency_map_2)
+    np.testing.assert_allclose(value1, value2)
+
+    saliency_map_2 = gold.saliency_map(stimuli[0])
+    value1 = gsmm.image_based_kl_divergence(stimuli, gold)
+    value2 = pysaliency.metrics.image_based_kl_divergence(saliency_map_1, saliency_map_2)
+    np.testing.assert_allclose(value1, value2)
+
+
 def test_shuffled_nonfixation_provider(more_stimuli, more_fixation_trains):
     from pysaliency.saliency_map_models import FullShuffledNonfixationProvider
     prov = FullShuffledNonfixationProvider(more_stimuli, more_fixation_trains)

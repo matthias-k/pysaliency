@@ -11,6 +11,7 @@
   * Bugfix: The CC of a constant saliency map wrt to a nonconstant one
     now returns zero (instead of nan as previously).
   * Feature: Added keyword argument `attributes` to `Fixations` constructor
+  * Feature: Provide KLDiv and SIM as functions that can be applied to saliency maps without need for a model.
 * 0.2.19:
   * added pytorch implementation for optimization of similarity metric as alternative
     to tensorflow implementation which still uses tensorflow 1.x

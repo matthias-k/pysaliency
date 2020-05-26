@@ -19,6 +19,7 @@ from .saliency_map_models import (SaliencyMapModel, handle_stimulus,
                                   GaussianSaliencyMapModel,
                                   )
 from .datasets import FixationTrains, get_image_hash, as_stimulus
+from .metrics import probabilistic_image_based_kl_divergence, convert_saliency_map_to_density
 from .sampling_models import SamplingModelMixin
 from .utils import Cache, average_values, deprecated_class, remove_trailing_nans
 
@@ -328,17 +329,13 @@ class Model(ScanpathModel):
         assert isinstance(self, Model)
         assert isinstance(gold_standard, Model)
 
-        def _kl_div(logp1, logp2, log_regularization=0, quotient_regularization=0):
-            if log_regularization or quotient_regularization:
-                return (np.exp(logp2)*np.log(log_regularization+np.exp(logp2)/(np.exp(logp1)+quotient_regularization))).sum()
-            else:
-                return (np.exp(logp2)*(logp2 - logp1)).sum()
-
         kl_divs = []
         for s in tqdm(stimuli, disable=not verbose):
             logp_model = self.log_density(s)
             logp_gold = gold_standard.log_density(s)
-            kl_divs.append(_kl_div(logp_model, logp_gold, log_regularization=log_regularization, quotient_regularization=quotient_regularization))
+            kl_divs.append(
+                probabilistic_image_based_kl_divergence(logp_model, logp_gold, log_regularization=log_regularization, quotient_regularization=quotient_regularization)
+            )
 
         return kl_divs
 
@@ -667,22 +664,8 @@ class SaliencyMapNormalizingModel(Model):
         self.minimum_value = minimum_value
         super(SaliencyMapNormalizingModel, self).__init__(caching=False)
 
-    def _normalize_saliency_map(self, smap):
-        if smap.min() < 0:
-            smap = smap - smap.min()
-        smap = smap + self.minimum_value
-
-        smap_sum = smap.sum()
-        if smap_sum:
-            smap = smap / smap_sum
-        else:
-            smap[:] = 1.0
-            smap /= smap.sum()
-
-        return smap
-
     def _log_density(self, stimulus):
-        smap = self._normalize_saliency_map(self.model.saliency_map(stimulus))
+        smap = convert_saliency_map_to_density(self.model.saliency_map(stimulus), minimum_value=self.minimum_value)
         return np.log(smap)
 
 
