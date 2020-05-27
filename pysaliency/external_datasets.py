@@ -382,9 +382,11 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                     duration = []
                     # if first_fixation == 1 the first fixation is skipped, as done
                     # by Judd.
-                    # TODO: This contains a subtle bug: if the first fixation is invalid,
-                    # the next fixation is not fixed. Therefore, the dataset still
-                    # contains a few initial fixations.
+                    # TODO: This contains a subtle inconsistency: if the first fixation is invalid,
+                    # the next fixation is _not_ skipped. Therefore, the dataset still
+                    # contains a few "real" initial fixations. However, this is consistent
+                    # with how the dataset has been used in the past, so we are
+                    # keeping it.
                     for i in range(first_fixation, fix_data.shape[0]):
                         if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
                             continue
@@ -403,9 +405,11 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                     train_durations.append(duration)
 
             attributes = {
+                # duration_hist contains for each fixation the durations of the previous fixations in the scanpath
                 'duration_hist': build_padded_2d_array(duration_hist),
             }
             scanpath_attributes = {
+                # train_durations contains the fixation durations for each scanpath
                 'train_durations': build_padded_2d_array(train_durations),
             }
             fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects, attributes=attributes, scanpath_attributes=scanpath_attributes)
