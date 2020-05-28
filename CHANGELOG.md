@@ -1,5 +1,9 @@
 # Changelog
 
+* 0.2.21 (unpublished):
+  * Feature: Fixations finally support len()
+  * Experimental feature: conditional_log_densities(stimuli, fixations) and conditional_saliency_maps(...).
+    This is WIP to enable batch processing in models.
 * 0.2.20:
   * Stimuli now support attributes, just like Fixations. The CAT2000 train and test
     datasets now have the stimulus categories as attribute.

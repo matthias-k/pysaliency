@@ -186,6 +186,9 @@ class Fixations(object):
     def __getitem__(self, indices):
         return self.filter(indices)
 
+    def __len__(self):
+        return len(self.x)
+
     def filter(self, inds):
         """
         Create new fixations object which contains only the fixations with indexes in inds

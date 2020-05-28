@@ -114,6 +114,10 @@ class ScanpathModel(SamplingModelMixin, object):
             out=out
         )
 
+    def conditional_log_densities(self, stimuli, fixations, verbose=False, **kwargs):
+        """ returns conditional log density predictions for each fixation """
+        return [self.conditional_log_density_for_fixation(stimuli, fixations, fixation_index) for fixation_index in tqdm(range(len(fixations)), disable=not verbose)]
+
     def log_likelihoods(self, stimuli, fixations, verbose=False):
         log_likelihoods = np.empty(len(fixations.x))
         for i in tqdm(range(len(fixations.x)), disable=not verbose):

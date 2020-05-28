@@ -484,3 +484,12 @@ def test_subject_specific_saliency_map_model(stimuli, fixation_trains):
     for i in range(len(fixation_trains.x)):
         np.testing.assert_allclose(model.conditional_saliency_map_for_fixation(stimuli, fixation_trains, i), fixation_trains.subjects[i])
     np.testing.assert_allclose(model.AUC(stimuli, fixation_trains), 0.5)
+
+
+def test_conditional_saliency_maps(stimuli, fixation_trains):
+    model = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size=10)
+
+    saliency_maps_1 = model.conditional_saliency_maps(stimuli, fixation_trains)
+    saliency_maps_2 = [model.conditional_saliency_map_for_fixation(stimuli, fixation_trains, i) for i in range(len(fixation_trains))]
+
+    np.testing.assert_allclose(saliency_maps_1, saliency_maps_2)

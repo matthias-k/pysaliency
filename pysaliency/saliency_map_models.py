@@ -110,6 +110,10 @@ class ScanpathSaliencyMapModel(object):
             out=out
         )
 
+    def conditional_saliency_maps(self, stimuli, fixations, verbose=False, **kwargs):
+        """ returns conditional log density predictions for each fixation """
+        return [self.conditional_saliency_map_for_fixation(stimuli, fixations, fixation_index) for fixation_index in tqdm(range(len(fixations)), disable=not verbose)]
+
     def AUCs(self, stimuli, fixations, nonfixations='uniform', verbose=False):
         """
         Calulate AUC scores for fixations
