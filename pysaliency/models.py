@@ -506,9 +506,10 @@ class SubjectDependentModel(DisjointUnionModel):
 
 
 class StimulusDependentModel(Model):
-    def __init__(self, stimuli_models, check_stimuli=True, **kwargs):
+    def __init__(self, stimuli_models, check_stimuli=True, fallback_model=None, **kwargs):
         super(StimulusDependentModel, self).__init__(**kwargs)
         self.stimuli_models = stimuli_models
+        self.fallback_model = fallback_model
         if check_stimuli:
             self.check_stimuli()
 
@@ -523,13 +524,17 @@ class StimulusDependentModel(Model):
             if stimulus_hash in stimuli.stimulus_ids:
                 return model.log_density(stimulus)
         else:
-            raise ValueError('stimulus not provided by these models')
+            if self.fallback_model is not None:
+                return self.fallback_model.log_density(stimulus)
+            else:
+                raise ValueError('stimulus not provided by these models')
 
 
 class StimulusDependentScanpathModel(ScanpathModel):
-    def __init__(self, stimuli_models, check_stimuli=True, **kwargs):
+    def __init__(self, stimuli_models, check_stimuli=True, fallback_model=None, **kwargs):
         super(StimulusDependentScanpathModel, self).__init__(**kwargs)
         self.stimuli_models = stimuli_models
+        self.fallback_model = fallback_model
         if check_stimuli:
             self.check_stimuli()
 
@@ -544,7 +549,10 @@ class StimulusDependentScanpathModel(ScanpathModel):
             if stimulus_hash in stimuli.stimulus_ids:
                 return model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes, out=out)
         else:
-            raise ValueError('stimulus not provided by these models')
+            if self.fallback_model is not None:
+                return self.fallback_model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes, out=out)
+            else:
+                raise ValueError('stimulus not provided by these models')
 
 
 class FixationIndexDependentModel(ScanpathModel):
