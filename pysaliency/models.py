@@ -133,6 +133,8 @@ class ScanpathModel(SamplingModelMixin, object):
         return average_values(self.log_likelihoods(stimuli, fixations, verbose=verbose), fixations, average=average)
 
     def information_gains(self, stimuli, fixations, baseline_model=None, verbose=False, average='fixation'):
+        if average != 'fixation':
+            raise NotImplementedError()
         if baseline_model is None:
             baseline_model = UniformModel()
 
