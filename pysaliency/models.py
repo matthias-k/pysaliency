@@ -415,6 +415,41 @@ class MixtureModel(Model):
         return log_density
 
 
+class MixtureScanpathModel(Model):
+    """ A scanpath model being a weighted mixture of a number of other models
+    """
+    def __init__(self, models, weights=None, **kwargs):
+        """Create a mixture scanpath model from a list of models and a list of weights
+
+           :param models: list of `ScanpathModel` instances
+           :param weights: list of weights for the different models. Do not have
+                           to sum up to one, they will be normalized.
+                           If `None`, will be set to a uniform mixture.
+        """
+        super(MixtureModel, self).__init__(**kwargs)
+        self.models = models
+        if weights is None:
+            weights = np.ones(len(self.models))
+        weights = np.asarray(weights, dtype=float)
+        weights /= weights.sum()
+        if not len(weights) == len(models):
+            raise ValueError('models and weights must have same length!')
+        self.weights = weights
+
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
+        log_densities = []
+        for i, model in enumerate(self.models):
+            log_density = model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes).copy()
+            log_density += np.log(self.weights[i])
+            log_densities.append(log_density)
+
+        log_density = logsumexp(log_densities, axis=0)
+        np.testing.assert_allclose(np.exp(log_density).sum(), 1.0, rtol=1e-7)
+        if not log_density.shape == (stimulus.shape[0], stimulus.shape[1]):
+            raise ValueError('wrong density shape in mixture model! stimulus shape: ({}, {}), density shape: {}'.format(stimulus.shape[0], stimulus.shape[1], log_density.shape))
+        return log_density
+
+
 class ResizingModel(Model):
     def __init__(self, parent_model, verbose=True, **kwargs):
         if 'caching' not in kwargs:
