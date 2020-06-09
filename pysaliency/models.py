@@ -418,7 +418,7 @@ class MixtureModel(Model):
 class MixtureScanpathModel(ScanpathModel):
     """ A scanpath model being a weighted mixture of a number of other models
     """
-    def __init__(self, models, weights=None, **kwargs):
+    def __init__(self, models, weights=None, check_norm=True, **kwargs):
         """Create a mixture scanpath model from a list of models and a list of weights
 
            :param models: list of `ScanpathModel` instances
@@ -435,6 +435,7 @@ class MixtureScanpathModel(ScanpathModel):
         if not len(weights) == len(models):
             raise ValueError('models and weights must have same length!')
         self.weights = weights
+        self.check_norm = check_norm
 
     def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
         log_densities = []
@@ -444,7 +445,8 @@ class MixtureScanpathModel(ScanpathModel):
             log_densities.append(log_density)
 
         log_density = logsumexp(log_densities, axis=0)
-        np.testing.assert_allclose(np.exp(log_density).sum(), 1.0, rtol=1e-7)
+        if self.check_norm:
+            np.testing.assert_allclose(np.exp(log_density).sum(), 1.0, rtol=1e-7)
         if not log_density.shape == (stimulus.shape[0], stimulus.shape[1]):
             raise ValueError('wrong density shape in mixture model! stimulus shape: ({}, {}), density shape: {}'.format(stimulus.shape[0], stimulus.shape[1], log_density.shape))
         return log_density
