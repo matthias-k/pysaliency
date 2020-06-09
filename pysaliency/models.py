@@ -415,7 +415,7 @@ class MixtureModel(Model):
         return log_density
 
 
-class MixtureScanpathModel(Model):
+class MixtureScanpathModel(ScanpathModel):
     """ A scanpath model being a weighted mixture of a number of other models
     """
     def __init__(self, models, weights=None, **kwargs):
@@ -426,7 +426,7 @@ class MixtureScanpathModel(Model):
                            to sum up to one, they will be normalized.
                            If `None`, will be set to a uniform mixture.
         """
-        super(MixtureModel, self).__init__(**kwargs)
+        super(MixtureScanpathModel, self).__init__(**kwargs)
         self.models = models
         if weights is None:
             weights = np.ones(len(self.models))
