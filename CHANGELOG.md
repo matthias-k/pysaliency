@@ -6,6 +6,7 @@
     This is WIP to enable batch processing in models.
   * Fallback models for stimulus dependent models
   * MixtureScanpathModel
+  * Reimplemented AUC for special case of only one positive sample, leading to substantial speedup
 * 0.2.20:
   * Stimuli now support attributes, just like Fixations. The CAT2000 train and test
     datasets now have the stimulus categories as attribute.

@@ -13,7 +13,7 @@ from tqdm import tqdm
 from boltons.cacheutils import cached, LRU
 
 from .roc import general_roc, general_rocs_per_positive
-from .numba_utils import fill_fixation_map
+from .numba_utils import fill_fixation_map, auc_for_one_positive
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache, average_values, deprecated_class, remove_trailing_nans
 from .datasets import Stimulus, Fixations
@@ -146,7 +146,7 @@ class ScanpathSaliencyMapModel(object):
         if isinstance(nonfixations, Fixations):
             nonfix_xs = []
             nonfix_ys = []
-            for n in range(fixations.n.max()+1):
+            for n in range(fixations.n.max() + 1):
                 inds = nonfixations.n == n
                 nonfix_xs.append(nonfixations.x_int[inds].copy())
                 nonfix_ys.append(nonfixations.y_int[inds].copy())
@@ -156,7 +156,7 @@ class ScanpathSaliencyMapModel(object):
 
         for i in tqdm(range(len(fixations.x)), total=len(fixations.x), disable=not verbose):
             out = self.conditional_saliency_map_for_fixation(stimuli, fixations, i, out=out)
-            positives = np.asarray([out[fixations.y_int[i], fixations.x_int[i]]])
+            positive = out[fixations.y_int[i], fixations.x_int[i]]
             if nonfixations == 'uniform':
                 negatives = out.flatten()
             elif nonfixations == 'unfixated':
@@ -173,10 +173,7 @@ class ScanpathSaliencyMapModel(object):
             else:
                 raise ValueError("Don't know how to handle nonfixations {}".format(nonfixations))
 
-            positives = positives.astype(float)
-            negatives = negatives.astype(float)
-
-            this_roc, _, _ = general_roc(positives, negatives)
+            this_roc = auc_for_one_positive(positive, negatives)
             rocs.setdefault(fixations.n[i], []).append(this_roc)
             rocs_per_fixation.append(this_roc)
         return np.asarray(rocs_per_fixation)
@@ -330,7 +327,7 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
         if nonfixations == 'shuffled':
             nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
 
-        for n in tqdm(range(len(stimuli)), total=len(stimuli), disable = not verbose):
+        for n in tqdm(range(len(stimuli)), total=len(stimuli), disable=not verbose):
             inds = fixations.n == n
             if not inds.sum():
                 continue
@@ -401,7 +398,7 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
         if isinstance(nonfixations, Fixations):
             nonfix_xs = []
             nonfix_ys = []
-            for n in range(fixations.n.max()+1):
+            for n in range(fixations.n.max() + 1):
                 inds = nonfixations.n == n
                 nonfix_xs.append(nonfixations.x_int[inds].copy())
                 nonfix_ys.append(nonfixations.y_int[inds].copy())
