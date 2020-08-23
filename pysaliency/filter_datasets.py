@@ -71,7 +71,20 @@ def _get_stratified_crossval_split(stimuli, fixations, split_count, included_spl
         if attribute_data.ndim == 1:
             attribute_data = attribute_data[:, np.newaxis]
         labels.append(attribute_data)
-    labels = np.vstack(labels)
+    labels = np.hstack(labels)
+
+    if labels.shape[1] > 1:
+        # StratifiedKFold doesn't support multiple labels
+        final_label_dict = {}
+        final_labels = []
+        for label in labels:
+            label = tuple(label)
+            if label not in final_label_dict:
+                final_label_dict[label] = len(final_label_dict)
+            final_labels.append(final_label_dict[label])
+
+        labels = np.array(final_labels)
+
     X = np.ones((len(stimuli), 1))
 
     rst = np.random.RandomState(42)
