@@ -30,7 +30,6 @@ def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True
     assert isinstance(stimuli, FileStimuli)
 
     names = get_minimal_unique_filenames(stimuli.filenames)
-    print(names)
 
     import h5py
 
