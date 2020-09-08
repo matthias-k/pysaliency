@@ -7,6 +7,8 @@
   * Fallback models for stimulus dependent models
   * MixtureScanpathModel
   * Reimplemented AUC for special case of only one positive sample, leading to substantial speedup
+  * There is a new version of the CAT2000 train dataset which fixes some details in the processing.
+    Since it changes the dataset, by default the old processing is used.
 * 0.2.20:
   * Stimuli now support attributes, just like Fixations. The CAT2000 train and test
     datasets now have the stimulus categories as attribute.
