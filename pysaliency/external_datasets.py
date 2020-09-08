@@ -683,7 +683,7 @@ def get_cat2000_train(location=None, version='1'):
         get_fn = _get_cat2000_train
     elif version == '1.1':
         get_fn = _get_cat2000_train_v1_1
-        name += 'v1.1'
+        name += '_v1.1'
     else:
         raise ValueError(version)
 
