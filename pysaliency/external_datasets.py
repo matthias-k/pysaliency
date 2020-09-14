@@ -921,9 +921,9 @@ def _get_cat2000_train_v1_1(name, location):
                 for i in range(first_fixation, fix_data.shape[0]):
                     new_x = fix_data[i, 0] - 1  # one-based indexing in MATLAB
                     new_y = fix_data[i, 1] - 1  # one-based indexing in MATLAB
-                    if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
+                    if new_x < 0 or new_y < 0:
                         continue
-                    if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
+                    if new_x >= stimulus_size[1] or new_y >= stimulus_size[0]:
                         continue
                     if any(np.isnan(fix_data[i])):  # skip invalid data
                         continue
