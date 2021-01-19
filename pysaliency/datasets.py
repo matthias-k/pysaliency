@@ -134,6 +134,8 @@ class Fixations(object):
         if attributes is not None:
             self.__attributes__ = list(self.__attributes__)
             for name, value in attributes.items():
+                if key not in self.__attributes__:
+                    self.__attributes__.append(key)
                 setattr(self, name, value)
 
     @classmethod
