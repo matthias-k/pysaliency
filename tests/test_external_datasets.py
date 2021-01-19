@@ -502,7 +502,6 @@ def test_SALICON_fixations_2017_fixations(tmpdir):
     assert (fixations_val.n == 0).sum() == 593
 
 
-
 @pytest.mark.slow
 @pytest.mark.download
 def test_PASCAL_S(location):
@@ -543,3 +542,45 @@ def test_PASCAL_S(location):
 
     assert entropy(fixations.n) == approx(9.711222735065062)
     assert (fixations.n == 0).sum() == 35
+
+
+@pytest.mark.slow
+@pytest.mark.download
+def test_DUT_OMRON(location):
+    real_location = _location(location)
+
+    stimuli, fixations = pysaliency.external_datasets.get_DUT_OMRON(location=real_location)
+    if location is None:
+        assert isinstance(stimuli, pysaliency.Stimuli)
+        assert not isinstance(stimuli, pysaliency.FileStimuli)
+    else:
+        assert isinstance(stimuli, pysaliency.FileStimuli)
+        assert location.join('DUT-OMRON/stimuli.hdf5').check()
+        assert location.join('DUT-OMRON/fixations.hdf5').check()
+
+    assert len(stimuli.stimuli) == 5168
+
+    assert len(fixations.x) == 797542
+
+    assert np.mean(fixations.x) == approx(181.16198519952553)
+    assert np.mean(fixations.y) == approx(146.7047390607642)
+    assert np.mean(fixations.t) == approx(21.965026293286122)
+    assert np.mean(fixations.lengths) == approx(21.965026293286122)
+
+    assert np.std(fixations.x) == approx(64.01040053828082)
+    assert np.std(fixations.y) == approx(93.58929605423603)
+    assert np.std(fixations.t) == approx(17.469479262739807)
+    assert np.std(fixations.lengths) == approx(17.469479262739807)
+
+    assert kurtosis(fixations.x) == approx(-0.0689271960358524)
+    assert kurtosis(fixations.y) == approx(298770.84028626315)
+    assert kurtosis(fixations.t) == approx(2.914601085582113)
+    assert kurtosis(fixations.lengths) == approx(2.914601085582113)
+
+    assert skew(fixations.x) == approx(0.23776167825897998)
+    assert skew(fixations.y) == approx(427.78167669200565)
+    assert skew(fixations.t) == approx(1.2911168563657345)
+    assert skew(fixations.lengths) == approx(1.2911168563657345)
+
+    assert entropy(fixations.n) == approx(12.20642017670851)
+    assert (fixations.n == 0).sum() == 209
