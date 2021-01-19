@@ -259,7 +259,7 @@ def get_toronto_with_subjects(location=None):
     return stimuli, fixations
 
 
-def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, only_1024_by_768=False):
+def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, only_1024_by_768=False, replace_initial_invalid_fixations=False):
     """
     .. seealso::
 
@@ -369,6 +369,8 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
             train_durations = []
             for n, stimulus in enumerate(stimuli_filenames):
                 stimulus_size = stimuli.sizes[n]
+                height, width = stimulus_size
+
                 for subject_id, subject in enumerate(subjects):
                     subject_name = os.path.split(subject)[-1]
                     outfile = '{0}_{1}.mat'.format(stimulus, subject_name)
@@ -376,33 +378,84 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                     fix_data = mat_data['fixations']
                     starts = mat_data['starts']
                     _durations = mat_data['durations']
-                    x = []
-                    y = []
-                    t = []
-                    duration = []
+
+                    _xs = mat_data['fixations'][:, 0]
+                    _ys = mat_data['fixations'][:, 1]
+                    _ts = mat_data['starts'].flatten()
+                    _durations = mat_data['durations'].flatten()
+                    full_durations = _durations.copy()
+
+                    # this would be consistent with how it was handled in matlab
+                    # however, originally I ported this slightly differnt
+                    # and now I'm staying consistent withing pysaliency
+                    # valid_indices = (
+                    #    (np.floor(_xs) > 0) & (np.floor(_xs) < width)
+                    #    & (np.floor(_ys) > 0) & (np.floor(_ys) < height))
+                    valid_indices = (
+                        (_xs > 0) & (_xs < width)
+                        & (_ys > 0) & (_ys < height))
+
+                    _xs = _xs[valid_indices]
+                    _ys = _ys[valid_indices]
+                    _ts = _ts[valid_indices]
+                    _durations = _durations[valid_indices]
+
+                    #_xs = _xs - 1  # matlab uses one-based indexing
+                    #_ys = _ys - 1  # matlab uses one-based indexing
+                    #_ts = _ts - 1  # data starts with t == 1, we want to use 0
+                    _ts = _ts / 240.0  # Eye Tracker rate = 240Hz
+                    _durations = _durations / 1000  # data is in ms, we want seconds
+
+                    if not valid_indices[0] and (replace_initial_invalid_fixations or first_fixation > 0):
+                        # if first fixation is invalid, no valid initial fixation is removed in the dataset
+                        # for those cases, we add a central fixation with same duration as the invalid fixation
+                        _xs = np.hstack(([0.5 * width], _xs))
+                        _ys = np.hstack(([0.5 * height], _ys))
+                        _ts = np.hstack(([0], _ts))
+                        _durations = np.hstack(([full_durations[0] / 1000], _durations))
+
                     # if first_fixation == 1 the first fixation is skipped, as done
                     # by Judd.
-                    # TODO: This contains a subtle inconsistency: if the first fixation is invalid,
-                    # the next fixation is _not_ skipped. Therefore, the dataset still
-                    # contains a few "real" initial fixations. However, this is consistent
-                    # with how the dataset has been used in the past, so we are
-                    # keeping it.
-                    for i in range(first_fixation, fix_data.shape[0]):
-                        if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
-                            continue
-                        if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
-                            continue
-                        x.append(fix_data[i, 0])
-                        y.append(fix_data[i, 1])
-                        t.append(starts[0, i] / 240.0)  # Eye Tracker rate = 240Hz
-                        duration_hist.append(np.array(duration))
-                        duration.append(_durations[0, i] / 1000)  # data is in ms, we want seconds
-                    xs.append(x)
-                    ys.append(y)
-                    ts.append(t)
+                    _xs = _xs[first_fixation:]
+                    _ys = _ys[first_fixation:]
+                    _ts = _ts[first_fixation:]
+                    _durations = _durations[first_fixation:]
+
+                    xs.append(_xs)
+                    ys.append(_ys)
+                    ts.append(_ts)
                     ns.append(n)
                     train_subjects.append(subject_id)
-                    train_durations.append(duration)
+                    train_durations.append(_durations)
+
+                    for i in range(len(_durations)):
+                        duration_hist.append(_durations[:i])
+
+                    # x = []
+                    # y = []
+                    # t = []
+                    # duration = []
+                    # # TODO: This contains a subtle inconsistency: if the first fixation is invalid,
+                    # # the next fixation is _not_ skipped. Therefore, the dataset still
+                    # # contains a few "real" initial fixations. However, this is consistent
+                    # # with how the dataset has been used in the past, so we are
+                    # # keeping it.
+                    # for i in range(first_fixation, fix_data.shape[0]):
+                    #     if fix_data[i, 0] < 0 or fix_data[i, 1] < 0:
+                    #         continue
+                    #     if fix_data[i, 0] >= stimulus_size[1] or fix_data[i, 1] >= stimulus_size[0]:
+                    #         continue
+                    #     x.append(fix_data[i, 0])
+                    #     y.append(fix_data[i, 1])
+                    #     t.append(starts[0, i] / 240.0)  # Eye Tracker rate = 240Hz
+                    #     duration_hist.append(np.array(duration))
+                    #     duration.append(_durations[0, i] / 1000)  # data is in ms, we want seconds
+                    # xs.append(x)
+                    # ys.append(y)
+                    # ts.append(t)
+                    # ns.append(n)
+                    # train_subjects.append(subject_id)
+                    # train_durations.append(duration)
 
             attributes = {
                 # duration_hist contains for each fixation the durations of the previous fixations in the scanpath
