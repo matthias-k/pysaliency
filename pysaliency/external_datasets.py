@@ -1958,7 +1958,7 @@ def get_PASCAL_S(location=None):
             f.extractall(temp_dir)
 
             stimuli_src_location = os.path.join(temp_dir, 'datasets', 'imgs', 'pascal')
-            stimuli_filenames = [os.path.join(stimuli_src_location, '{}.jpg'.format(i + 1)) for i in range(n_stimuli)]
+            stimuli_filenames = ['{}.jpg'.format(i + 1) for i in range(n_stimuli)]
 
             stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
             stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
