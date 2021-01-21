@@ -720,5 +720,99 @@ class SaliencyMapNormalizingModel(Model):
         return np.log(smap)
 
 
+class FixedStimulusSizeModel(Model):
+    """ model which scales images to have a fixed size before handing them to anothet model"""
+    def __init__(self, size, parent_model, verbose=False, **kwargs):
+        super(FixedStimulusSizeModel, self).__init__(**kwargs)
+
+        self.size = size
+        self.parent_model = parent_model
+        self.verbose = verbose
+
+    def _log_density(self, stimulus):
+        stimulus = self.ensure_color(stimulus)
+
+        stimulus_size = stimulus.shape[0], stimulus.shape[1]
+        max_size = max(stimulus_size)
+        factor = self.size / max_size
+
+        if factor != 1.0:
+            if self.verbose:
+                print("Resizing with factor", factor)
+            stimulus_for_parent_model = zoom(stimulus, [factor, factor, 1.0], order=1, mode='nearest')
+        else:
+            stimulus_for_parent_model = stimulus
+
+        log_density = self.parent_model.log_density(stimulus_for_parent_model)
+
+        factor_y = stimulus.shape[0] / log_density.shape[0]
+        factor_x = stimulus.shape[1] / log_density.shape[1]
+
+        if factor_y != 1.0 or factor_x != 1.0:
+            if self.verbose:
+                print("Wrong shape, resizing log densities", stimulus.shape, log_density.shape)
+            log_density = zoom(log_density, [factor_y, factor_x], order=1, mode='nearest')
+            log_density -= logsumexp(log_density)
+
+        assert log_density.shape[0] == stimulus.shape[0]
+        assert log_density.shape[1] == stimulus.shape[1]
+
+        return log_density
+
+    def ensure_color(self, image):
+        if image.ndim == 2:
+            return np.dstack((image, image, image))
+        return image
+
+
+class DVAAwareModel(Model):
+    """ A model which adapts another model to a new image resolution by rescaling images before computing predictions
+
+    - dva: expected image resolution in pixel per dva for this model
+    - parent_model_dva: image resolution expected by parent_model
+    """
+    def __init__(self, dva, parent_model, parent_model_dva, verbose=False, **kwargs):
+
+        super(DVAAwareModel, self).__init__(**kwargs)
+
+        self.dva = dva
+        self.parent_model = parent_model
+        self.parent_model_dva = parent_model_dva
+        self.verbose = verbose
+
+        self.factor = self.parent_model_dva / self.dva
+
+    def _log_density(self, stimulus):
+        stimulus = self.ensure_color(stimulus)
+
+        if self.factor != 1.0:
+            if self.verbose:
+                print("Resizing with factor", self.factor)
+            stimulus_for_parent_model = zoom(stimulus, [self.factor, self.factor, 1.0], order=1, mode='nearest')
+        else:
+            stimulus_for_parent_model = stimulus
+
+        log_density = self.parent_model.log_density(stimulus_for_parent_model)
+
+        factor_y = stimulus.shape[0] / log_density.shape[0]
+        factor_x = stimulus.shape[1] / log_density.shape[1]
+
+        if factor_y != 1.0 or factor_x != 1.0:
+            if self.verbose:
+                print("Wrong shape, resizing log densities", stimulus.shape, log_density.shape)
+            log_density = zoom(log_density, [factor_y, factor_x], order=1, mode='nearest')
+            log_density -= logsumexp(log_density)
+
+        assert log_density.shape[0] == stimulus.shape[0]
+        assert log_density.shape[1] == stimulus.shape[1]
+
+        return log_density
+
+    def ensure_color(self, image):
+        if image.ndim == 2:
+            return np.dstack((image, image, image))
+        return image
+
+
 GeneralModel = deprecated_class(deprecated_in='0.2.16', removed_in='1.0.0', details="Use ScanpathModel instead")(ScanpathModel)
 StimulusDependentGeneralModel = deprecated_class(deprecated_in='0.2.16', removed_in='1.0.0', details="Use StimulusDependentScanpathModel instead")(StimulusDependentScanpathModel)

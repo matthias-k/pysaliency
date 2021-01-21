@@ -2,6 +2,7 @@
 
 * 0.2.21 (unpublished):
   * Added new datasets: PASCAL-S and DUT-OMRON
+  * Feature: FixedStimulusSizeModel and DVAAwareModel
   * Feature: Fixations finally support len()
   * Experimental feature: conditional_log_densities(stimuli, fixations) and conditional_saliency_maps(...).
     This is WIP to enable batch processing in models.
