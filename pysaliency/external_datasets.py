@@ -2079,8 +2079,9 @@ def get_DUT_OMRON(location=None):
                     if not np.any(subject_inds):
                         continue
 
-                    train_xs.append(xs[subject_inds] - 1)  # data is 1-indexed in matlab
-                    train_ys.append(ys[subject_inds] - 1)
+                    # since there are coordinates with value 0, we assume they are 0-indexed (although they are matlab)
+                    train_xs.append(xs[subject_inds])
+                    train_ys.append(ys[subject_inds])
                     train_ts.append(np.arange(subject_inds.sum()))
                     train_ns.append(n)
                     train_subjects.append(subject_index)
