@@ -620,9 +620,27 @@ class ShuffledAUCSaliencyMapModel(SaliencyMapModel):
         return self.probabilistic_model.log_density(stimulus) - self.baseline_model.log_density(stimulus)
 
 
+def average_predictions(predictions, library):
+    predictions = np.array(predictions) - np.log(len(predictions))
+
+    if library == 'tensorflow':
+        from .tf_utils import tf_logsumexp
+        prediction = tf_logsumexp(predictions, axis=0)
+    elif library == 'torch':
+        import torch
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        prediction = torch.logsumexp(torch.Tensor(predictions).to(device), dim=0).detach().cpu().numpy()
+    elif library == 'numpy':
+        prediction = logsumexp(predictions, axis=0)
+    else:
+        raise ValueError(library)
+
+    return prediction
+
+
 class ShuffledBaselineModel(Model):
     """Predicts a mixture of all predictions for other images.
-    
+
     This model will usually be used as baseline model for computing sAUC saliency maps.
 
     use the library parameter to define whether the logsumexp should be computed
@@ -675,20 +693,67 @@ class ShuffledBaselineModel(Model):
             other_prediction = self.resized_predictions_cache[k]
             predictions.append(other_prediction)
 
-        predictions = np.array(predictions) - np.log(len(predictions))
+        prediction = average_predictions(predictions, self.library)
 
-        if self.library == 'tensorflow':
-            from .tf_utils import tf_logsumexp
-            prediction = tf_logsumexp(predictions, axis=0)
-        elif self.library == 'torch':
-            import torch
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            prediction = torch.logsumexp(torch.Tensor(predictions).to(device), dim=0).detach().cpu().numpy()
-        elif self.library == 'numpy':
-            prediction = logsumexp(predictions, axis=0)
-        else:
-            raise ValueError(self.library)
+        prediction = self._resize_prediction(prediction, target_shape)
 
+        return prediction
+
+
+class ShuffledSimpleBaselineModel(Model):
+    """Predicts a mixture of all predictions for all images.
+
+    This model will usually be used as baseline model for computing sAUC saliency maps
+    when the ShuffledBaselineModel is not feasible.
+
+    use the library parameter to define whether the logsumexp should be computed
+    with torch (default), tensorflow or numpy.
+    """
+    def __init__(self, parent_model, stimuli,
+                 compute_size=(500, 500),
+                 library='torch',
+                 **kwargs):
+        super(ShuffledSimpleBaselineModel, self).__init__(**kwargs)
+        self.parent_model = parent_model
+        self.stimuli = stimuli
+        self.compute_size = compute_size
+        self.prediction = None
+        if library not in ['torch', 'tensorflow', 'numpy']:
+            raise ValueError(library)
+        self.library = library
+
+    def get_average_prediction(self, verbose=False):
+        if self.prediction is not None:
+            return self.prediction
+
+        predictions = []
+        for stimulus in tqdm(self.stimuli, disable=not verbose):
+            predictions.append(
+                self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
+            )
+
+        prediction = average_predictions(predictions, self.library)
+
+        self.prediction = prediction
+        return self.prediction
+
+    def _resize_prediction(self, prediction, target_shape):
+        if prediction.shape != target_shape:
+            x_factor = target_shape[1] / prediction.shape[1]
+            y_factor = target_shape[0] / prediction.shape[0]
+
+            prediction = zoom(prediction, [y_factor, x_factor], order=1, mode='nearest')
+
+            prediction -= logsumexp(prediction)
+
+            assert prediction.shape == target_shape
+
+        return prediction
+
+    def _log_density(self, stimulus):
+        prediction = self.get_average_prediction()
+
+        target_shape = (stimulus.shape[0], stimulus.shape[1])
         prediction = self._resize_prediction(prediction, target_shape)
 
         return prediction
