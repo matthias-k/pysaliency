@@ -1433,7 +1433,7 @@ def get_SALICON_val(edition='2015', fixation_type='mouse', location=None):
             return stimuli, fixations
     stimuli_train, stimuli_val, stimuli_test, fixations_train, fixations_val = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
 
-    return stimuli_val, stimuli_val
+    return stimuli_val, fixations_val
 
 
 def get_SALICON_test(edition='2015', fixation_type='mouse', location=None):
