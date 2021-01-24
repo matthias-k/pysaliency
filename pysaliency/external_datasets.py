@@ -1349,10 +1349,10 @@ def _get_SALICON_fixations(location, name, edition='2015', fixation_type='mouse'
             fixations_file = os.path.join(temp_dir, 'fixations.zip')
 
             if edition == '2015':
-                download_file_from_google_drive('0B2hsWbciDVedWHFiMUVVWFRZTE0', fixations_file)
+                download_file_from_google_drive('1WVEiXba-I4GN33f0uUl4KhaN1rK7qzs6', fixations_file)
                 check_file_hash(fixations_file, '9a22db9d718200fb90252e5010c004c4')
             elif edition == '2017':
-                download_file_from_google_drive('0B2hsWbciDVedS1lBZHprdXFoZkU', fixations_file)
+                download_file_from_google_drive('1P-jeZXCsjoKO79OhFUgnj6FGcyvmLDPj', fixations_file)
                 check_file_hash(fixations_file, '462b70f4f9e8ea446ac628e46cea8d3d')
 
             f = zipfile.ZipFile(fixations_file)
