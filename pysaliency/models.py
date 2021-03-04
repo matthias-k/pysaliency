@@ -383,7 +383,7 @@ class UniformModel(Model):
 class MixtureModel(Model):
     """ A saliency model being a weighted mixture of a number of other models
     """
-    def __init__(self, models, weights=None, **kwargs):
+    def __init__(self, models, weights=None, check_norm=True, **kwargs):
         """Create a mixture model from a list of models and a list of weights
 
            :param models: list of `Model` instances
@@ -400,6 +400,7 @@ class MixtureModel(Model):
         if not len(weights) == len(models):
             raise ValueError('models and weights must have same length!')
         self.weights = weights
+        self.check_norm = check_norm
 
     def _log_density(self, stimulus):
         log_densities = []
@@ -409,7 +410,10 @@ class MixtureModel(Model):
             log_densities.append(log_density)
 
         log_density = logsumexp(log_densities, axis=0)
-        np.testing.assert_allclose(np.exp(log_density).sum(), 1.0, rtol=1e-7)
+
+        if self.check_norm:
+            np.testing.assert_allclose(np.exp(log_density).sum(), 1.0, rtol=1e-7)
+
         if not log_density.shape == (stimulus.shape[0], stimulus.shape[1]):
             raise ValueError('wrong density shape in mixture model! stimulus shape: ({}, {}), density shape: {}'.format(stimulus.shape[0], stimulus.shape[1], log_density.shape))
         return log_density
