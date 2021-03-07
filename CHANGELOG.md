@@ -13,6 +13,8 @@
     Since it changes the dataset, by default the old processing is used.
   * Feature: ShuffledSimpleBaselineModel. Baseline model to be used with ShuffledAUCSaliencyMapModel
     in cases where using ShuffledBaselineModel is not feasible.
+  * `pysaliency.get_toronto` now returns a `Fixations` instance instead of `FixationTrains` since
+    we don not have scanpath information.
 * 0.2.20:
   * Stimuli now support attributes, just like Fixations. The CAT2000 train and test
     datasets now have the stimulus categories as attribute.

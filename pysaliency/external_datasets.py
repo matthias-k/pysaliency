@@ -97,7 +97,7 @@ def get_toronto(location=None):
     @param location: If and where to cache the dataset. The dataset
                      will be stored in the subdirectory `toronto` of
                      location and read from there, if already present.
-    @return: Stimuli, FixationTrains
+    @return: Stimuli, Fixations
 
     .. warning::
         At the moment, the subjects stated in the FixationTrains object
@@ -135,19 +135,17 @@ def get_toronto(location=None):
             stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
 
             points = loadmat(os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'origfixdata.mat'))['white']
-            ts = []
             xs = []
             ys = []
             ns = []
             subjects = []
             for n in range(len(stimuli.stimuli)):
                 _ys, _xs = np.nonzero(points[0, n])
-                xs.extend([[x] for x in _xs])
-                ys.extend([[y] for y in _ys])
+                xs.extend(_xs)
+                ys.extend(_ys)
                 ns.extend([n for x in _xs])
-                ts.extend([[0] for x in _xs])
                 subjects.extend([0 for x in _xs])
-            fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
+            fixations = Fixations.create_without_history(xs, ys, ns, subjects=subjects)
         if location:
             stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
             fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
