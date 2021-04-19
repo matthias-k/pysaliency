@@ -731,6 +731,7 @@ def get_cat2000_train(location=None, version='1'):
     name = 'CAT2000_train'
 
     if version == '1':
+        warnings.warn("You are still using version 1.0 of the CAT2000 dataset implementation in pysaliency. Please upgrade to version 1.1 with pysaliency.get_cat2000_train(..., version='1.1'). This will become the default in pysaliency version 1.0. For more details please see the docstring of this function")
         get_fn = _get_cat2000_train
     elif version == '1.1':
         get_fn = _get_cat2000_train_v1_1
