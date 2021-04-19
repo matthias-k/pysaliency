@@ -741,7 +741,7 @@ def get_cat2000_train(location=None, version='1'):
     return get_fn(name=name, location=location)
 
 
-def _get_cat2000_train(name, location, include_initial_fixation=True):
+def _get_cat2000_train(name, location):
     """
     Loads or downloads and caches the CAT2000 training dataset. The dataset
     consists of 2000 images of
@@ -767,10 +767,7 @@ def _get_cat2000_train(name, location, include_initial_fixation=True):
 
         http://saliency.mit.edu/datasets.html
     """
-    if include_initial_fixation:
-        first_fixation = 0
-    else:
-        first_fixation = 1
+    first_fixation = 0
 
     if location:
         location = os.path.join(location, name)
