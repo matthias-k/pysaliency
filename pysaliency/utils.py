@@ -17,6 +17,7 @@ import subprocess as sp
 from tempfile import mkdtemp
 
 import numpy as np
+from scipy.interpolate import griddata
 
 from boltons.cacheutils import LRU
 import deprecation
@@ -497,3 +498,25 @@ def deprecated_class(deprecated_in=None, removed_in=None, current_version=None, 
         return DeprecatedClass
 
     return wrap
+
+
+def inter_and_extrapolate(data, interpolation_method='linear', extrapolation_method='nearest'):
+    """intrapolate data with one method and then extrapolate outside values with another method
+    By default, linear interpolation and nearest extrapolation is used.
+    """
+    def get_values(data):
+        xs, ys = np.nonzero(~np.isnan(data))
+        zs = data[xs, ys]
+
+        points = np.vstack([xs, ys]).T
+        return points, zs
+
+    grid_x, grid_y = np.mgrid[:data.shape[0], :data.shape[1]]
+
+    points, values = get_values(data)
+    interpolated = griddata(points, values, (grid_x, grid_y), method=interpolation_method)
+
+    points, values = get_values(interpolated)
+    extrapolated = griddata(points, values, (grid_x, grid_y), method=extrapolation_method)
+
+    return extrapolated

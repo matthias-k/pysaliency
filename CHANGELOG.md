@@ -15,6 +15,9 @@
     in cases where using ShuffledBaselineModel is not feasible.
   * `pysaliency.get_toronto` now returns a `Fixations` instance instead of `FixationTrains` since
     we don not have scanpath information.
+  * `pysaliency.baseline_utils.KDEGoldModel` now supports a keyword argument `grid_spacing` which
+    controls how densly the log density of the KDEModel is computed before it is linearly interpolated.
+    This can substantially speed up computations on high resolution images.
 * 0.2.20:
   * Stimuli now support attributes, just like Fixations. The CAT2000 train and test
     datasets now have the stimulus categories as attribute.

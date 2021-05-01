@@ -14,6 +14,7 @@ from tqdm import tqdm
 from .precomputed_models import get_image_hash
 from .roc import general_roc
 from .numba_utils import fill_fixation_map
+from .utils import inter_and_extrapolate
 from . import Model, UniformModel
 
 
@@ -284,15 +285,15 @@ class GoldModel(Model):
         return ZZ
 
 
-
 class KDEGoldModel(Model):
-    def __init__(self, stimuli, fixations, bandwidth, eps = 1e-20, keep_aspect=False, verbose=False, **kwargs):
+    def __init__(self, stimuli, fixations, bandwidth, eps=1e-20, keep_aspect=False, verbose=False, grid_spacing=1, **kwargs):
         super(KDEGoldModel, self).__init__(**kwargs)
         self.stimuli = stimuli
         self.fixations = fixations
         self.bandwidth = bandwidth
         self.eps = eps
         self.keep_aspect = keep_aspect
+        self.grid_spacing = grid_spacing
         self.xs, self.ys = normalize_fixations(stimuli, fixations, keep_aspect=self.keep_aspect, verbose=verbose)
         self.shape_cache = {}
 
@@ -302,7 +303,6 @@ class KDEGoldModel(Model):
         stimulus_id = get_image_hash(stimulus)
         stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
 
-        #fixations = self.fixations[self.fixations.n == stimulus_index]
         inds = self.fixations.n == stimulus_index
 
         if not inds.sum():
@@ -326,17 +326,37 @@ class KDEGoldModel(Model):
         # for a width of 10 pixels, we are going to calculate at
         # 0.5, 1.5, ..., 9.5, since e.g. fixations with x coordinate between 0.0 and 1.0
         # will be evaluated at pixel index 0.
-        xs = np.linspace(0, rel_width, num=width, endpoint=False)+0.5*rel_width/width
-        ys = np.linspace(0, rel_height, num=height, endpoint=False)+0.5*rel_height/height
+        xs = np.linspace(0, rel_width, num=width, endpoint=False) + 0.5 * rel_width / width
+        ys = np.linspace(0, rel_height, num=height, endpoint=False) + 0.5 * rel_height / height
+
+        if self.grid_spacing > 1:
+            xs = xs[::self.grid_spacing]
+            ys = ys[::self.grid_spacing]
+
         XX, YY = np.meshgrid(xs, ys)
-        scores = kde.score_samples(np.column_stack((XX.flatten(), YY.flatten()))).reshape(XX.shape)
+        XX_flat = XX.flatten()
+        YY_flat = YY.flatten()
+
+        scores = kde.score_samples(np.column_stack((XX_flat, YY_flat)))
+
+        if self.grid_spacing == 1:
+            scores = scores.reshape((height, width))
+        else:
+            x_coordinates = np.arange(0, width)[::self.grid_spacing]
+            y_coordinates = np.arange(0, height)[::self.grid_spacing]
+            XX_coordinates, YY_coordinates = np.meshgrid(x_coordinates, y_coordinates)
+            score_grid = np.empty((height, width)) * np.nan
+            score_grid[YY_coordinates.flatten(), XX_coordinates.flatten()] = scores
+            score_grid = inter_and_extrapolate(score_grid)
+            scores = score_grid
+
         scores -= logsumexp(scores)
         ZZ = scores
 
         if self.eps:
             ZZ = np.logaddexp(
-                np.log(1-self.eps)+scores,
-                np.log(self.eps)-np.log(height*width)
+                np.log(1 - self.eps) + scores,
+                np.log(self.eps) - np.log(height * width)
             )
 
         ZZ -= logsumexp(ZZ)
