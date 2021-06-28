@@ -181,7 +181,7 @@ class ScanpathModel(SamplingModelMixin, object):
 
         return stimuli, train_counts, lengths, stimulus_indices
 
-    def sample(self, stimuli, train_counts, lengths=1, stimulus_indices=None, rst=None):
+    def sample(self, stimuli, train_counts, lengths=1, stimulus_indices=None, rst=None, verbose=False):
         """
         Sample fixations for given stimuli
 
@@ -218,7 +218,9 @@ class ScanpathModel(SamplingModelMixin, object):
         ts = []
         ns = []
         subjects = []
-        for stimulus_index, ls in progressinfo(zip(stimulus_indices, lengths)):
+        total_count = sum(len(l) for l in lengths)
+        pbar = tqdm(total=total_count, disable=not verbose)
+        for stimulus_index, ls in zip(stimulus_indices, lengths):
             stimulus = stimuli[stimulus_index]
             for l in ls:
                 this_xs, this_ys, this_ts = self._sample_fixation_train(stimulus, l, rst=rst)
@@ -227,6 +229,7 @@ class ScanpathModel(SamplingModelMixin, object):
                 ts.append(this_ts)
                 ns.append(stimulus_index)
                 subjects.append(0)
+                pbar.update(1)
         return FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
 
     def _sample_fixation_train(self, stimulus, length, rst=None):
