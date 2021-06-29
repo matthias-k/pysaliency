@@ -18,6 +18,8 @@
   * `pysaliency.baseline_utils.KDEGoldModel` now supports a keyword argument `grid_spacing` which
     controls how densly the log density of the KDEModel is computed before it is linearly interpolated.
     This can substantially speed up computations on high resolution images.
+  * Feature: `pysaliency.precomputed_models.SaliencyMapModelFromArchive` and `ModelFromArchive`
+    for loading model predictions from ZIP, TAR and RAR files.
 * 0.2.20:
   * Stimuli now support attributes, just like Fixations. The CAT2000 train and test
     datasets now have the stimulus categories as attribute.
