@@ -1,6 +1,6 @@
 # Changelog
 
-* 0.2.21 (unpublished):
+* 0.2.21:
   * Added new datasets: PASCAL-S and DUT-OMRON
   * Feature: FixedStimulusSizeModel and DVAAwareModel
   * Feature: Fixations finally support len()
