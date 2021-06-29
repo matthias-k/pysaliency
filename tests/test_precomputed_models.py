@@ -110,7 +110,6 @@ def test_saliency_map_model_from_archive(file_stimuli, saliency_maps_in_director
 
     # from https://stackoverflow.com/a/1855118
     def zipdir(path, ziph):
-        # ziph is zipfile handle
         for root, dirs, files in os.walk(path):
             for file in files:
                 ziph.write(os.path.join(root, file), 
@@ -126,7 +125,3 @@ def test_saliency_map_model_from_archive(file_stimuli, saliency_maps_in_director
         expected = predictions[stimulus_index]
         actual = model.saliency_map(stimulus)
         np.testing.assert_equal(actual, expected)
-#def test_archive_saliency_map_model(file_stimuli, tmpdir):
-#    stimuli_files = pysaliency.utils.get_unique_filenames(file_stimuli.filenames)
-#
-#    archive_dir = pysaliency.
