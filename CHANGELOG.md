@@ -20,6 +20,8 @@
     This can substantially speed up computations on high resolution images.
   * Feature: `pysaliency.precomputed_models.SaliencyMapModelFromArchive` and `ModelFromArchive`
     for loading model predictions from ZIP, TAR and RAR files.
+  * Bugfix: all matlab scripts where missing in the pip installation since the change
+    to setuptools.
 * 0.2.20:
   * Stimuli now support attributes, just like Fixations. The CAT2000 train and test
     datasets now have the stimulus categories as attribute.
