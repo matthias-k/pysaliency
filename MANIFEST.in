@@ -1,3 +1,10 @@
 include README.md
 include LICENSE.md
 include pysaliency/*.pyx
+include pysaliency/scripts/*.m
+include pysaliency/scripts/models/*.m
+include pysaliency/scripts/models/*/*.m
+include pysaliency/scripts/models/*/*/*
+include pysaliency/scripts/models/BMS/patches/*
+include pysaliency/scripts/models/GBVS/patches/*
+include pysaliency/scripts/models/Judd/patches/*
