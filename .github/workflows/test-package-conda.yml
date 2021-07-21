@@ -1,0 +1,72 @@
+name: Tests
+
+on: [push]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+      matrix:
+        python-version:
+        - "3.7"
+        - "3.8"
+        - "3.9"
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Add conda to system path
+      run: |
+        # $CONDA is an environment variable pointing to the root of the miniconda directory
+        echo $CONDA/bin >> $GITHUB_PATH
+    - name: Install dependencies
+      run: |
+        # conda env update --file environment.yml --name base
+        conda config --add channels conda-forge
+        conda install \
+          boltons \
+          cython \
+          deprecation \
+          dill \
+          h5py \
+          imageio \
+          natsort \
+          numba \
+          numpy \
+          numpydoc \
+          pandas \
+          piexif \
+          pillow \
+          pkg-config \
+          pytorch \
+          requests \
+          schema \
+          scikit-learn \
+          scipy \
+          setuptools \
+          six \
+          sphinx \
+          theano \
+          tqdm
+#    - name: Lint with flake8
+#      run: |
+#        conda install flake8
+#        # stop the build if there are Python syntax errors or undefined names
+#        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+#        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+#        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      run: |
+        conda install pytest hypothesis
+
+        python setup.py build_ext --inplace
+        python -m pytest --nomatlab tests
+    - name: test build and install
+      run: |
+        python setup.py sdist
+        pip install dist/*.tar.gz
+        mkdir tmp && cd tmp && python -c "import pysaliency"
