@@ -1,6 +1,8 @@
 Pysaliency
 ==========
 
+![test](https://github.com/matthias-k/pysaliency/actions/workflows/test-package-conda.yml/badge.svg)
+
 Pysaliency is a python package for saliency modelling. It aims at providing a unified interface
 to both the traditional saliency maps used in saliency modeling as well as probabilistic saliency
 models.

@@ -66,7 +66,8 @@ def test_log_likelihood_gauss(stimuli, fixation_trains):
                                                           -9.286885,   -9.057075,  -8.067126,  -9.905604]))
 
 
-@pytest.mark.parametrize("library", ['tensorflow', 'torch', 'numpy'])
+# @pytest.mark.parametrize("library", ['tensorflow', 'torch', 'numpy'])
+@pytest.mark.parametrize("library", ['torch', 'numpy'])
 def test_shuffled_baseline_model(stimuli, library):
     # TODO: implement actual test
     model = GaussianSaliencyModel()
