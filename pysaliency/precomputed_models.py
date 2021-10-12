@@ -18,20 +18,29 @@ from .datasets import get_image_hash, FileStimuli
 from .utils import get_minimal_unique_filenames
 
 
+def get_stimuli_filenames(stimuli):
+    if not isinstance(stimuli, FileStimuli) and 'filenames' not in stimuli.__attributes__:
+        raise ValueError("Need FileStimuli or Stimuli with filenames attribute")
+
+    if 'filenames' in stimuli.attributes:
+        return stimuli.attributes['filenames']
+    else:
+        return stimuli.filenames
+
+
 def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True):
     """Export pysaliency model predictions for stimuli into hdf5 file
 
     model: Model or SaliencyMapModel
-    stimuli: instance of FileStimuli
+    stimuli: instance of FileStimuli or Stimuli with filenames attribute
     filename: where to save hdf5 file to
     compression: how much to compress the data
     overwrite: if False, an existing file will be appended to and
       if for some stimuli predictions already exist, they will be
       kept.
     """
-    assert isinstance(stimuli, FileStimuli)
-
-    names = get_minimal_unique_filenames(stimuli.filenames)
+    filenames = get_stimuli_filenames(stimuli)
+    names = get_minimal_unique_filenames(filenames)
 
     import h5py
 
@@ -96,14 +105,13 @@ class SaliencyMapModelFromFiles(SaliencyMapModel):
 
 class SaliencyMapModelFromDirectory(SaliencyMapModelFromFiles):
     def __init__(self, stimuli, directory, **kwargs):
-        if not isinstance(stimuli, FileStimuli):
-            raise TypeError('SaliencyMapModelFromDirectory works only with FileStimuli!')
+        stimulus_filenames = get_stimuli_filenames(stimuli)
 
         self.directory = directory
         files = [os.path.relpath(filename, start=directory) for filename in glob.glob(os.path.join(directory, '**', '*'), recursive=True)]
         stems = [os.path.splitext(f)[0] for f in files]
 
-        stimuli_files = get_minimal_unique_filenames(stimuli.filenames)
+        stimuli_files = get_minimal_unique_filenames(stimulus_filenames)
         stimuli_stems = [os.path.splitext(f)[0] for f in stimuli_files]
 
         assert set(stimuli_stems).issubset(stems)
@@ -179,12 +187,14 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
     """
     def __init__(self, stimuli, filename, check_shape=True, **kwargs):
         super(HDF5SaliencyMapModel, self).__init__(**kwargs)
-        assert isinstance(stimuli, FileStimuli)
+
         self.stimuli = stimuli
         self.filename = filename
         self.check_shape = check_shape
 
-        self.names = get_minimal_unique_filenames(stimuli.filenames)
+        self.names = get_minimal_unique_filenames(
+            get_stimuli_filenames(stimuli)
+        )
 
         import h5py
         self.hdf5_file = h5py.File(self.filename, 'r')
@@ -225,6 +235,7 @@ class TarFileLikeZipFile(object):
     """ Wrapper that makes TarFile behave more like ZipFile """
     def __init__(self, filename, *args, **kwargs):
         self.tarfile = tarfile.open(filename, *args, **kwargs)
+
     def namelist(self):
         filenames = []
         for tar_info in self.tarfile.getmembers():
@@ -237,8 +248,6 @@ class TarFileLikeZipFile(object):
 
 class PredictionsFromArchiveMixin(object):
     def __init__(self, stimuli, archive_file, *args, **kwargs):
-        if not isinstance(stimuli, FileStimuli):
-            raise TypeError('PredictionsFromArchiveMixin works only with FileStimuli!')
 
         super(PredictionsFromArchiveMixin, self).__init__(*args, **kwargs)
 
@@ -263,7 +272,7 @@ class PredictionsFromArchiveMixin(object):
         files = [f for f in files if '__macosx' not in f.lower()]
         stems = [os.path.splitext(f)[0] for f in files]
 
-        stimuli_files = get_minimal_unique_filenames(stimuli.filenames)
+        stimuli_files = get_minimal_unique_filenames(get_stimuli_filenames(stimuli))
         stimuli_stems = [os.path.splitext(f)[0] for f in stimuli_files]
 
         prediction_filenames = []

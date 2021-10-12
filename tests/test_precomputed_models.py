@@ -29,7 +29,36 @@ def file_stimuli(tmpdir):
             imsave(str(filename), np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
             filenames.append(str(filename))
     return pysaliency.FileStimuli(filenames=filenames)
-    
+
+
+@pytest.fixture
+def stimuli_with_filenames(tmpdir):
+    filenames = []
+    stimuli = []
+    for i in range(3):
+        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
+        stimuli.append(np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+        filenames.append(str(filename))
+
+    for sub_directory_index in range(3):
+        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
+        for i in range(5):
+            filename = sub_directory.join('stimulus_{:04d}.png'.format(i))
+            stimuli.append(np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+            filenames.append(str(filename))
+    return pysaliency.Stimuli(stimuli=stimuli, attributes={'filenames': filenames})
+
+
+@pytest.fixture(params=['FileStimuli', 'attributes'])
+def stimuli(file_stimuli, stimuli_with_filenames, request):
+    if request.param == 'FileStimuli':
+        return file_stimuli
+    elif request.param == 'attributes':
+        return stimuli_with_filenames
+    else:
+        raise ValueError(request.param)
+
+
 @pytest.fixture
 def saliency_maps_in_directory(file_stimuli, tmpdir):
     stimuli_files = pysaliency.utils.get_minimal_unique_filenames(file_stimuli.filenames)
@@ -48,13 +77,13 @@ def saliency_maps_in_directory(file_stimuli, tmpdir):
     return prediction_dir, predictions
 
 
-def test_export_model_to_hdf5(file_stimuli, tmpdir):
+def test_export_model_to_hdf5(stimuli, tmpdir):
     model = pysaliency.UniformModel()
     filename = str(tmpdir.join('model.hdf5'))
-    export_model_to_hdf5(model, file_stimuli, filename)
+    export_model_to_hdf5(model, stimuli, filename)
 
-    model2 = pysaliency.HDF5Model(file_stimuli, filename)
-    for s in file_stimuli:
+    model2 = pysaliency.HDF5Model(stimuli, filename)
+    for s in stimuli:
         np.testing.assert_allclose(model.log_density(s), model2.log_density(s))
 
 
