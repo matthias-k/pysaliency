@@ -113,6 +113,7 @@ class GaussianFilterNd(nn.Module):
 
 
 def nonlinearity(tensor, xs, ys):
+    # TODO: This could probably be sped up quite a bit with torch.search_sorted
     assert len(xs) == len(ys)
 
     output = torch.ones_like(tensor, device=tensor.device) * ys[0]

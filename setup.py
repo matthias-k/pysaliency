@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from os import path
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
@@ -8,13 +9,12 @@ import numpy as np
 import io
 
 PACKAGE_NAME = 'pysaliency'
-VERSION = '0.2.21'
+VERSION = '0.2.22'
 DESCRIPTION = 'A Python Framework for Saliency Modeling and Evaluation'
 AUTHOR = 'Matthias Kümmerer'
 EMAIL = 'matthias.kuemmerer@bethgelab.org'
 URL = "https://github.com/matthiask/pysaliency"
 
-from os import path
 try:
     this_directory = path.abspath(path.dirname(__file__))
     with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
