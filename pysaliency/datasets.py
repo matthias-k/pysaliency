@@ -929,9 +929,7 @@ class Stimuli(Sequence):
         for n, stimulus in enumerate(tqdm(self.stimuli, disable=not verbose)):
             target.create_dataset(str(n), data=stimulus, compression=compression, compression_opts=compression_opts)
 
-        for attribute_name, attribute_value in self.attributes.items():
-            create_hdf5_dataset(target, attribute_name, attribute_value)
-        target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
+        self._attributes_to_hdf5(target)
 
         target.attrs['size'] = len(self)
 
@@ -955,7 +953,20 @@ class Stimuli(Sequence):
         for n in range(size):
             stimuli.append(source[str(n)][...])
 
-        if data_version < '1.1':
+        __attributes__, attributes = cls._get_attributes_from_hdf5(source, data_version, '1.1')
+
+        stimuli = cls(stimuli=stimuli, attributes=attributes)
+
+        return stimuli
+
+    def _attributes_to_hdf5(self, target):
+        for attribute_name, attribute_value in self.attributes.items():
+            create_hdf5_dataset(target, attribute_name, attribute_value)
+        target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
+
+    @classmethod
+    def _get_attributes_from_hdf5(cls, source, data_version, data_version_for_attribute_list):
+        if data_version < data_version_for_attribute_list:
             __attributes__ = []
         else:
             json_attributes = source.attrs['__attributes__']
@@ -963,12 +974,16 @@ class Stimuli(Sequence):
                 json_attributes = json_attributes.decode('utf8')
             __attributes__ = json.loads(json_attributes)
 
-        attributes = {attribute: source[attribute][...] for attribute in __attributes__}
+        attributes = {}
+        for attribute in __attributes__:
+            attribute_value = source[attribute][...]
+            if isinstance(attribute_value.flatten()[0], bytes):
+                attribute_shape = attribute_value.shape
+                decoded_attribute_value = [decode_string(item) for item in attribute_value.flatten()]
+                attribute_value = np.array(decoded_attribute_value).reshape(attribute_shape)
+            attributes[attribute] = attribute_value
 
-        stimuli = cls(stimuli=stimuli, attributes=attributes)
-
-
-        return stimuli
+        return __attributes__, attributes
 
 
 class ObjectStimuli(Stimuli):
@@ -1144,7 +1159,14 @@ class FileStimuli(Stimuli):
                 json_attributes = json_attributes.decode('utf8')
             __attributes__ = json.loads(json_attributes)
 
-        attributes = {attribute: source[attribute][...] for attribute in __attributes__}
+        attributes = {}
+        for attribute in __attributes__:
+            attribute_value = source[attribute][...]
+            if isinstance(attribute_value.flatten()[0], bytes):
+                attribute_shape = attribute_value.shape
+                decoded_attribute_value = [decode_string(item) for item in attribute_value.flatten()]
+                attribute_value = np.array(decoded_attribute_value).reshape(attribute_shape)
+            attributes[attribute] = attribute_value
 
         stimuli = cls(filenames=filenames, cache=cache, shapes=shapes, attributes=attributes)
 
