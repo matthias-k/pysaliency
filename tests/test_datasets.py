@@ -330,6 +330,7 @@ def stimuli_with_attributes():
     attributes = {
         'dva': list(range(10)),
         'other_stuff': np.random.randn(10),
+        'some_strings': list('abcdefghij'),
     }
     return pysaliency.Stimuli(stimuli_data, attributes=attributes)
 
@@ -341,10 +342,14 @@ def test_stimuli_attributes(stimuli_with_attributes, tmp_path):
     new_stimuli = pysaliency.read_hdf5(str(filename))
 
     assert stimuli_with_attributes.attributes.keys() == new_stimuli.attributes.keys()
+    np.testing.assert_array_equal(stimuli_with_attributes.attributes['dva'], new_stimuli.attributes['dva'])
+    np.testing.assert_array_equal(stimuli_with_attributes.attributes['other_stuff'], new_stimuli.attributes['other_stuff'])
+    np.testing.assert_array_equal(stimuli_with_attributes.attributes['some_strings'], new_stimuli.attributes['some_strings'])
 
     partial_stimuli = stimuli_with_attributes[:5]
     assert stimuli_with_attributes.attributes.keys() == partial_stimuli.attributes.keys()
     assert stimuli_with_attributes.attributes['dva'][:5] == partial_stimuli.attributes['dva']
+    assert stimuli_with_attributes.attributes['some_strings'][:5] == partial_stimuli.attributes['some_strings']
 
 
 @pytest.fixture
@@ -365,6 +370,7 @@ def file_stimuli_with_attributes(tmpdir):
     attributes = {
         'dva': list(range(len(filenames))),
         'other_stuff': np.random.randn(len(filenames)),
+        'some_strings': list('abcdefghijklmnopqr'),
     }
     return pysaliency.FileStimuli(filenames=filenames, attributes=attributes)
 
@@ -377,10 +383,14 @@ def test_file_stimuli_attributes(file_stimuli_with_attributes, tmp_path):
     new_stimuli = pysaliency.read_hdf5(str(filename))
 
     assert file_stimuli_with_attributes.attributes.keys() == new_stimuli.attributes.keys()
+    np.testing.assert_array_equal(file_stimuli_with_attributes.attributes['dva'], new_stimuli.attributes['dva'])
+    np.testing.assert_array_equal(file_stimuli_with_attributes.attributes['other_stuff'], new_stimuli.attributes['other_stuff'])
+    np.testing.assert_array_equal(file_stimuli_with_attributes.attributes['some_strings'], new_stimuli.attributes['some_strings'])
 
     partial_stimuli = file_stimuli_with_attributes[:5]
     assert file_stimuli_with_attributes.attributes.keys() == partial_stimuli.attributes.keys()
     assert file_stimuli_with_attributes.attributes['dva'][:5] == partial_stimuli.attributes['dva']
+    assert file_stimuli_with_attributes.attributes['some_strings'][:5] == partial_stimuli.attributes['some_strings']
 
 
 def test_concatenate_stimuli_with_attributes(stimuli_with_attributes, file_stimuli_with_attributes):

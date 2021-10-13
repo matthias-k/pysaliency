@@ -81,6 +81,24 @@ def read_hdf5(source):
         raise ValueError("Invalid HDF content type:", data_type)
 
 
+def create_hdf5_dataset(target, name, data):
+    import h5py
+
+    if isinstance(np.array(data).flatten()[0], string_types):
+        data = np.array(data)
+        original_shape = data.shape
+        encoded_items = [decode_string(item).encode('utf8') for item in data.flatten()]
+        encoded_data = np.array(encoded_items).reshape(original_shape)
+
+        target.create_dataset(
+            name,
+            data=encoded_data,
+            dtype=h5py.special_dtype(vlen=str)
+        )
+    else:
+        target.create_dataset(name, data=data)
+
+
 @cached(WeakValueDictionary())
 def _read_hdf5_from_file(source):
     import h5py
@@ -912,7 +930,7 @@ class Stimuli(Sequence):
             target.create_dataset(str(n), data=stimulus, compression=compression, compression_opts=compression_opts)
 
         for attribute_name, attribute_value in self.attributes.items():
-            target.create_dataset(attribute_name, data=attribute_value)
+            create_hdf5_dataset(target, attribute_name, attribute_value)
         target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
 
         target.attrs['size'] = len(self)
@@ -1087,7 +1105,7 @@ class FileStimuli(Stimuli):
             shape_dataset[n] = np.array(shape)
 
         for attribute_name, attribute_value in self.attributes.items():
-            target.create_dataset(attribute_name, data=attribute_value)
+            create_hdf5_dataset(target, attribute_name, attribute_value)
         target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
 
         target.attrs['size'] = len(self)
