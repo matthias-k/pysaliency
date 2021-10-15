@@ -1119,9 +1119,7 @@ class FileStimuli(Stimuli):
         for n, shape in enumerate(self.shapes):
             shape_dataset[n] = np.array(shape)
 
-        for attribute_name, attribute_value in self.attributes.items():
-            create_hdf5_dataset(target, attribute_name, attribute_value)
-        target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
+        self._attributes_to_hdf5(target)
 
         target.attrs['size'] = len(self)
 
@@ -1151,22 +1149,7 @@ class FileStimuli(Stimuli):
 
         shapes = [list(shape) for shape in source['shapes'][...]]
 
-        if data_version < '2.1':
-            __attributes__ = []
-        else:
-            json_attributes = source.attrs['__attributes__']
-            if not isinstance(json_attributes, string_types):
-                json_attributes = json_attributes.decode('utf8')
-            __attributes__ = json.loads(json_attributes)
-
-        attributes = {}
-        for attribute in __attributes__:
-            attribute_value = source[attribute][...]
-            if isinstance(attribute_value.flatten()[0], bytes):
-                attribute_shape = attribute_value.shape
-                decoded_attribute_value = [decode_string(item) for item in attribute_value.flatten()]
-                attribute_value = np.array(decoded_attribute_value).reshape(attribute_shape)
-            attributes[attribute] = attribute_value
+        __attributes__, attributes = cls._get_attributes_from_hdf5(source, data_version, '2.1')
 
         stimuli = cls(filenames=filenames, cache=cache, shapes=shapes, attributes=attributes)
 
