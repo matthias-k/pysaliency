@@ -1,5 +1,12 @@
 from .datasets import read_hdf5
-from .filter_datasets import filter_fixations_by_number, filter_stimuli_by_number, train_split, validation_split, test_split
+from .filter_datasets import (
+    filter_fixations_by_number,
+    filter_stimuli_by_number,
+    filter_stimuli_by_size,
+    train_split,
+    validation_split,
+    test_split
+)
 
 from schema import Schema, Optional
 
@@ -29,6 +36,7 @@ def apply_dataset_filter_config(stimuli, fixations, filter_config):
     filter_dict = {
         'filter_fixations_by_number': add_stimuli_argument(filter_fixations_by_number),
         'filter_stimuli_by_number': filter_stimuli_by_number,
+        'filter_stimuli_by_size': filter_stimuli_by_size,
         'train_split': train_split,
         'validation_split': validation_split,
         'test_split': test_split,
