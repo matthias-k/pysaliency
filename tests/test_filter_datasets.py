@@ -51,6 +51,74 @@ def test_filter_fixations_by_number(fixation_trains):
 
 
 @pytest.fixture
+def stimuli_with_different_sizes():
+    return pysaliency.Stimuli([
+        np.random.randn(40, 40, 3),
+        np.random.randn(40, 40, 3),
+        np.random.randn(20, 40, 3),
+        np.random.randn(20, 40, 3),
+        np.random.randn(40, 20, 3),
+        np.random.randn(40, 20, 3),
+        np.random.randn(40, 20),
+        np.random.randn(20, 20, 3),
+        np.random.randn(20, 20, 3),
+    ])
+
+
+def assert_stimuli_equal(actual, expected):
+    assert list(actual.stimulus_ids) == list(expected.stimulus_ids)
+
+
+@pytest.mark.parametrize('size,indices', [
+    ((40, 40), [0, 1]),
+    ((20, 40), [2, 3]),
+    ((40, 20), [4, 5, 6]),
+    ((20, 20), [7, 8]),
+])
+def test_filter_stimuli_by_size_tuple(stimuli_with_different_sizes, fixation_trains, size, indices):
+    filtered_stimuli, _ = filter_datasets.filter_stimuli_by_size(
+        stimuli_with_different_sizes,
+        fixation_trains,
+        size=size
+    )
+
+    assert_stimuli_equal(
+        filtered_stimuli,
+        stimuli_with_different_sizes[indices]
+    )
+
+
+def test_filter_stimuli_by_size_array(stimuli_with_different_sizes, fixation_trains):
+    filtered_stimuli, _ = filter_datasets.filter_stimuli_by_size(
+        stimuli_with_different_sizes,
+        fixation_trains,
+        size=[40, 40]
+    )
+
+    assert_stimuli_equal(
+        filtered_stimuli,
+        stimuli_with_different_sizes[[0, 1]]
+    )
+
+
+@pytest.mark.parametrize('sizes,indices', [
+    ([(40, 40)], [0, 1]),
+    ([(20, 40), (40, 40)], [0, 1, 2, 3]),
+])
+def test_filter_stimuli_by_size_multiple(stimuli_with_different_sizes, fixation_trains, sizes, indices):
+    filtered_stimuli, _ = filter_datasets.filter_stimuli_by_size(
+        stimuli_with_different_sizes,
+        fixation_trains,
+        sizes=sizes
+    )
+
+    assert_stimuli_equal(
+        filtered_stimuli,
+        stimuli_with_different_sizes[indices]
+    )
+
+
+@pytest.fixture
 def many_stimuli():
     stimuli = [np.random.randn(40, 40, 3) for i in range(1003)]
     category = np.array([i % 10 for i in range(len(stimuli))])

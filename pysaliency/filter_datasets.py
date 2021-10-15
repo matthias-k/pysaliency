@@ -222,3 +222,13 @@ def _check_interval(interval, type=float):
         new_interval.append(type(value))
 
     return tuple(new_interval)
+
+
+def filter_stimuli_by_size(stimuli, fixations, size=None, sizes=None):
+    if size is not None:
+        sizes = [size]
+    sizes = [tuple(size) for size in sizes]
+
+    indices = [i for i in range(len(stimuli)) if stimuli.sizes[i] in sizes]
+
+    return create_subset(stimuli, fixations, indices)
