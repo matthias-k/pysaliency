@@ -1157,17 +1157,30 @@ class FileStimuli(Stimuli):
 
 
 def create_subset(stimuli, fixations, stimuli_indices):
-    """Create subset of stimuli and fixatins using only stimuli
+    """Create subset of stimuli and fixations using only stimuli
     with given indices.
     """
     new_stimuli = stimuli[stimuli_indices]
-    fix_inds = np.in1d(fixations.n, stimuli_indices)
-    new_fixations = fixations[fix_inds]
+    if isinstance(fixations, FixationTrains):
+        pass
+        fix_inds = np.in1d(fixations.train_ns, stimuli_indices)
+        new_fixations = fixations.filter_fixation_trains(fix_inds)
 
-    index_list = list(stimuli_indices)
-    new_pos = {i: index_list.index(i) for i in index_list}
-    new_fixation_ns = [new_pos[i] for i in new_fixations.n]
-    new_fixations.n = np.array(new_fixation_ns)
+        index_list = list(stimuli_indices)
+        new_pos = {i: index_list.index(i) for i in index_list}
+
+        new_fixation_train_ns = [new_pos[i] for i in new_fixations.train_ns]
+        new_fixations.train_ns = np.array(new_fixation_train_ns)
+        new_fixation_ns = [new_pos[i] for i in new_fixations.n]
+        new_fixations.n = np.array(new_fixation_ns)
+    else:
+        fix_inds = np.in1d(fixations.n, stimuli_indices)
+        new_fixations = fixations[fix_inds]
+
+        index_list = list(stimuli_indices)
+        new_pos = {i: index_list.index(i) for i in index_list}
+        new_fixation_ns = [new_pos[i] for i in new_fixations.n]
+        new_fixations.n = np.array(new_fixation_ns)
 
     return new_stimuli, new_fixations
 

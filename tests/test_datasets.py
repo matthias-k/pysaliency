@@ -401,5 +401,25 @@ def test_concatenate_stimuli_with_attributes(stimuli_with_attributes, file_stimu
     np.testing.assert_allclose(file_stimuli_with_attributes.attributes['dva'], concatenated_stimuli.attributes['dva'][len(stimuli_with_attributes):])
 
 
+@pytest.mark.parametrize('stimulus_indices', [[0], [1], [0, 1]])
+def test_create_subset_fixation_trains(file_stimuli_with_attributes, fixation_trains, stimulus_indices):
+    sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixation_trains, stimulus_indices)
+
+    assert isinstance(sub_fixations, pysaliency.FixationTrains)
+    assert len(sub_stimuli) == len(stimulus_indices)
+    np.testing.assert_array_equal(sub_fixations.x, fixation_trains.x[np.isin(fixation_trains.n, stimulus_indices)])
+
+
+@pytest.mark.parametrize('stimulus_indices', [[0], [1], [0, 1]])
+def test_create_subset_fixations(file_stimuli_with_attributes, fixation_trains, stimulus_indices):
+    # convert to fixations
+    fixations = fixation_trains[np.arange(len(fixation_trains))]
+    sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixations, stimulus_indices)
+
+    assert not isinstance(sub_fixations, pysaliency.FixationTrains)
+    assert len(sub_stimuli) == len(stimulus_indices)
+    np.testing.assert_array_equal(sub_fixations.x, fixations.x[np.isin(fixations.n, stimulus_indices)])
+
+
 if __name__ == '__main__':
     unittest.main()
