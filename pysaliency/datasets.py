@@ -412,7 +412,7 @@ class FixationTrains(Fixations):
 
         if scanpath_attributes is not None:
             assert isinstance(scanpath_attributes, dict)
-            self.scanpath_attributes = scanpath_attributes
+            self.scanpath_attributes = {key: np.array(value) for key, value in scanpath_attributes.items()}
         else:
             self.scanpath_attributes = {}
 
@@ -432,15 +432,21 @@ class FixationTrains(Fixations):
         """
         Create new fixations object which contains only the fixation trains indicated.
         """
-        if not set(self.__attributes__).issubset(['subjects', 'scanpath_index']):
-            raise NotImplementedError('Filtering fixation trains with additional attributes is not yet implemented!')
         train_xs = self.train_xs[indices]
         train_ys = self.train_ys[indices]
         train_ts = self.train_ts[indices]
         train_ns = self.train_ns[indices]
         train_subjects = self.train_subjects[indices]
-        scanpath_attributes = {key: value[inds] for key, value in self.scanpath_attributes.items()}
-        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects, scanpath_attributes=scanpath_attributes)
+        scanpath_attributes = {key: np.array(value)[indices] for key, value in self.scanpath_attributes.items()}
+
+        scanpath_indices = np.arange(len(self.train_xs), dtype=np.int)[indices]
+        fixation_indices = np.in1d(self.scanpath_index, scanpath_indices)
+
+        attributes = {
+            attribute_name: getattr(self, attribute_name)[fixation_indices] for attribute_name in self.__attributes__ if attribute_name not in ['subjects', 'scanpath_index']
+        }
+
+        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects, attributes=attributes, scanpath_attributes=scanpath_attributes)
 
     def fixation_trains(self):
         """Yield for every fixation train of the dataset:
@@ -1162,7 +1168,6 @@ def create_subset(stimuli, fixations, stimuli_indices):
     """
     new_stimuli = stimuli[stimuli_indices]
     if isinstance(fixations, FixationTrains):
-        pass
         fix_inds = np.in1d(fixations.train_ns, stimuli_indices)
         new_fixations = fixations.filter_fixation_trains(fix_inds)
 

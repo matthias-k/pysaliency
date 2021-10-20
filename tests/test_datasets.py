@@ -37,8 +37,18 @@ class TestFixations(TestWithData):
             [50, 500, 900]]
         ns = [0, 0, 1]
         subjects = [0, 1, 1]
+        tasks = [0, 1, 0]
+        some_attribute = np.arange(len(sum(xs_trains, [])))
         # Create Fixations
-        f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+        f = pysaliency.FixationTrains.from_fixation_trains(
+            xs_trains,
+            ys_trains,
+            ts_trains,
+            ns,
+            subjects,
+            attributes={'some_attribute': some_attribute},
+            scanpath_attributes={'task': tasks},
+        )
 
         # Test fixation trains
         np.testing.assert_allclose(f.train_xs, [[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
@@ -309,7 +319,51 @@ def fixation_trains():
         [50, 500, 900]]
     ns = [0, 0, 1]
     subjects = [0, 1, 1]
-    return pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+    tasks = [0, 1, 0]
+    some_attribute = np.arange(len(sum(xs_trains, [])))
+    return pysaliency.FixationTrains.from_fixation_trains(
+        xs_trains,
+        ys_trains,
+        ts_trains,
+        ns,
+        subjects,
+        attributes={'some_attribute': some_attribute},
+        scanpath_attributes={'task': tasks},
+    )
+
+
+@pytest.mark.parametrize('scanpath_indices,fixation_indices', [
+    ([0, 2], [0, 1, 2, 5, 6, 7]),
+    ([1, 2], [3, 4, 5, 6, 7]),
+    ([2], [5, 6, 7]),
+])
+def test_filter_fixation_trains(fixation_trains, scanpath_indices, fixation_indices):
+    sub_fixations = fixation_trains.filter_fixation_trains(scanpath_indices)
+
+    np.testing.assert_array_equal(
+        sub_fixations.train_xs,
+        fixation_trains.train_xs[scanpath_indices]
+    )
+    np.testing.assert_array_equal(
+        sub_fixations.train_ys,
+        fixation_trains.train_ys[scanpath_indices]
+    )
+    np.testing.assert_array_equal(
+        sub_fixations.train_ts,
+        fixation_trains.train_ts[scanpath_indices]
+    )
+    np.testing.assert_array_equal(
+        sub_fixations.train_ns,
+        fixation_trains.train_ns[scanpath_indices]
+    )
+    np.testing.assert_array_equal(
+        sub_fixations.some_attribute,
+        fixation_trains.some_attribute[fixation_indices]
+    )
+    np.testing.assert_array_equal(
+        sub_fixations.scanpath_attributes['task'],
+        fixation_trains.scanpath_attributes['task'][scanpath_indices]
+    )
 
 
 def test_read_hdf5_caching(fixation_trains, tmp_path):
