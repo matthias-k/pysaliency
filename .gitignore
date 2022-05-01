@@ -1,4 +1,12 @@
+.hypothesis
+.mypy_cache
+/tmp/
+/build/
+/pysaliency_datasets/
+/test_datasets/
+/test_models/
 *.pyc
 *.swp
 *.c
 *.so
+*.egg-info
