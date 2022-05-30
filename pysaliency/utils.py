@@ -1,5 +1,5 @@
 from __future__ import print_function, absolute_import, division
-from collections import Sequence, MutableMapping
+from collections.abc import Sequence, MutableMapping
 from itertools import chain
 from glob import iglob
 from contextlib import contextmanager, ExitStack

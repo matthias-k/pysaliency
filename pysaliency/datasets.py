@@ -4,7 +4,7 @@ from __future__ import absolute_import, print_function, division, unicode_litera
 
 import os
 from hashlib import sha1
-from collections import Sequence
+from collections.abc import Sequence
 import json
 from functools import wraps
 from weakref import WeakValueDictionary
