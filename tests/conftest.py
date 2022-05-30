@@ -1,7 +1,10 @@
+import os
+import sys
+
 import pytest
 
-import pysaliency.utils
-
+# make sure that package can be found when running `pytest` instead of `python -m pytest`
+sys.path.insert(0, os.getcwd())
 
 def pytest_addoption(parser):
     parser.addoption("--runslow", action="store_true",
@@ -29,6 +32,8 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture(params=["matlab", "octave"])
 def matlab(request, pytestconfig):
+    # 
+    import pysaliency.utils
     if request.param == "matlab":
         pysaliency.utils.MatlabOptions.matlab_names = ['matlab', 'matlab.exe']
         pysaliency.utils.MatlabOptions.octave_names = []
