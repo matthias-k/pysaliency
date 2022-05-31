@@ -124,7 +124,7 @@ class FixationMaskTransform(object):
 
         # inds, values = x_y_to_sparse_indices(x, y)
         inds = np.array([y, x])
-        values = np.ones(len(y), dtype=np.int)
+        values = np.ones(len(y), dtype=int)
 
         mask = torch.sparse.IntTensor(torch.tensor(inds), torch.tensor(values), shape)
         mask = mask.coalesce()

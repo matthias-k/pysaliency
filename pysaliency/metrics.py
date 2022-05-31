@@ -36,8 +36,8 @@ def convert_saliency_map_to_density(saliency_map, minimum_value=0.0):
 
 
 def NSS(saliency_map, xs, ys):
-    xs = np.asarray(xs, dtype=np.int)
-    ys = np.asarray(ys, dtype=np.int)
+    xs = np.asarray(xs, dtype=int)
+    ys = np.asarray(ys, dtype=int)
 
     mean = saliency_map.mean()
     std = saliency_map.std()
