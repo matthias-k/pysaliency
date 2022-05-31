@@ -286,12 +286,12 @@ class Fixations(object):
     @property
     def x_int(self):
         """ x coordinates of the fixations, converted to integers """
-        return np.asarray(self.x, np.int)
+        return np.asarray(self.x, dtype=int)
 
     @property
     def y_int(self):
         """ y coordinates of the fixations, converted to integers """
-        return np.asarray(self.y, np.int)
+        return np.asarray(self.y, dtype=int)
 
     @property
     def subject_count(self):
@@ -439,7 +439,7 @@ class FixationTrains(Fixations):
         train_subjects = self.train_subjects[indices]
         scanpath_attributes = {key: np.array(value)[indices] for key, value in self.scanpath_attributes.items()}
 
-        scanpath_indices = np.arange(len(self.train_xs), dtype=np.int)[indices]
+        scanpath_indices = np.arange(len(self.train_xs), dtype=int)[indices]
         fixation_indices = np.in1d(self.scanpath_index, scanpath_indices)
 
         attributes = {
@@ -650,7 +650,7 @@ class FixationTrains(Fixations):
             train_xs.append(self.train_xs[inds])
             train_ys.append(self.train_ys[inds])
             train_ts.append(self.train_ts[inds])
-            train_ns.append(np.ones(inds.sum(), dtype=np.int)*n)
+            train_ns.append(np.ones(inds.sum(), dtype=int)*n)
             train_subjects.append(self.train_subjects[inds])
         train_xs = np.vstack(train_xs)
         train_ys = np.vstack(train_ys)
@@ -686,7 +686,7 @@ class FixationTrains(Fixations):
             train_xs.append(self.train_xs[inds])
             train_ys.append(self.train_ys[inds])
             train_ts.append(self.train_ts[inds])
-            train_ns.append(np.ones(inds.sum(), dtype=np.int)*n)
+            train_ns.append(np.ones(inds.sum(), dtype=int)*n)
             train_subjects.append(self.train_subjects[inds])
         train_xs = np.vstack(train_xs)
         train_ys = np.vstack(train_ys)
