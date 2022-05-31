@@ -59,9 +59,9 @@ class ImageDataset(torch.utils.data.Dataset):
                 self._ys_cache.setdefault(n, []).append(y)
 
             for key in list(self._xs_cache):
-                self._xs_cache[key] = np.array(self._xs_cache[key], dtype=np.long)
+                self._xs_cache[key] = np.array(self._xs_cache[key], dtype=int)
             for key in list(self._ys_cache):
-                self._ys_cache[key] = np.array(self._ys_cache[key], dtype=np.long)
+                self._ys_cache[key] = np.array(self._ys_cache[key], dtype=int)
 
     def get_shapes(self):
         return list(self.stimuli.sizes)
@@ -86,8 +86,8 @@ class ImageDataset(torch.utils.data.Dataset):
                 ys = self._ys_cache.pop(key)
             else:
                 inds = self.fixations.n == key
-                xs = np.array(self.fixations.x_int[inds], dtype=np.long)
-                ys = np.array(self.fixations.y_int[inds], dtype=np.long)
+                xs = np.array(self.fixations.x_int[inds], dtype=int)
+                ys = np.array(self.fixations.y_int[inds], dtype=int)
             data = {
                 "image": image,
                 "x": xs,
