@@ -32,7 +32,6 @@ jobs:
           cython \
           deprecation \
           dill \
-          h5py \
           imageio \
           natsort \
           numba \
@@ -52,6 +51,7 @@ jobs:
           sphinx \
           theano \
           tqdm
+        pip install h5py  # https://github.com/h5py/h5py/issues/1880
 #    - name: Lint with flake8
 #      run: |
 #        conda install flake8
