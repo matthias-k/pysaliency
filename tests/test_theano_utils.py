@@ -11,6 +11,10 @@ import theano.tensor as T
 from pysaliency.theano_utils import nonlinearity, gaussian_filter, CenterBias, Blur
 
 
+# mark whole module as theano
+pytestmark = pytest.mark.theano
+
+
 @pytest.fixture(params=['float64', 'float32'])
 def dtype(request):
     return request.param

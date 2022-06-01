@@ -1,11 +1,10 @@
 import numpy as np
 import pytest
 
-from pysaliency.saliency_map_conversion import optimize_for_information_gain
+from pysaliency.saliency_map_conversion_torch import optimize_for_information_gain
 from pysaliency import Stimuli, Fixations, GaussianSaliencyMapModel
 
 
-@pytest.mark.theano
 @pytest.mark.parametrize("optimize", [
     None,
     ['nonlinearity'],
