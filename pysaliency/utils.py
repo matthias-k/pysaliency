@@ -359,38 +359,9 @@ def download_and_check(url, target, md5_hash):
     download_file(url, target)
     check_file_hash(target, md5_hash)
 
-
 def download_file_from_google_drive(id, destination):
-    """adapted from https://drive.google.com/uc?id=0B2hsWbciDVedWHFiMUVVWFRZTE0&export=download"""
-    def get_confirm_token(response):
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                return value
-
-        return None
-
-    def save_response_content(response, destination):
-        CHUNK_SIZE = 32768
-
-        with tqdm(unit='B', unit_scale=True) as pbar:
-            with open(destination, "wb") as f:
-                for chunk in response.iter_content(CHUNK_SIZE):
-                    if chunk: # filter out keep-alive new chunks
-                        f.write(chunk)
-                        pbar.update(CHUNK_SIZE)
-
-    URL = "https://docs.google.com/uc?export=download"
-
-    session = requests.Session()
-
-    response = session.get(URL, params = { 'id' : id }, stream = True)
-    token = get_confirm_token(response)
-
-    if token:
-        params = { 'id' : id, 'confirm' : token }
-        response = session.get(URL, params = params, stream = True)
-
-    save_response_content(response, destination)
+    import gdown
+    gdown.download(id=id, output=destination, quiet=False)
 
 
 class Cache(MutableMapping):
