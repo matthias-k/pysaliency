@@ -2,34 +2,23 @@ from __future__ import absolute_import, print_function, division
 
 import zipfile
 import os
-import shutil
-import warnings
 import glob
-import itertools
 from six.moves import urllib
 
 import numpy as np
 from scipy.io import loadmat
 from natsort import natsorted
-import dill
-from pkg_resources import resource_string
-from PIL import Image
 from boltons.fileutils import mkdir_p
 from tqdm import tqdm
 
-from ..datasets import FileStimuli, Stimuli, FixationTrains, Fixations, read_hdf5
+from ..datasets import FixationTrains
 from ..utils import (
     TemporaryDirectory,
-    filter_files,
-    run_matlab_cmd,
     download_and_check,
-    download_file_from_google_drive,
-    check_file_hash,
     atomic_directory_setup,
-    build_padded_2d_array)
-from ..generics import progressinfo
+)
 
-from .utils import create_memory_stimuli, create_stimuli, _load
+from .utils import create_stimuli, _load
 
 from .toronto import get_toronto, get_toronto_with_subjects
 from .mit import get_mit1003, get_mit1003_with_initial_fixation, get_mit1003_onesize, get_mit300
@@ -37,250 +26,8 @@ from .cat2000 import get_cat2000_test, get_cat2000_train
 from .isun import get_iSUN, get_iSUN_training, get_iSUN_validation, get_iSUN_testing
 from .salicon import get_SALICON, get_SALICON_train, get_SALICON_val, get_SALICON_test
 from .koehler import get_koehler
-
-
-def _load_FIGRIM_data(filename, stimuli_indices, stimulus_type):
-    data = loadmat(filename)['allImages'].flatten()
-    xs = []
-    ys = []
-    ts = []
-    ns = []
-    train_subjects = []
-    which_times = []
-    which_time_names = ['enc', 'rec', 'rec2']
-    stimulus_types = []
-    responses = []
-
-    for stimulus_data in data:
-        n = stimuli_indices[stimulus_data['filename'][0]]
-        # category = stimulus_data['category'][0]  # TODO: use
-        for subject, subject_data in enumerate(stimulus_data['userdata'].flatten()):
-            if not subject_data['trial']:
-                # No data for this subject and this stimulus
-                continue
-
-            for which_time in which_time_names:
-                fixations = subject_data['fixations'][0, 0][which_time]
-                if not len(fixations):
-                    continue
-                # if len(fixations) and which_time != 'enc':
-                #     print("Problem:", n, subject_name, which_time)
-                subject_response = subject_data['SDT'][0][which_time_names.index(which_time)]
-
-                xs.append(fixations[:, 0])
-                ys.append(fixations[:, 1])
-                ts.append(np.arange(len(xs[-1])))
-                ns.append(n)
-                train_subjects.append(subject)
-
-                which_times.append(which_time_names.index(which_time))
-                stimulus_types.append(stimulus_type)
-                responses.append(subject_response)
-
-    return xs, ys, ts, ns, train_subjects, which_times, stimulus_types, responses
-
-
-def get_FIGRIM(location=None):
-    """
-    Loads or downloads and caches the FIGRIM dataset. The dataset
-    consists of >2700 scenes of sizes 1000x1000px
-    and the fixations of subjects while doing a repetition
-    recognition task with 3 seconds presentation time.
-    subject responses etc are included.
-
-    @type  location: string, defaults to `None`
-    @param location: If and where to cache the dataset. The dataset
-                     will be stored in the subdirectory `toronto` of
-                     location and read from there, if already present.
-    @return: Stimuli, FixationTrains
-
-    .. note::
-        This dataset comes with additional annotations:
-            - stimulus_type: 0=filler, 1=target
-            - which_time: 0=encoding, 1=first recognition, 2=second recognition
-            - response: 1=hit, 2=false alarm, 3=miss, 4=correct rejection
-
-    .. seealso::
-
-        Bylinskii, Zoya and Isola, Phillip and Bainbridge, Constance and Torralba, Antonio and Oliva, Aude. Intrinsic and Extrinsic Effects on Image Memorability [Vision research 2015]
-
-        http://figrim.mit.edu/index_eyetracking.html
-    """
-    if location:
-        location = os.path.join(location, 'FIGRIM')
-        if os.path.exists(location):
-            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
-            fixations = _load(os.path.join(location, 'fixations.hdf5'))
-            return stimuli, fixations
-        os.makedirs(location)
-    with atomic_directory_setup(location):
-        with TemporaryDirectory(cleanup=True) as temp_dir:
-            download_and_check('http://figrim.mit.edu/Fillers.zip',
-                               os.path.join(temp_dir, 'Fillers.zip'),
-                               'dc0bc9561b5bc90e158ec32074dd1060')
-
-            download_and_check('http://figrim.mit.edu/Targets.zip',
-                               os.path.join(temp_dir, 'Targets.zip'),
-                               '2ad3a42ebc377efe4b39064405568201')
-
-            download_and_check('https://github.com/cvzoya/figrim/blob/master/targetData/allImages_release.mat?raw=True',
-                               os.path.join(temp_dir, 'allImages_release.mat'),
-                               'c72843b05e95ab27594c1d11c849c897')
-
-            download_and_check('https://github.com/cvzoya/figrim/blob/master/fillerData/allImages_fillers.mat?raw=True',
-                               os.path.join(temp_dir, 'allImages_fillers.mat'),
-                               'ce4f8b4961005d62f7a21191a64cab5e')
-
-            # Stimuli
-            mkdir_p(os.path.join(temp_dir, 'stimuli'))
-            print('Creating stimuli')
-            f = zipfile.ZipFile(os.path.join(temp_dir, 'Fillers.zip'))
-            f.extractall(os.path.join(temp_dir, 'stimuli'))
-
-            f = zipfile.ZipFile(os.path.join(temp_dir, 'Targets.zip'))
-            f.extractall(os.path.join(temp_dir, 'stimuli'))
-
-            stimuli_src_location = os.path.join(temp_dir, 'stimuli')
-            stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
-            images = glob.glob(os.path.join(stimuli_src_location, '**', '**', '*.jpg'))
-            images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
-            stimuli_filenames = natsorted(images)
-
-            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
-
-            stimuli_basenames = [os.path.basename(filename) for filename in stimuli_filenames]
-            stimulus_indices = {s: stimuli_basenames.index(s) for s in stimuli_basenames}
-
-            # FixationTrains
-
-            print('Creating fixations')
-
-            print('Fillers...')
-            (xs_filler,
-             ys_filler,
-             ts_filler,
-             ns_filler,
-             train_subjects_filler,
-             which_times_filler,
-             stimulus_types_filler,
-             responses_filler) = _load_FIGRIM_data(os.path.join(temp_dir, 'allImages_fillers.mat'), stimulus_indices, stimulus_type=0)
-
-            print("Targets...")
-            (xs_target,
-             ys_target,
-             ts_target,
-             ns_target,
-             train_subjects_target,
-             which_times_target,
-             stimulus_types_target,
-             responses_target) = _load_FIGRIM_data(os.path.join(temp_dir, 'allImages_release.mat'), stimulus_indices, stimulus_type=0)
-
-            print("Finalizing...")
-            xs = xs_filler + xs_target
-            ys = ys_filler + ys_target
-            ts = ts_filler + ts_target
-            ns = ns_filler + ns_target
-            train_subjects = train_subjects_filler + train_subjects_target
-            which_times = which_times_filler + which_times_target
-            stimulus_types = stimulus_types_filler + stimulus_types_target
-            responses = responses_filler + responses_target
-
-            fixations = FixationTrains.from_fixation_trains(
-                xs, ys, ts, ns, train_subjects,
-                attributes={
-                    'which_time': which_times,
-                    'stimulus_type': stimulus_types,
-                    'response': responses
-                })
-
-        if location:
-            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
-    return stimuli, fixations
-
-
-def get_OSIE(location=None):
-    """
-    Loads or downloads and caches the OSIE dataset. The dataset
-    consists of 700 images of size 800x600px
-    and the fixations of 15 subjects while doing a
-    freeviewing task with 3 seconds presentation time.
-
-    @type  location: string, defaults to `None`
-    @param location: If and where to cache the dataset. The dataset
-                     will be stored in the subdirectory `toronto` of
-                     location and read from there, if already present.
-    @return: Stimuli, FixationTrains
-
-    .. seealso::
-
-        Juan Xu, Ming Jiang, Shuo Wang, Mohan Kankanhalli, Qi Zhao. Predicting Human Gaze Beyond Pixels [JoV 2014]
-
-        http://www-users.cs.umn.edu/~qzhao/predicting.html
-    """
-    if location:
-        location = os.path.join(location, 'OSIE')
-        if os.path.exists(location):
-            stimuli = _load(os.path.join(location, 'stimuli.hdf5'))
-            fixations = _load(os.path.join(location, 'fixations.hdf5'))
-            return stimuli, fixations
-        os.makedirs(location)
-    with atomic_directory_setup(location):
-        with TemporaryDirectory(cleanup=True) as temp_dir:
-            stimuli_src_location = os.path.join(temp_dir, 'stimuli')
-            mkdir_p(stimuli_src_location)
-            images = []
-            for i in tqdm(list(range(700))):
-                filename = '{}.jpg'.format(i + 1001)
-                target_name = os.path.join(stimuli_src_location, filename)
-                urllib.request.urlretrieve(
-                    'https://github.com/NUS-VIP/predicting-human-gaze-beyond-pixels/raw/master/data/stimuli/' + filename,
-                    target_name)
-                images.append(filename)
-
-            download_and_check('https://github.com/NUS-VIP/predicting-human-gaze-beyond-pixels/blob/master/data/eye/fixations.mat?raw=true',
-                               os.path.join(temp_dir, 'fixations.mat'),
-                               '8efdf6fe66f38b6e70f854c7ff45aa70')
-
-            # Stimuli
-            print('Creating stimuli')
-
-            stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
-            stimuli = create_stimuli(stimuli_src_location, images, stimuli_target_location)
-
-            stimulus_indices = {s: images.index(s) for s in images}
-
-            # FixationTrains
-
-            print('Creating fixations')
-            data = loadmat(os.path.join(temp_dir, 'fixations.mat'))['fixations'].flatten()
-
-            xs = []
-            ys = []
-            ts = []
-            ns = []
-            train_subjects = []
-
-            for stimulus_data in data:
-                stimulus_data = stimulus_data[0, 0]
-                n = stimulus_indices[stimulus_data['img'][0]]
-                for subject, subject_data in enumerate(stimulus_data['subjects'].flatten()):
-                    fixations = subject_data[0, 0]
-                    if not len(fixations['fix_x'].flatten()):
-                        continue
-
-                    xs.append(fixations['fix_x'].flatten())
-                    ys.append(fixations['fix_y'].flatten())
-                    ts.append(np.arange(len(xs[-1])))
-                    ns.append(n)
-                    train_subjects.append(subject)
-
-        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
-
-        if location:
-            stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
-            fixations.to_hdf5(os.path.join(location, 'fixations.hdf5'))
-    return stimuli, fixations
+from .figrim import get_FIGRIM
+from .osie import get_OSIE
 
 
 def get_NUSEF_public(location=None):

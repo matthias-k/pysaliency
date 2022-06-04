@@ -682,3 +682,88 @@ def test_koehler(location):
 
     assert entropy(fixations_saliencysearch.n) == approx(9.639365034197382)
     assert (fixations_saliencysearch.n == 0).sum() == 103
+
+
+@pytest.mark.slow
+@pytest.mark.download
+def test_FIGRIM(location):
+    real_location = _location(location)
+
+    stimuli, fixations = pysaliency.external_datasets.get_FIGRIM(location=real_location)
+    if location is None:
+        assert isinstance(stimuli, pysaliency.Stimuli)
+        assert not isinstance(stimuli, pysaliency.FileStimuli)
+    else:
+        assert isinstance(stimuli, pysaliency.FileStimuli)
+        assert location.join('FIGRIM/stimuli.hdf5').check()
+        assert location.join('FIGRIM/fixations.hdf5').check()
+
+    assert len(stimuli.stimuli) == 2793
+    assert set(stimuli.sizes) == {(1000, 1000)}
+
+    assert len(fixations.x) == 424712
+
+    assert np.mean(fixations.x) == approx(504.64437312814323)
+    assert np.mean(fixations.y) == approx(512.8821982896645)
+    assert np.mean(fixations.t) == approx(2.9365758443368684)
+    assert np.mean(fixations.lengths) == approx(2.9365758443368684)
+
+    assert np.std(fixations.x) == approx(158.86601835411133)
+    assert np.std(fixations.y) == approx(145.67212772412645)
+    assert np.std(fixations.t) == approx(2.1599063813289363)
+    assert np.std(fixations.lengths) == approx(2.1599063813289363)
+
+    assert kurtosis(fixations.x) == approx(0.5791564709307742)
+    assert kurtosis(fixations.y) == approx(0.709663215799134)
+    assert kurtosis(fixations.t) == approx(-0.7245566668044039)
+    assert kurtosis(fixations.lengths) == approx(-0.7245566668044039)
+
+    assert skew(fixations.x) == approx(0.09245444798073615)
+    assert skew(fixations.y) == approx(-0.008328881229649684)
+    assert skew(fixations.t) == approx(0.37950203945703337)
+    assert skew(fixations.lengths) == approx(0.37950203945703337)
+
+    assert (fixations.n == 0).sum() == 107
+
+
+@pytest.mark.slow
+@pytest.mark.download
+def test_OSIE(location):
+    real_location = _location(location)
+
+    stimuli, fixations = pysaliency.external_datasets.get_OSIE(location=real_location)
+    if location is None:
+        assert isinstance(stimuli, pysaliency.Stimuli)
+        assert not isinstance(stimuli, pysaliency.FileStimuli)
+    else:
+        assert isinstance(stimuli, pysaliency.FileStimuli)
+        assert location.join('OSIE/stimuli.hdf5').check()
+        assert location.join('OSIE/fixations.hdf5').check()
+
+    assert len(stimuli.stimuli) == 700
+    assert set(stimuli.sizes) == {(600, 800)}
+
+    assert len(fixations.x) == 98321
+
+    assert np.mean(fixations.x) == approx(401.466024552232)
+    assert np.mean(fixations.y) == approx(283.58293548682377)
+    assert np.mean(fixations.t) == approx(4.369971826974909)
+    assert np.mean(fixations.lengths) == approx(4.369971826974909)
+
+    assert np.std(fixations.x) == approx(171.2760014573171)
+    assert np.std(fixations.y) == approx(117.70943331958269)
+    assert np.std(fixations.t) == approx(2.9882005810119465)
+    assert np.std(fixations.lengths) == approx(2.9882005810119465)
+
+    assert kurtosis(fixations.x) == approx(-0.8437559648105699)
+    assert kurtosis(fixations.y) == approx(-0.6146702485058717)
+    assert kurtosis(fixations.t) == approx(-0.7170874454173752)
+    assert kurtosis(fixations.lengths) == approx(-0.7170874454173752)
+
+    assert skew(fixations.x) == approx(0.029428873077089763)
+    assert skew(fixations.y) == approx(0.170931952813165)
+    assert skew(fixations.t) == approx(0.31008498461792156)
+    assert skew(fixations.lengths) == approx(0.31008498461792156)
+
+    assert entropy(fixations.n) == approx(9.445962418853439)
+    assert (fixations.n == 0).sum() == 141
