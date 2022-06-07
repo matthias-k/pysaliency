@@ -767,3 +767,44 @@ def test_OSIE(location):
 
     assert entropy(fixations.n) == approx(9.445962418853439)
     assert (fixations.n == 0).sum() == 141
+
+
+@pytest.mark.slow
+@pytest.mark.download
+def test_NUSEF(location):
+    real_location = _location(location)
+
+    stimuli, fixations = pysaliency.external_datasets.get_NUSEF_public(location=real_location)
+    if location is None:
+        assert isinstance(stimuli, pysaliency.Stimuli)
+        assert not isinstance(stimuli, pysaliency.FileStimuli)
+    else:
+        assert isinstance(stimuli, pysaliency.FileStimuli)
+        assert location.join('NUSEF_public/stimuli.hdf5').check()
+        assert location.join('NUSEF_public/fixations.hdf5').check()
+
+    assert len(stimuli.stimuli) == 444
+    
+    assert len(fixations.x) == 71477
+
+    assert np.mean(fixations.x) == approx(515.7081586714573)
+    assert np.mean(fixations.y) == approx(339.39582588745634)
+    assert np.mean(fixations.t) == approx(9.704377576003472)
+    assert np.mean(fixations.lengths) == approx(4.205604600081145)
+
+    assert np.std(fixations.x) == approx(164.706599106392)
+    assert np.std(fixations.y) == approx(138.0916655852643)
+    assert np.std(fixations.t) == approx(15.045168261403202)
+    assert np.std(fixations.lengths) == approx(3.5120574118479087)
+
+    assert kurtosis(fixations.x) == approx(1.0061621405730756)
+    assert kurtosis(fixations.y) == approx(1.324567134330601)
+    assert kurtosis(fixations.t) == approx(2.378559181643473)
+    assert kurtosis(fixations.lengths) == approx(0.7152102743878705)
+
+    assert skew(fixations.x) == approx(0.1128294554690726)
+    assert skew(fixations.y) == approx(0.5176640896547959)
+    assert skew(fixations.t) == approx(1.9080635569791038)
+    assert skew(fixations.lengths) == approx(0.9617232401848489)
+
+    assert (fixations.n == 0).sum() == 132
