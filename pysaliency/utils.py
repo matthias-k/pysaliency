@@ -344,8 +344,8 @@ def download_file_old(url, target):
     print('')
 
 
-def download_file(url, target):
-    r = requests.get(url, stream=True)
+def download_file(url, target, verify_ssl=True):
+    r = requests.get(url, stream=True, verify=verify_ssl)
     total_size = int(r.headers.get('content-length', 0))
     with open(target, 'wb') as f:
         with tqdm(total=total_size, unit='B', unit_scale=True, desc='Downloading file') as progress_bar:
@@ -354,9 +354,9 @@ def download_file(url, target):
                 progress_bar.update(32*1024)
 
 
-def download_and_check(url, target, md5_hash):
+def download_and_check(url, target, md5_hash, verify_ssl=True):
     """Download url to target and check for correct md5_hash. Prints warning if hash is not correct."""
-    download_file(url, target)
+    download_file(url, target, verify_ssl=verify_ssl)
     check_file_hash(target, md5_hash)
 
 def download_file_from_google_drive(id, destination):
