@@ -546,7 +546,7 @@ def test_PASCAL_S(location):
 
 @pytest.mark.slow
 @pytest.mark.download
-def test_DUT_OMRON(location):
+def test_DUT_OMRON(location, tmpdir):
     real_location = _location(location)
 
     stimuli, fixations = pysaliency.external_datasets.get_DUT_OMRON(location=real_location)
@@ -557,28 +557,28 @@ def test_DUT_OMRON(location):
         assert isinstance(stimuli, pysaliency.FileStimuli)
         assert location.join('DUT-OMRON/stimuli.hdf5').check()
         assert location.join('DUT-OMRON/fixations.hdf5').check()
-
+    
     assert len(stimuli.stimuli) == 5168
 
     assert len(fixations.x) == 797542
 
-    assert np.mean(fixations.x) == approx(181.16198519952553)
-    assert np.mean(fixations.y) == approx(146.7047390607642)
+    assert np.mean(fixations.x) == approx(182.16198519952553)
+    assert np.mean(fixations.y) == approx(147.622566585835)
     assert np.mean(fixations.t) == approx(21.965026293286122)
     assert np.mean(fixations.lengths) == approx(21.965026293286122)
 
     assert np.std(fixations.x) == approx(64.01040053828082)
-    assert np.std(fixations.y) == approx(93.58929605423603)
+    assert np.std(fixations.y) == approx(58.292098903584176)
     assert np.std(fixations.t) == approx(17.469479262739807)
     assert np.std(fixations.lengths) == approx(17.469479262739807)
 
     assert kurtosis(fixations.x) == approx(-0.0689271960358524)
-    assert kurtosis(fixations.y) == approx(298770.84028626315)
+    assert kurtosis(fixations.y) == approx(0.637871926687533)
     assert kurtosis(fixations.t) == approx(2.914601085582113)
     assert kurtosis(fixations.lengths) == approx(2.914601085582113)
 
     assert skew(fixations.x) == approx(0.23776167825897998)
-    assert skew(fixations.y) == approx(427.78167669200565)
+    assert skew(fixations.y) == approx(0.6328497077003701)
     assert skew(fixations.t) == approx(1.2911168563657345)
     assert skew(fixations.lengths) == approx(1.2911168563657345)
 
