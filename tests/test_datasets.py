@@ -2,8 +2,8 @@ from __future__ import absolute_import, print_function, division
 
 import unittest
 import os.path
-from six.moves import cPickle
 import dill
+import pickle
 import pytest
 
 import numpy as np
@@ -151,10 +151,10 @@ class TestFixations(TestWithData):
 
         filename = os.path.join(self.data_path, 'fixation.pydat')
         with open(filename, 'wb') as out_file:
-            cPickle.dump(f, out_file)
+            pickle.dump(f, out_file)
 
         with open(filename, 'rb') as in_file:
-            f = cPickle.load(in_file)
+            f = pickle.load(in_file)
         # Test fixation trains
         np.testing.assert_allclose(f.train_xs, [[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
         np.testing.assert_allclose(f.train_ys, [[10, 11, 12], [12, 12, np.nan], [21, 25, 33]])
