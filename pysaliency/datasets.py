@@ -139,6 +139,11 @@ class Fixations(object):
         y = np.asarray(y)
         t = np.asarray(t)
         n = np.asarray(n)
+        x_hist = np.asarray(x_hist)
+        t_hist = np.asarray(y_hist)
+        t_hist = np.asarray(t_hist)
+        subjects = np.asarray(subjects)
+
         self.x = x
         self.y = y
         self.t = t
@@ -427,6 +432,26 @@ class FixationTrains(Fixations):
                 setattr(self, key, value)
 
         self.full_nonfixations = None
+
+
+    def copy(self):
+        copied_attributes = {}
+        for attribute_name in self.__attributes__:
+            if attribute_name in ['subjects', 'scanpath_index']:
+                continue
+            copied_attributes[attribute_name] = getattr(self, attribute_name).copy()
+        copied_scanpaths = FixationTrains(
+            train_xs=self.train_xs.copy(),
+            train_ys=self.train_ys.copy(),
+            train_ts=self.train_ts.copy(),
+            train_ns=self.train_ns.copy(),
+            train_subjects=self.train_subjects.copy(),
+            scanpath_attributes={
+                key: value.copy() for key, value in self.scanpath_attributes.items()
+            } if self.scanpath_attributes else None,
+            attributes=copied_attributes if copied_attributes else None,
+        )
+        return copied_scanpaths
 
     def filter_fixation_trains(self, indices):
         """
