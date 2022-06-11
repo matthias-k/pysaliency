@@ -4,8 +4,19 @@ import numba
 import numpy as np
 
 
+def fill_fixation_map(fixation_map, fixations, check_bounds=True):
+    if check_bounds:
+        if np.any(fixations < 0):
+            raise ValueError("Negative fixation positions!")
+        if np.any(fixations[:, 0] >= fixation_map.shape[0]):
+            raise ValueError("Fixations y positions out of bound!")
+        if np.any(fixations[:, 1] >= fixation_map.shape[1]):
+            raise ValueError("Fixations x positions out of bound!")
+    return _fill_fixation_map(fixation_map, fixations)
+
+
 @numba.jit(nopython=True)
-def fill_fixation_map(fixation_map, fixations):
+def _fill_fixation_map(fixation_map, fixations):
     """fixationmap: 2d array. fixations: Nx2 array of y, x positions"""
     for i in range(len(fixations)):
         fixation_y, fixation_x = fixations[i]
