@@ -1298,6 +1298,49 @@ def remove_out_of_stimulus_fixations(stimuli, fixations):
     return fixations[inds]
 
 
+def clip_out_of_stimulus_fixations(fixations, stimuli=None, width=None, height=None):
+    if stimuli is None and (width is None or height is None):
+        raise ValueError("You have to provide either stimuli or width and height")
+    if stimuli is not None:
+        widths = np.array([s[1] for s in stimuli.sizes])
+        heights = np.array([s[0] for s in stimuli.sizes])
+        new_fixations = fixations.copy()
+        x_max = widths[fixations.n] - 0.01
+        y_max = heights[fixations.n] - 0.01
+    else:
+        x_max = width - 0.01
+        y_max = height - 0.01
+
+    new_fixations = fixations.copy()
+
+    new_fixations.x = np.clip(new_fixations.x, a_min=0, a_max=x_max)
+    new_fixations.y = np.clip(new_fixations.y, a_min=0, a_max=y_max)
+
+    if isinstance(x_max, np.ndarray):
+        x_max = x_max[:, np.newaxis]
+        y_max = y_max[:, np.newaxis]
+
+    new_fixations.x_hist = np.clip(new_fixations.x_hist, a_min=0, a_max=x_max)
+    new_fixations.y_hist = np.clip(new_fixations.y_hist, a_min=0, a_max=y_max)
+
+    if isinstance(fixations, FixationTrains):
+        if stimuli is not None:
+            x_max = widths[fixations.train_ns] - 0.01
+            y_max = heights[fixations.train_ns] - 0.01
+            x_max = x_max[:, np.newaxis]
+            y_max = y_max[:, np.newaxis]
+        else:
+            x_max = width - 0.01
+            y_max = height - 0.01
+
+        x_max = widths[fixations.train_ns] - 0.01
+        y_max = heights[fixations.train_ns] - 0.01
+        new_fixations.train_xs = np.clip(new_fixations.train_xs, a_min=0, a_max=x_max[:, np.newaxis])
+        new_fixations.train_ys = np.clip(new_fixations.train_ys, a_min=0, a_max=y_max[:, np.newaxis])
+
+    return new_fixations
+
+
 def calculate_nonfixation_factors(stimuli, index):
     widths = np.asarray([s[1] for s in stimuli.sizes]).astype(float)
     heights = np.asarray([s[0] for s in stimuli.sizes]).astype(float)

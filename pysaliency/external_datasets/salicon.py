@@ -8,7 +8,7 @@ import numpy as np
 from scipy.io import loadmat
 from tqdm import tqdm
 
-from ..datasets import Fixations, read_hdf5
+from ..datasets import Fixations, read_hdf5, clip_out_of_stimulus_fixations
 from ..utils import (
     TemporaryDirectory,
     download_file_from_google_drive,
@@ -213,6 +213,10 @@ def _get_SALICON_fixations(location, name, edition='2015', fixation_type='mouse'
             if location is not None:
                 fixations_train.to_hdf5(os.path.join(location, 'fixations_train.hdf5'))
                 fixations_val.to_hdf5(os.path.join(location, 'fixations_val.hdf5'))
+
+        if edition == '2017' and fixation_type == 'mouse':
+            fixations_train = clip_out_of_stimulus_fixations(fixations_train, width=640, height=480)
+            fixations_val = clip_out_of_stimulus_fixations(fixations_val, width=640, height=480)
 
         return fixations_train, fixations_val
 
