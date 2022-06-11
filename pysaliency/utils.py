@@ -11,8 +11,7 @@ import hashlib
 from functools import partial
 import warnings
 import shutil
-from six.moves import urllib, filterfalse, map
-from six import iterkeys
+from itertools import filterfalse
 import subprocess as sp
 from tempfile import mkdtemp
 
@@ -328,22 +327,6 @@ def check_file_hash(filename, md5_hash):
                       " this code producing wrong data.".format(filename, md5_hash, file_hash))
 
 
-def download_file_old(url, target):
-    """Download url to target while displaying progress information."""
-    class Log(object):
-        def __init__(self):
-            self.last_percent = -1
-
-        def __call__(self, blocks_recieved, block_size, file_size):
-            percent = int(blocks_recieved * block_size / file_size * 100)
-            if percent == self.last_percent:
-                return
-            print('\rDownloading file. {}% done'.format(percent), end='')
-            self.last_percent = percent
-    urllib.request.urlretrieve(url, target, Log())
-    print('')
-
-
 def download_file(url, target, verify_ssl=True):
     r = requests.get(url, stream=True, verify=verify_ssl)
     total_size = int(r.headers.get('content-length', 0))
@@ -424,9 +407,9 @@ class Cache(MutableMapping):
             filenames = iglob(self.filename('*'))
             keys = map(lambda f: os.path.splitext(os.path.basename(f))[0], filenames)
             new_keys = filterfalse(lambda key: key in self._cache.keys(), keys)
-            return chain(iterkeys(self._cache), new_keys)
+            return chain(iter(self._cache.keys()), new_keys)
         else:
-            return iterkeys(self._cache)
+            return iter(self._cache.keys())
 
     def __len__(self):
         i = iter(self)

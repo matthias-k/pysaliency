@@ -1,7 +1,7 @@
 from __future__ import absolute_import, print_function, division
 
 import os
-from six.moves import urllib
+import urllib
 
 import numpy as np
 from scipy.io import loadmat

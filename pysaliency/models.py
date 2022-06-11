@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from abc import ABCMeta, abstractmethod
-from six import add_metaclass
 
 from itertools import combinations
 
@@ -92,8 +91,7 @@ def sample_from_image(densities, count=None, rst=None):
         return np.asarray(sample_xs), np.asarray(sample_ys)
 
 
-@add_metaclass(ABCMeta)
-class ScanpathModel(SamplingModelMixin, object):
+class ScanpathModel(SamplingModelMixin, object, metaclass=ABCMeta):
     """
     General probabilistic saliency model.
 

@@ -9,9 +9,6 @@ import json
 from functools import wraps
 from weakref import WeakValueDictionary
 
-from six.moves import range as xrange
-from six import string_types
-
 from boltons.cacheutils import cached
 import numpy as np
 from imageio import imread
@@ -37,7 +34,7 @@ def hdf5_wrapper(mode=None):
 
 
 def decode_string(data):
-    if not isinstance(data, string_types):
+    if not isinstance(data, str):
         return data.decode('utf8')
 
     return data
@@ -84,7 +81,7 @@ def read_hdf5(source):
 def create_hdf5_dataset(target, name, data):
     import h5py
 
-    if isinstance(np.array(data).flatten()[0], string_types):
+    if isinstance(np.array(data).flatten()[0], str):
         data = np.array(data)
         original_shape = data.shape
         encoded_items = [decode_string(item).encode('utf8') for item in data.flatten()]
@@ -313,9 +310,12 @@ class Fixations(object):
 
     @classmethod
     def FixationsWithoutHistory(cls, x, y, t, n, subjects):
-        x_hist = np.empty((len(x), 1))*np.nan
-        y_hist = np.empty((len(x), 1))*np.nan
-        t_hist = np.empty((len(x), 1))*np.nan
+        x_hist = np.empty((len(x), 1))
+        x_hist[:] = np.nan
+        y_hist = np.empty((len(x), 1))
+        y_hist[:] = np.nan
+        t_hist = np.empty((len(x), 1))
+        t_hist[:] = np.nan
         return cls(x, y, t, x_hist, y_hist, t_hist, n, subjects)
 
     @hdf5_wrapper(mode='w')
@@ -350,7 +350,7 @@ class Fixations(object):
         fixations = cls(**data)
 
         json_attributes = source.attrs['__attributes__']
-        if not isinstance(json_attributes, string_types):
+        if not isinstance(json_attributes, str):
             json_attributes = json_attributes.decode('utf8')
         __attributes__ = json.loads(json_attributes)
         fixations.__attributes__ == list(__attributes__)
@@ -477,7 +477,7 @@ class FixationTrains(Fixations):
         """Yield for every fixation train of the dataset:
              xs, ys, ts, n, subject
         """
-        for i in xrange(self.train_xs.shape[0]):
+        for i in range(self.train_xs.shape[0]):
             length = (1 - np.isnan(self.train_xs[i])).sum()
             xs = self.train_xs[i][:length]
             ys = self.train_ys[i][:length]
@@ -804,7 +804,7 @@ class FixationTrains(Fixations):
             scanpath_attributes_group = source['scanpath_attributes']
 
             json_attributes = scanpath_attributes_group.attrs['__attributes__']
-            if not isinstance(json_attributes, string_types):
+            if not isinstance(json_attributes, str):
                 json_attributes = json_attributes.decode('utf8')
             __attributes__ = json.loads(json_attributes)
 
@@ -1001,7 +1001,7 @@ class Stimuli(Sequence):
             __attributes__ = []
         else:
             json_attributes = source.attrs['__attributes__']
-            if not isinstance(json_attributes, string_types):
+            if not isinstance(json_attributes, str):
                 json_attributes = json_attributes.decode('utf8')
             __attributes__ = json.loads(json_attributes)
 
