@@ -11,8 +11,7 @@ import hashlib
 from functools import partial
 import warnings
 import shutil
-from six.moves import urllib, filterfalse, map
-from six import iterkeys
+from itertools import filterfalse
 import subprocess as sp
 from tempfile import mkdtemp
 
@@ -328,24 +327,8 @@ def check_file_hash(filename, md5_hash):
                       " this code producing wrong data.".format(filename, md5_hash, file_hash))
 
 
-def download_file_old(url, target):
-    """Download url to target while displaying progress information."""
-    class Log(object):
-        def __init__(self):
-            self.last_percent = -1
-
-        def __call__(self, blocks_recieved, block_size, file_size):
-            percent = int(blocks_recieved * block_size / file_size * 100)
-            if percent == self.last_percent:
-                return
-            print('\rDownloading file. {}% done'.format(percent), end='')
-            self.last_percent = percent
-    urllib.request.urlretrieve(url, target, Log())
-    print('')
-
-
-def download_file(url, target):
-    r = requests.get(url, stream=True)
+def download_file(url, target, verify_ssl=True):
+    r = requests.get(url, stream=True, verify=verify_ssl)
     total_size = int(r.headers.get('content-length', 0))
     with open(target, 'wb') as f:
         with tqdm(total=total_size, unit='B', unit_scale=True, desc='Downloading file') as progress_bar:
@@ -354,43 +337,14 @@ def download_file(url, target):
                 progress_bar.update(32*1024)
 
 
-def download_and_check(url, target, md5_hash):
+def download_and_check(url, target, md5_hash, verify_ssl=True):
     """Download url to target and check for correct md5_hash. Prints warning if hash is not correct."""
-    download_file(url, target)
+    download_file(url, target, verify_ssl=verify_ssl)
     check_file_hash(target, md5_hash)
 
-
 def download_file_from_google_drive(id, destination):
-    """adapted from https://drive.google.com/uc?id=0B2hsWbciDVedWHFiMUVVWFRZTE0&export=download"""
-    def get_confirm_token(response):
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                return value
-
-        return None
-
-    def save_response_content(response, destination):
-        CHUNK_SIZE = 32768
-
-        with tqdm(unit='B', unit_scale=True) as pbar:
-            with open(destination, "wb") as f:
-                for chunk in response.iter_content(CHUNK_SIZE):
-                    if chunk: # filter out keep-alive new chunks
-                        f.write(chunk)
-                        pbar.update(CHUNK_SIZE)
-
-    URL = "https://docs.google.com/uc?export=download"
-
-    session = requests.Session()
-
-    response = session.get(URL, params = { 'id' : id }, stream = True)
-    token = get_confirm_token(response)
-
-    if token:
-        params = { 'id' : id, 'confirm' : token }
-        response = session.get(URL, params = params, stream = True)
-
-    save_response_content(response, destination)
+    import gdown
+    gdown.download(id=id, output=destination, quiet=False)
 
 
 class Cache(MutableMapping):
@@ -453,9 +407,9 @@ class Cache(MutableMapping):
             filenames = iglob(self.filename('*'))
             keys = map(lambda f: os.path.splitext(os.path.basename(f))[0], filenames)
             new_keys = filterfalse(lambda key: key in self._cache.keys(), keys)
-            return chain(iterkeys(self._cache), new_keys)
+            return chain(iter(self._cache.keys()), new_keys)
         else:
-            return iterkeys(self._cache)
+            return iter(self._cache.keys())
 
     def __len__(self):
         i = iter(self)

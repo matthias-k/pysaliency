@@ -1,13 +1,11 @@
 from __future__ import print_function, absolute_import, division, unicode_literals
 
 from abc import ABCMeta, abstractmethod
-from six import add_metaclass
 
 from .utils import remove_trailing_nans
 
 
-@add_metaclass(ABCMeta)
-class SamplingModelMixin(object):
+class SamplingModelMixin(object, metaclass=ABCMeta):
     """A sampling model is supports sampling fixations and whole scanpaths."""
     def sample_scanpath(
         self, stimulus, x_hist, y_hist, t_hist, samples, attributes=None, verbose=False, rst=None

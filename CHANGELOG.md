@@ -1,5 +1,10 @@
 # Changelog
 
+* 0.2.22 (dev):
+  * Bugfix: torch code was broken due to changes in torch 1.11
+  * Bugfix: SALICON dataset download did not work anymore
+  * Bugfix: NUSEF datast links changed
+
 * 0.2.21:
   * Added new datasets: PASCAL-S and DUT-OMRON
   * Feature: FixedStimulusSizeModel and DVAAwareModel

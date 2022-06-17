@@ -47,7 +47,6 @@ jobs:
           scikit-learn \
           scipy \
           setuptools \
-          six \
           sphinx \
           theano \
           tqdm

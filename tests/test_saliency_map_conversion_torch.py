@@ -5,7 +5,6 @@ from pysaliency.saliency_map_conversion import optimize_for_information_gain
 from pysaliency import Stimuli, Fixations, GaussianSaliencyMapModel
 
 
-@pytest.mark.theano
 @pytest.mark.parametrize("optimize", [
     None,
     ['nonlinearity'],
@@ -36,7 +35,9 @@ def test_optimize_for_IG(optimize):
         blur_radius=3,
         verbose=2,
         maxiter=10,
-        return_optimization_result=True)
+        return_optimization_result=True,
+        framework='torch'
+    )
 
     assert res.status in [
         0,  # success

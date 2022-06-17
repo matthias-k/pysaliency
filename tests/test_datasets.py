@@ -2,23 +2,50 @@ from __future__ import absolute_import, print_function, division
 
 import unittest
 import os.path
-from six.moves import cPickle
 import dill
+import pickle
 import pytest
 
 import numpy as np
 from imageio import imwrite
 
 import pysaliency
+from pysaliency.datasets import FixationTrains, Fixations
 from test_helpers import TestWithData
 
 
-def compare_fix(f1, f2, f2_inds):
+def compare_fixations_subset(f1, f2, f2_inds):
     np.testing.assert_allclose(f1.x, f2.x[f2_inds])
     np.testing.assert_allclose(f1.y, f2.y[f2_inds])
     np.testing.assert_allclose(f1.t, f2.t[f2_inds])
     np.testing.assert_allclose(f1.n, f2.n[f2_inds])
     np.testing.assert_allclose(f1.subjects, f2.subjects[f2_inds])
+
+    assert f1.__attributes__ == f2.__attributes__
+    for attribute in f1.__attributes__:
+        if attribute == 'scanpath_index':
+            continue
+        np.testing.assert_array_equal(getattr(f1, attribute), getattr(f2, attribute)[f2_inds])
+
+
+def compare_fixations(f1, f2, crop_length=False):
+    if crop_length:
+        maximum_length = np.max(f2.lengths)
+    else:
+        maximum_length = max(np.max(f1.lengths), np.max(f2.lengths))
+    np.testing.assert_array_equal(f1.x, f2.x)
+    np.testing.assert_array_equal(f1.y, f2.y)
+    np.testing.assert_array_equal(f1.t, f2.t)
+    np.testing.assert_array_equal(f1.x_hist[:, :maximum_length], f2.x_hist)
+    np.testing.assert_array_equal(f1.y_hist[:, :maximum_length], f2.y_hist)
+    np.testing.assert_array_equal(f1.t_hist[:, :maximum_length], f2.t_hist)
+    
+    assert f1.__attributes__ == f2.__attributes__
+    for attribute in f1.__attributes__:
+        if attribute == 'scanpath_index':
+            continue
+        np.testing.assert_array_equal(getattr(f1, attribute), getattr(f2, attribute))
+
 
 
 class TestFixations(TestWithData):
@@ -91,7 +118,7 @@ class TestFixations(TestWithData):
         inds = f.n == 10
         _f = f.filter(inds)
         self.assertNotIsInstance(_f, pysaliency.FixationTrains)
-        compare_fix(_f, f, inds)
+        compare_fixations_subset(_f, f, inds)
 
         # second order filtering
         inds = np.nonzero(f.n == 10)[0]
@@ -99,7 +126,7 @@ class TestFixations(TestWithData):
         inds2 = np.nonzero(_f.subjects == 0)[0]
         __f = _f.filter(inds2)
         cum_inds = inds[inds2]
-        compare_fix(__f, f, cum_inds)
+        compare_fixations_subset(__f, f, cum_inds)
 
     def test_filter_trains(self):
         xs_trains = []
@@ -121,7 +148,7 @@ class TestFixations(TestWithData):
         _f = f.filter_fixation_trains(inds)
         self.assertIsInstance(_f, pysaliency.FixationTrains)
         equivalent_indices = f.n == 10
-        compare_fix(_f, f, equivalent_indices)
+        compare_fixations_subset(_f, f, equivalent_indices)
 
         ## second order filtering
         # inds = np.nonzero(f.n == 10)[0]
@@ -129,7 +156,7 @@ class TestFixations(TestWithData):
         # inds2 = np.nonzero(_f.subjects == 0)[0]
         # __f = _f.filter(inds2)
         # cum_inds = inds[inds2]
-        # compare_fix(__f, f, cum_inds)
+        # compare_fixations_subset(__f, f, cum_inds)
 
     def test_save_and_load(self):
         xs_trains = [
@@ -151,10 +178,10 @@ class TestFixations(TestWithData):
 
         filename = os.path.join(self.data_path, 'fixation.pydat')
         with open(filename, 'wb') as out_file:
-            cPickle.dump(f, out_file)
+            pickle.dump(f, out_file)
 
         with open(filename, 'rb') as in_file:
-            f = cPickle.load(in_file)
+            f = pickle.load(in_file)
         # Test fixation trains
         np.testing.assert_allclose(f.train_xs, [[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
         np.testing.assert_allclose(f.train_ys, [[10, 11, 12], [12, 12, np.nan], [21, 25, 33]])
@@ -376,6 +403,20 @@ def test_read_hdf5_caching(fixation_trains, tmp_path):
 
     new_fixations2 = pysaliency.read_hdf5(str(filename))
     assert new_fixations2 is new_fixations, "objects should not be read into memory multiple times"
+
+
+def test_fixation_trains_copy(fixation_trains):
+    copied_fixation_trains = fixation_trains.copy()
+    assert isinstance(copied_fixation_trains, FixationTrains)
+    compare_fixations(fixation_trains, copied_fixation_trains)
+
+
+def test_fixations_copy(fixation_trains):
+    fixations = fixation_trains[:-1]
+    assert isinstance(fixations, Fixations)
+    copied_fixations = fixations.copy()
+    assert isinstance(copied_fixations, Fixations)
+    compare_fixations(fixations, copied_fixations)
 
 
 @pytest.fixture

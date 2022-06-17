@@ -1,12 +1,10 @@
 from __future__ import absolute_import, print_function, division
 
 import unittest
+import pickle
 import os.path
 import shutil
 import filecmp
-from six.moves import cPickle
-import six
-
 
 def assert_equal(a, b):
     assert a == b
@@ -24,7 +22,7 @@ class TestWithData(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.data_path)
 
-    def pickle_and_reload(self, data, pickler = cPickle):
+    def pickle_and_reload(self, data, pickler = pickle):
         filename = os.path.join(self.data_path, 'object.pydat')
 
         with open(filename, 'wb') as f:
@@ -46,7 +44,5 @@ def check_dircmp(dircmp):
 
 
 def assertDirsEqual(dir1, dir2, ignore=[]):
-    if six.PY2:
-        ignore = map(str, ignore)
     dircmp = filecmp.dircmp(dir1, dir2, ignore=ignore)
     check_dircmp(dircmp)

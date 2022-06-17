@@ -2,7 +2,6 @@ from __future__ import absolute_import, print_function, division, unicode_litera
 
 import os
 from abc import ABCMeta, abstractmethod
-from six import add_metaclass
 
 import numpy as np
 from scipy.io import loadmat
@@ -84,8 +83,7 @@ def _get_unfixated_values(saliency_map, ys, xs):
     return saliency_map[fixation_map == 0].flatten()
 
 
-@add_metaclass(ABCMeta)
-class ScanpathSaliencyMapModel(object):
+class ScanpathSaliencyMapModel(object, metaclass=ABCMeta):
     """
     Most general saliency model class. The model is neither
     assumed to be time-independet nor to be a probabilistic

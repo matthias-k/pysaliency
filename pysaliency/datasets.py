@@ -9,9 +9,6 @@ import json
 from functools import wraps
 from weakref import WeakValueDictionary
 
-from six.moves import range as xrange
-from six import string_types
-
 from boltons.cacheutils import cached
 import numpy as np
 from imageio import imread
@@ -37,7 +34,7 @@ def hdf5_wrapper(mode=None):
 
 
 def decode_string(data):
-    if not isinstance(data, string_types):
+    if not isinstance(data, str):
         return data.decode('utf8')
 
     return data
@@ -84,7 +81,7 @@ def read_hdf5(source):
 def create_hdf5_dataset(target, name, data):
     import h5py
 
-    if isinstance(np.array(data).flatten()[0], string_types):
+    if isinstance(np.array(data).flatten()[0], str):
         data = np.array(data)
         original_shape = data.shape
         encoded_items = [decode_string(item).encode('utf8') for item in data.flatten()]
@@ -139,6 +136,11 @@ class Fixations(object):
         y = np.asarray(y)
         t = np.asarray(t)
         n = np.asarray(n)
+        x_hist = np.asarray(x_hist)
+        t_hist = np.asarray(y_hist)
+        t_hist = np.asarray(t_hist)
+        subjects = np.asarray(subjects)
+
         self.x = x
         self.y = y
         self.t = t
@@ -308,9 +310,12 @@ class Fixations(object):
 
     @classmethod
     def FixationsWithoutHistory(cls, x, y, t, n, subjects):
-        x_hist = np.empty((len(x), 1))*np.nan
-        y_hist = np.empty((len(x), 1))*np.nan
-        t_hist = np.empty((len(x), 1))*np.nan
+        x_hist = np.empty((len(x), 1))
+        x_hist[:] = np.nan
+        y_hist = np.empty((len(x), 1))
+        y_hist[:] = np.nan
+        t_hist = np.empty((len(x), 1))
+        t_hist[:] = np.nan
         return cls(x, y, t, x_hist, y_hist, t_hist, n, subjects)
 
     @hdf5_wrapper(mode='w')
@@ -345,7 +350,7 @@ class Fixations(object):
         fixations = cls(**data)
 
         json_attributes = source.attrs['__attributes__']
-        if not isinstance(json_attributes, string_types):
+        if not isinstance(json_attributes, str):
             json_attributes = json_attributes.decode('utf8')
         __attributes__ = json.loads(json_attributes)
         fixations.__attributes__ == list(__attributes__)
@@ -428,6 +433,26 @@ class FixationTrains(Fixations):
 
         self.full_nonfixations = None
 
+
+    def copy(self):
+        copied_attributes = {}
+        for attribute_name in self.__attributes__:
+            if attribute_name in ['subjects', 'scanpath_index']:
+                continue
+            copied_attributes[attribute_name] = getattr(self, attribute_name).copy()
+        copied_scanpaths = FixationTrains(
+            train_xs=self.train_xs.copy(),
+            train_ys=self.train_ys.copy(),
+            train_ts=self.train_ts.copy(),
+            train_ns=self.train_ns.copy(),
+            train_subjects=self.train_subjects.copy(),
+            scanpath_attributes={
+                key: value.copy() for key, value in self.scanpath_attributes.items()
+            } if self.scanpath_attributes else None,
+            attributes=copied_attributes if copied_attributes else None,
+        )
+        return copied_scanpaths
+
     def filter_fixation_trains(self, indices):
         """
         Create new fixations object which contains only the fixation trains indicated.
@@ -452,7 +477,7 @@ class FixationTrains(Fixations):
         """Yield for every fixation train of the dataset:
              xs, ys, ts, n, subject
         """
-        for i in xrange(self.train_xs.shape[0]):
+        for i in range(self.train_xs.shape[0]):
             length = (1 - np.isnan(self.train_xs[i])).sum()
             xs = self.train_xs[i][:length]
             ys = self.train_ys[i][:length]
@@ -779,7 +804,7 @@ class FixationTrains(Fixations):
             scanpath_attributes_group = source['scanpath_attributes']
 
             json_attributes = scanpath_attributes_group.attrs['__attributes__']
-            if not isinstance(json_attributes, string_types):
+            if not isinstance(json_attributes, str):
                 json_attributes = json_attributes.decode('utf8')
             __attributes__ = json.loads(json_attributes)
 
@@ -976,7 +1001,7 @@ class Stimuli(Sequence):
             __attributes__ = []
         else:
             json_attributes = source.attrs['__attributes__']
-            if not isinstance(json_attributes, string_types):
+            if not isinstance(json_attributes, str):
                 json_attributes = json_attributes.decode('utf8')
             __attributes__ = json.loads(json_attributes)
 
@@ -1271,6 +1296,49 @@ def remove_out_of_stimulus_fixations(stimuli, fixations):
             (fixations.y < heights[fixations.n])
             )
     return fixations[inds]
+
+
+def clip_out_of_stimulus_fixations(fixations, stimuli=None, width=None, height=None):
+    if stimuli is None and (width is None or height is None):
+        raise ValueError("You have to provide either stimuli or width and height")
+    if stimuli is not None:
+        widths = np.array([s[1] for s in stimuli.sizes])
+        heights = np.array([s[0] for s in stimuli.sizes])
+        new_fixations = fixations.copy()
+        x_max = widths[fixations.n] - 0.01
+        y_max = heights[fixations.n] - 0.01
+    else:
+        x_max = width - 0.01
+        y_max = height - 0.01
+
+    new_fixations = fixations.copy()
+
+    new_fixations.x = np.clip(new_fixations.x, a_min=0, a_max=x_max)
+    new_fixations.y = np.clip(new_fixations.y, a_min=0, a_max=y_max)
+
+    if isinstance(x_max, np.ndarray):
+        x_max = x_max[:, np.newaxis]
+        y_max = y_max[:, np.newaxis]
+
+    new_fixations.x_hist = np.clip(new_fixations.x_hist, a_min=0, a_max=x_max)
+    new_fixations.y_hist = np.clip(new_fixations.y_hist, a_min=0, a_max=y_max)
+
+    if isinstance(fixations, FixationTrains):
+        if stimuli is not None:
+            x_max = widths[fixations.train_ns] - 0.01
+            y_max = heights[fixations.train_ns] - 0.01
+            x_max = x_max[:, np.newaxis]
+            y_max = y_max[:, np.newaxis]
+        else:
+            x_max = width - 0.01
+            y_max = height - 0.01
+
+        x_max = widths[fixations.train_ns] - 0.01
+        y_max = heights[fixations.train_ns] - 0.01
+        new_fixations.train_xs = np.clip(new_fixations.train_xs, a_min=0, a_max=x_max[:, np.newaxis])
+        new_fixations.train_ys = np.clip(new_fixations.train_ys, a_min=0, a_max=y_max[:, np.newaxis])
+
+    return new_fixations
 
 
 def calculate_nonfixation_factors(stimuli, index):
