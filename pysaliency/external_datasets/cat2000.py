@@ -9,6 +9,7 @@ import numpy as np
 from scipy.io import loadmat
 from natsort import natsorted
 from pkg_resources import resource_string
+from tqdm import tqdm
 
 from ..datasets import FixationTrains
 from ..utils import (
@@ -17,7 +18,6 @@ from ..utils import (
     run_matlab_cmd,
     download_and_check,
     atomic_directory_setup)
-from ..generics import progressinfo
 
 from .utils import create_stimuli, _load
 
@@ -219,7 +219,7 @@ def _get_cat2000_train(name, location):
             subject_dict = {}
 
             files = natsorted(glob.glob(os.path.join(temp_dir, out_path, '*.mat')))
-            for f in progressinfo(files):
+            for f in tqdm(files):
                 mat_data = loadmat(f)
                 fix_data = mat_data['data']
                 name = mat_data['name'][0]
@@ -345,7 +345,7 @@ def _get_cat2000_train_v1_1(name, location):
             subject_dict = {}
 
             files = natsorted(glob.glob(os.path.join(temp_dir, out_path, '*.mat')))
-            for f in progressinfo(files):
+            for f in tqdm(files):
                 mat_data = loadmat(f)
                 fix_data = mat_data['data']
                 name = mat_data['name'][0]

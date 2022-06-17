@@ -10,7 +10,6 @@ from scipy.ndimage import zoom
 from scipy.special import logsumexp
 from tqdm import tqdm
 
-from .generics import progressinfo
 from .saliency_map_models import (SaliencyMapModel, handle_stimulus,
                                   SubjectDependentSaliencyMapModel,
                                   ExpSaliencyMapModel,
