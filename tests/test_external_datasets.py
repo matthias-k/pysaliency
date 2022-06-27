@@ -74,6 +74,7 @@ def test_toronto(location):
 
 @pytest.mark.slow
 @pytest.mark.download
+@pytest.mark.matlab
 @pytest.mark.skip_octave
 def test_cat2000_train(location, matlab):
     real_location = _location(location)
@@ -147,6 +148,7 @@ def test_cat2000_test(location):
 @pytest.mark.slow
 @pytest.mark.download
 @pytest.mark.skip_octave
+@pytest.mark.matlab
 def test_mit1003(location, matlab):
     real_location = _location(location)
 
@@ -204,6 +206,7 @@ def test_mit1003(location, matlab):
 @pytest.mark.slow
 @pytest.mark.download
 @pytest.mark.skip_octave
+@pytest.mark.matlab
 def test_mit1003_onesize(location, matlab):
     real_location = _location(location)
 
