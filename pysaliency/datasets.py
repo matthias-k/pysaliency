@@ -137,7 +137,7 @@ class Fixations(object):
         t = np.asarray(t)
         n = np.asarray(n)
         x_hist = np.asarray(x_hist)
-        t_hist = np.asarray(y_hist)
+        y_hist = np.asarray(y_hist)
         t_hist = np.asarray(t_hist)
         subjects = np.asarray(subjects)
 
