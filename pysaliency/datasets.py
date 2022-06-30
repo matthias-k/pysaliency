@@ -15,7 +15,7 @@ from imageio import imread
 from PIL import Image
 from tqdm import tqdm
 
-from .utils import LazyList, build_padded_2d_array
+from .utils import LazyList, build_padded_2d_array, remove_trailing_nans
 
 
 def hdf5_wrapper(mode=None):
@@ -1374,3 +1374,113 @@ def create_nonfixations(stimuli, fixations, index, adjust_n = True, adjust_histo
         non_fixations.n = np.ones(len(non_fixations.n), dtype=int)*index
 
     return non_fixations
+
+
+def _scanpath_from_fixation_index(fixations, fixation_index, __attributes__):
+    xs = np.hstack((
+        remove_trailing_nans(fixations.x_hist[fixation_index]),
+        [fixations.x[fixation_index]]
+    ))
+
+    ys = np.hstack((
+        remove_trailing_nans(fixations.y_hist[fixation_index]),
+        [fixations.y[fixation_index]]
+    ))
+
+    ts = np.hstack((
+        remove_trailing_nans(fixations.t_hist[fixation_index]),
+        [fixations.t[fixation_index]]
+    ))
+
+    n = fixations.n[fixation_index]
+
+    subject = fixations.subjects[fixation_index]
+
+    attributes = {
+        attribute: getattr(fixations, attribute)[fixation_index]
+        for attribute in __attributes__
+    }
+
+    return xs, ys, ts, n, subject, attributes
+
+
+def scanpaths_from_fixations(fixations, verbose=False):
+    if 'scanpath_index' not in fixations.__attributes__:
+        raise NotImplementedError("Fixations with scanpath_index attribute required!")
+
+    scanpath_xs = []
+    scanpath_ys = []
+    scanpath_ts = []
+    scanpath_ns = []
+    scanpath_subjects = []
+    __attributes__ = [attribute for attribute in fixations.__attributes__ if attribute != 'subjects' and attribute != 'scanpath_index']
+    attributes = {attribute: [] for attribute in __attributes__}
+
+    attribute_shapes = {
+        attribute: getattr(fixations, attribute)[0].shape for attribute in attributes
+    }
+
+    indices = np.ones(len(fixations), dtype=int) * -1
+    fixation_counter = 0
+
+    for scanpath_index in tqdm(sorted(np.unique(fixations.scanpath_index)), disable=not verbose):
+        scanpath_indices = fixations.scanpath_index == scanpath_index
+        scanpath_integer_indices = np.nonzero(scanpath_indices)[0]
+        lengths = fixations.lengths[scanpath_indices]
+
+        # build scanpath up to maximum length
+        maximum_length = max(lengths)
+        _index_of_maximum_length = np.argmax(lengths)
+        index_of_maximum_length = scanpath_integer_indices[_index_of_maximum_length]
+
+        xs, ys, ts, n, subject, _ = _scanpath_from_fixation_index(
+            fixations,
+            index_of_maximum_length,
+            __attributes__
+        )
+
+        scanpath_xs.append(xs)
+        scanpath_ys.append(ys)
+        scanpath_ts.append(ts)
+        scanpath_ns.append(n)
+        scanpath_subjects.append(subject)
+
+        # build attributes
+
+        for index_in_scanpath in range(maximum_length+1):
+            if index_in_scanpath in lengths:
+                # add index to indices
+                index_in_fixations = scanpath_integer_indices[list(lengths).index(index_in_scanpath)]
+
+                # there might be one fixation multiple times in fixations.
+                indices_in_fixations = scanpath_integer_indices[lengths == index_in_scanpath]
+                indices[indices_in_fixations] = fixation_counter + index_in_scanpath
+
+                # get attributes from fixations
+                _, _, _, _, _, this_attributes = _scanpath_from_fixation_index(
+                    fixations,
+                    index_in_fixations,
+                    __attributes__
+                )
+
+                for attribute in __attributes__:
+                    attributes[attribute].append(this_attributes[attribute])
+            else:
+                # use dummy attributes
+                for attribute in __attributes__:
+                    attributes[attribute].append(np.ones(attribute_shapes[attribute]) * np.nan)
+
+        fixation_counter += len(xs)
+
+    attributes = {
+        attribute: np.array(value) for attribute, value in attributes.items()
+    }
+
+    return FixationTrains.from_fixation_trains(
+        xs=scanpath_xs,
+        ys=scanpath_ys,
+        ts=scanpath_ts,
+        ns=scanpath_ns,
+        subjects=scanpath_subjects,
+        attributes=attributes
+    ), indices

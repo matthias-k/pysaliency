@@ -9,8 +9,10 @@ import pytest
 import numpy as np
 from imageio import imwrite
 
+from hypothesis import given, strategies as st
+
 import pysaliency
-from pysaliency.datasets import FixationTrains, Fixations
+from pysaliency.datasets import FixationTrains, Fixations, scanpaths_from_fixations
 from test_helpers import TestWithData
 
 
@@ -39,7 +41,7 @@ def compare_fixations(f1, f2, crop_length=False):
     np.testing.assert_array_equal(f1.x_hist[:, :maximum_length], f2.x_hist)
     np.testing.assert_array_equal(f1.y_hist[:, :maximum_length], f2.y_hist)
     np.testing.assert_array_equal(f1.t_hist[:, :maximum_length], f2.t_hist)
-    
+
     assert f1.__attributes__ == f2.__attributes__
     for attribute in f1.__attributes__:
         if attribute == 'scanpath_index':
@@ -514,6 +516,41 @@ def test_create_subset_fixations(file_stimuli_with_attributes, fixation_trains, 
     assert not isinstance(sub_fixations, pysaliency.FixationTrains)
     assert len(sub_stimuli) == len(stimulus_indices)
     np.testing.assert_array_equal(sub_fixations.x, fixations.x[np.isin(fixations.n, stimulus_indices)])
+
+
+@given(st.lists(elements=st.integers(min_value=0, max_value=7), min_size=1))
+def test_scanpaths_from_fixations(fixation_indices):
+    xs_trains = [
+        [0, 1, 2],
+        [2, 2],
+        [1, 5, 3]]
+    ys_trains = [
+        [10, 11, 12],
+        [12, 12],
+        [21, 25, 33]]
+    ts_trains = [
+        [0, 200, 600],
+        [100, 400],
+        [50, 500, 900]]
+    ns = [0, 0, 1]
+    subjects = [0, 1, 1]
+    tasks = [0, 1, 0]
+    some_attribute = np.arange(len(sum(xs_trains, [])))
+    fixation_trains = pysaliency.FixationTrains.from_fixation_trains(
+        xs_trains,
+        ys_trains,
+        ts_trains,
+        ns,
+        subjects,
+        attributes={'some_attribute': some_attribute},
+        scanpath_attributes={'task': tasks},
+    )
+
+    sub_fixations = fixation_trains[fixation_indices]
+    new_scanpaths, new_indices = scanpaths_from_fixations(sub_fixations)
+    new_sub_fixations = new_scanpaths[new_indices]
+
+    compare_fixations(sub_fixations, new_sub_fixations, crop_length=True)
 
 
 if __name__ == '__main__':

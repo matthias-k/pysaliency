@@ -1,6 +1,8 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Feature: scanpaths_from_fixations reconstructs a FixationTrains object from a Fixations instance
+  * Bugfix: t_hist got replaced with y_hist in Fixations instances (but luckily not in FixationTrains instances)
   * Bugfix: torch code was broken due to changes in torch 1.11
   * Bugfix: SALICON dataset download did not work anymore
   * Bugfix: NUSEF datast links changed
