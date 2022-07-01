@@ -42,11 +42,31 @@ def compare_fixations(f1, f2, crop_length=False):
     np.testing.assert_array_equal(f1.y_hist[:, :maximum_length], f2.y_hist)
     np.testing.assert_array_equal(f1.t_hist[:, :maximum_length], f2.t_hist)
 
-    assert f1.__attributes__ == f2.__attributes__
+    assert set(f1.__attributes__) == set(f2.__attributes__)
     for attribute in f1.__attributes__:
         if attribute == 'scanpath_index':
             continue
         np.testing.assert_array_equal(getattr(f1, attribute), getattr(f2, attribute))
+
+
+def compare_scanpaths(scanpaths1, scanpaths2):
+    np.testing.assert_array_equal(scanpaths1.train_xs, scanpaths2.train_xs)
+    np.testing.assert_array_equal(scanpaths1.train_ys, scanpaths2.train_ys)
+    np.testing.assert_array_equal(scanpaths1.train_xs, scanpaths2.train_xs)
+    np.testing.assert_array_equal(scanpaths1.train_ns, scanpaths2.train_ns)
+    np.testing.assert_array_equal(scanpaths1.train_subjects, scanpaths2.train_subjects)
+
+    assert scanpaths1.scanpath_attribute_mapping == scanpaths2.scanpath_attribute_mapping
+
+    assert scanpaths1.scanpath_attributes.keys() == scanpaths2.scanpath_attributes.keys()
+    for attribute_name in scanpaths1.scanpath_attributes.keys():
+        np.testing.assert_array_equal(scanpaths1.scanpath_attributes[attribute_name], scanpaths2.scanpath_attributes[attribute_name])
+
+    assert scanpaths1.scanpath_fixation_attributes.keys() == scanpaths2.scanpath_fixation_attributes.keys()
+    for attribute_name in scanpaths1.scanpath_fixation_attributes.keys():
+        np.testing.assert_array_equal(scanpaths1.scanpath_fixation_attributes[attribute_name], scanpaths2.scanpath_fixation_attributes[attribute_name])
+
+    compare_fixations(scanpaths1, scanpaths2)
 
 
 
@@ -349,6 +369,12 @@ def fixation_trains():
     ns = [0, 0, 1]
     subjects = [0, 1, 1]
     tasks = [0, 1, 0]
+    multi_dim_attribute = [[0.0, 1],[2, 3], [4, 5.5]]
+    durations_train = [
+        [42, 25, 100],
+        [99, 98],
+        [200, 150, 120]
+    ]
     some_attribute = np.arange(len(sum(xs_trains, [])))
     return pysaliency.FixationTrains.from_fixation_trains(
         xs_trains,
@@ -357,8 +383,64 @@ def fixation_trains():
         ns,
         subjects,
         attributes={'some_attribute': some_attribute},
-        scanpath_attributes={'task': tasks},
+        scanpath_attributes={
+            'task': tasks,
+            'multi_dim_attribute': multi_dim_attribute
+        },
+        scanpath_fixation_attributes={'durations': durations_train},
+        scanpath_attribute_mapping={'durations': 'duration'},
     )
+
+
+def test_copy_scanpaths(fixation_trains):
+    copied_fixation_trains = fixation_trains.copy()
+    compare_scanpaths(copied_fixation_trains, fixation_trains)
+
+
+def test_copy_fixations(fixation_trains):
+    fixations = fixation_trains[:]
+    copied_fixations = fixations.copy()
+    compare_fixations(copied_fixations, fixations)
+
+
+def test_write_read_scanpaths(tmp_path, fixation_trains):
+    filename = tmp_path / 'scanpaths.hdf5'
+    fixation_trains.to_hdf5(str(filename))
+
+    new_fixation_trains = pysaliency.read_hdf5(str(filename))
+
+    # make sure there is no sophisticated caching...
+    assert fixation_trains is not new_fixation_trains
+    compare_scanpaths(fixation_trains, new_fixation_trains)
+
+
+def test_scanpath_attributes(fixation_trains):
+    assert "task" in fixation_trains.scanpath_attributes
+    assert "task" in fixation_trains.__attributes__
+
+    np.testing.assert_array_equal(fixation_trains.scanpath_attributes['multi_dim_attribute'][0], [0, 1])
+    np.testing.assert_array_equal(fixation_trains.multi_dim_attribute[2], [0, 1])
+
+
+def test_scanpath_fixation_attributes(fixation_trains):
+    assert "durations" in fixation_trains.scanpath_fixation_attributes
+    np.testing.assert_array_equal(
+        fixation_trains.scanpath_fixation_attributes['durations'],
+        np.array([
+            [42, 25, 100],
+            [99, 98, np.nan],
+            [200, 150, 120]
+        ])
+    )
+
+    assert "duration" in fixation_trains.__attributes__
+    np.testing.assert_array_equal(fixation_trains.duration, np.array([
+            42, 25, 100,
+            99, 98,
+            200, 150, 120
+        ]))
+    assert "duration_hist" in fixation_trains.__attributes__
+    np.testing.assert_array_equal(fixation_trains.duration_hist[6], [200, np.nan])
 
 
 @pytest.mark.parametrize('scanpath_indices,fixation_indices', [
@@ -393,6 +475,13 @@ def test_filter_fixation_trains(fixation_trains, scanpath_indices, fixation_indi
         sub_fixations.scanpath_attributes['task'],
         fixation_trains.scanpath_attributes['task'][scanpath_indices]
     )
+
+    np.testing.assert_array_equal(
+        sub_fixations.scanpath_fixation_attributes['durations'],
+        fixation_trains.scanpath_fixation_attributes['durations'][scanpath_indices]
+    )
+
+    compare_fixations(sub_fixations, fixation_trains[fixation_indices])
 
 
 def test_read_hdf5_caching(fixation_trains, tmp_path):

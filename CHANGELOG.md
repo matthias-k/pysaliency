@@ -1,8 +1,13 @@
 # Changelog
 
 * 0.2.22 (dev):
-  * Feature: scanpaths_from_fixations reconstructs a FixationTrains object from a Fixations instance
-  * Bugfix: t_hist got replaced with y_hist in Fixations instances (but luckily not in FixationTrains instances)
+  * Feature: `FixationTrains.scanpath_fixation_attributes` allows handling of per-fixation attributes on scanpath level,
+    e.g. fixation durations. According attributes as in a Fixations instance are automatically created,
+    e.g. for durations there will be an attribute `durations` and an attribute `duration_hist`. Also
+    for scanpath_attributes (e.g., attributes applying to a whole scanpath, such as task) will also generate
+    an attribute for each fixation to make this information available in Fixations instance.
+  * Feature: `scanpaths_from_fixations` reconstructs a FixationTrains object from a Fixations instance
+  * Bugfix: `t_hist` got replaced with `y_hist` in Fixations instances (but luckily not in FixationTrains instances)
   * Bugfix: torch code was broken due to changes in torch 1.11
   * Bugfix: SALICON dataset download did not work anymore
   * Bugfix: NUSEF datast links changed
