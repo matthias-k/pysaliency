@@ -1,6 +1,7 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Feature: `FixationTrains.train_lengths`
   * Feature: `FixationTrains.scanpath_fixation_attributes` allows handling of per-fixation attributes on scanpath level,
     e.g. fixation durations. According attributes as in a Fixations instance are automatically created,
     e.g. for durations there will be an attribute `durations` and an attribute `duration_hist`. Also

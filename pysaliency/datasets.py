@@ -426,6 +426,7 @@ class FixationTrains(Fixations):
         self.t_hist[:] = np.nan
         self.n = np.empty(N_trains, dtype=int)
         self.lengths = np.empty(N_trains, dtype=int)
+        self.train_lengths = np.empty(len(self.train_xs), dtype=int)
         self.subjects = np.empty(N_trains, dtype=int)
         self.scanpath_index = np.empty(N_trains, dtype=int)
 
@@ -433,7 +434,8 @@ class FixationTrains(Fixations):
         # TODO: maybe implement in numba?
         # probably best: have function fill_fixation_data(scanpath_data, fixation_data, hist_data=None)
         for train_index in range(self.train_xs.shape[0]):
-            fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
+            fix_length = len(remove_trailing_nans(self.train_xs[train_index]))
+            self.train_lengths[train_index] = fix_length
             for fix_index in range(fix_length):
                 self.x[out_index] = self.train_xs[train_index][fix_index]
                 self.y[out_index] = self.train_ys[train_index][fix_index]

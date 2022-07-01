@@ -55,6 +55,7 @@ def compare_scanpaths(scanpaths1, scanpaths2):
     np.testing.assert_array_equal(scanpaths1.train_xs, scanpaths2.train_xs)
     np.testing.assert_array_equal(scanpaths1.train_ns, scanpaths2.train_ns)
     np.testing.assert_array_equal(scanpaths1.train_subjects, scanpaths2.train_subjects)
+    np.testing.assert_array_equal(scanpaths1.train_lengths, scanpaths2.train_lengths)
 
     assert scanpaths1.scanpath_attribute_mapping == scanpaths2.scanpath_attribute_mapping
 
@@ -412,6 +413,10 @@ def test_write_read_scanpaths(tmp_path, fixation_trains):
     # make sure there is no sophisticated caching...
     assert fixation_trains is not new_fixation_trains
     compare_scanpaths(fixation_trains, new_fixation_trains)
+
+
+def test_scanpath_lengths(fixation_trains):
+    np.testing.assert_array_equal(fixation_trains.train_lengths, [3, 2, 3])
 
 
 def test_scanpath_attributes(fixation_trains):
