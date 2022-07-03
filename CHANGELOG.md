@@ -1,6 +1,7 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Feature: COCO Seach18 dataset
   * Feature: `FixationTrains.train_lengths`
   * Feature: `FixationTrains.scanpath_fixation_attributes` allows handling of per-fixation attributes on scanpath level,
     e.g. fixation durations. According attributes as in a Fixations instance are automatically created,
