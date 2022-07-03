@@ -59,11 +59,19 @@ def skip_by_matlab(request, matlab):
             pytest.skip('skipped octave')
 
 
-@pytest.fixture(params=["no_location", "with_location"])
-def location(tmpdir, request):
-    if request.param == 'no_location':
-        return None
-    elif request.param == 'with_location':
-        return tmpdir
-    else:
-        raise ValueError(request.param)
+#@pytest.fixture(params=["no_location", "with_location"])
+#def location(tmpdir, request):
+#    if request.param == 'no_location':
+#        return None
+#    elif request.param == 'with_location':
+#        return tmpdir
+#    else:
+#        raise ValueError(request.param)
+
+
+# we don't test in memory external datasets anymore
+# we'll probably get rid of them anyway
+# TODO: remove this fixture, replace with tmpdir
+@pytest.fixture()
+def location(tmpdir):
+    return tmpdir
