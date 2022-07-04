@@ -38,7 +38,6 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture(params=["matlab", "octave"])
 def matlab(request, pytestconfig):
-    # 
     import pysaliency.utils
     if request.param == "matlab":
         pysaliency.utils.MatlabOptions.matlab_names = ['matlab', 'matlab.exe']

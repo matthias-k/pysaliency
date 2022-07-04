@@ -913,12 +913,12 @@ class FixationTrains(Fixations):
         data['attributes'] = attributes
 
         if data_version < '1.1':
-            data['scanpath_attributes']
+            data['scanpath_attributes'] = {}
         else:
             data['scanpath_attributes'] = _load_attribute_dict_from_hdf5(source['scanpath_attributes'])
 
         if data_version < '1.2':
-            data['scanpath_fixation_attributes']
+            data['scanpath_fixation_attributes'] = {}
             data['scanpath_attribute_mapping'] = {}
         else:
             data['scanpath_fixation_attributes'] = _load_attribute_dict_from_hdf5(source['scanpath_fixation_attributes'])
