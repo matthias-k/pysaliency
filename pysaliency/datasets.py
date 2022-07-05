@@ -1160,7 +1160,7 @@ class FileStimuli(Stimuli):
     """
     Manage a list of stimuli that are saved as files.
     """
-    def __init__(self, filenames, cache=True, shapes=None, attributes=None):
+    def __init__(self, filenames, cached=True, shapes=None, attributes=None):
         """
         Create a stimuli object that reads it's stimuli from files.
 
@@ -1185,7 +1185,7 @@ class FileStimuli(Stimuli):
             whether loaded stimuli should be cached. The cache is excluded from pickling.
         """
         self.filenames = filenames
-        self.stimuli = LazyList(self.load_stimulus, len(self.filenames), cache=cache)
+        self.stimuli = LazyList(self.load_stimulus, len(self.filenames), cache=cached)
         if shapes is None:
             self.shapes = []
             for f in filenames:
@@ -1213,6 +1213,14 @@ class FileStimuli(Stimuli):
             self.__attributes__ = list(attributes.keys())
         else:
             self.attributes = {}
+
+    @property
+    def cached(self):
+        return self.stimuli.cache
+
+    @cached.setter
+    def cached(self, value):
+        self.stimuli.cache = value
 
     def load_stimulus(self, n):
         return imread(self.filenames[n])
@@ -1268,7 +1276,7 @@ class FileStimuli(Stimuli):
 
     @classmethod
     @hdf5_wrapper(mode='r')
-    def read_hdf5(cls, source, cache=True):
+    def read_hdf5(cls, source, cached=True):
         """ Read FileStimuli from hdf5 file or hdf5 group """
 
         data_type = decode_string(source.attrs['type'])
@@ -1294,7 +1302,7 @@ class FileStimuli(Stimuli):
 
         __attributes__, attributes = cls._get_attributes_from_hdf5(source, data_version, '2.1')
 
-        stimuli = cls(filenames=filenames, cache=cache, shapes=shapes, attributes=attributes)
+        stimuli = cls(filenames=filenames, cached=cached, shapes=shapes, attributes=attributes)
 
         return stimuli
 
