@@ -97,7 +97,7 @@ class LazyList(Sequence):
         As `LazyList` stores the generator function, pickling it
         will usually fail. To pickle a `LazyList`, use `dill`.
     """
-    def __init__(self, generator, length, cache=True, pickle_cache=False):
+    def __init__(self, generator, length, cache=True, cache_size=None, pickle_cache=False):
         """
         Parameters
         ----------
@@ -120,7 +120,13 @@ class LazyList(Sequence):
         self.length = length
         self.cache = cache
         self.pickle_cache = pickle_cache
-        self._cache = {}
+        if cache_size is None:
+            if not cache:
+                cache_sized=1
+            else:
+                cache_size = 1000000
+        self.cache_size = cache_size
+        self._cache = LRU(max_size=cache_size, on_miss=self.generator)
 
     def __len__(self):
         return self.length
@@ -136,23 +142,23 @@ class LazyList(Sequence):
     def _getitem(self, index):
         if not 0 <= index < self.length:
             raise IndexError(index)
-        if index in self._cache:
-            return self._cache[index]
-        value = self.generator(index)
-        if self.cache:
-            self._cache[index] = value
-        return value
+        return self._cache[index]
 
     def __getstate__(self):
         # we don't want to save the cache
         state = dict(self.__dict__)
         if not self.pickle_cache:
             state.pop('_cache')
+        else:
+            # pickle only the cached valueas
+            state['_cache'] = dict(state['_cache'])
         return state
 
     def __setstate__(self, state):
         if not '_cache' in state:
-            state['_cache'] = {}
+            state['_cache'] = LRU(max_size=state['cache_size'], on_miss=state['generator'])
+        else:
+            state['_cache'] = LRU(max_size=state['cache_size'], values=state['_cache'], on_miss=state['generator'])
         self.__dict__ = dict(state)
 
 

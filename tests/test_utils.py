@@ -55,7 +55,7 @@ class TestLazyList(TestWithData):
 
         lazy_list = self.pickle_and_reload(lazy_list, pickler=dill)
 
-        self.assertEqual(lazy_list._cache, {})
+        self.assertEqual(len(lazy_list._cache), 0)
         self.assertEqual(list(lazy_list), [i**2 for i in range(length)])
 
     def test_pickle_with_cache(self):
@@ -70,7 +70,7 @@ class TestLazyList(TestWithData):
 
         lazy_list = self.pickle_and_reload(lazy_list, pickler=dill)
 
-        self.assertEqual(lazy_list._cache, {i: i**2 for i in range(length)})
+        self.assertEqual(dict(lazy_list._cache), {i: i**2 for i in range(length)})
         self.assertEqual(list(lazy_list), [i**2 for i in range(length)])
 
 
