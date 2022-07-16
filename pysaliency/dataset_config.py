@@ -1,4 +1,4 @@
-from .datasets import read_hdf5, clip_out_of_stimulus_fixations
+from .datasets import read_hdf5, clip_out_of_stimulus_fixations, remove_out_of_stimulus_fixations
 from .filter_datasets import (
     filter_fixations_by_number,
     filter_stimuli_by_number,
@@ -38,6 +38,7 @@ def apply_dataset_filter_config(stimuli, fixations, filter_config):
         'filter_stimuli_by_number': filter_stimuli_by_number,
         'filter_stimuli_by_size': filter_stimuli_by_size,
         'clip_out_of_stimulus_fixations': _clip_out_of_stimulus_fixations,
+        'remove_out_of_stimulus_fixations': _remove_out_of_stimulus_fixations,
         'train_split': train_split,
         'validation_split': validation_split,
         'test_split': test_split,
@@ -54,6 +55,11 @@ def apply_dataset_filter_config(stimuli, fixations, filter_config):
 def _clip_out_of_stimulus_fixations(stimuli, fixations):
     clipped_fixations = clip_out_of_stimulus_fixations(fixations, stimuli=stimuli)
     return stimuli, clipped_fixations
+
+
+def _remove_out_of_stimulus_fixations(stimuli, fixations):
+    filtered_fixations = remove_out_of_stimulus_fixations(stimuli, fixations)
+    return stimuli, filtered_fixations
 
 
 def add_stimuli_argument(fn):
