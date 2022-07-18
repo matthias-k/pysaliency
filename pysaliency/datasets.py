@@ -1233,7 +1233,7 @@ class FileStimuli(Stimuli):
             filenames = [self.filenames[i] for i in index]
             shapes = [self.shapes[i] for i in index]
             attributes = {key: [value[i] for i in index] for key, value in self.attributes.items()}
-            return type(self)(filenames=filenames, shapes=shapes, attributes=attributes)
+            return type(self)(filenames=filenames, shapes=shapes, attributes=attributes, cached=self.cached)
         else:
             return self.stimulus_objects[index]
 

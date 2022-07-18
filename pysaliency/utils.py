@@ -122,7 +122,7 @@ class LazyList(Sequence):
         self.pickle_cache = pickle_cache
         if cache_size is None:
             if not cache:
-                cache_sized=1
+                cache_size = 1
             else:
                 cache_size = 1000000
         self.cache_size = cache_size
