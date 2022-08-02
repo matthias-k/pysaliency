@@ -118,7 +118,7 @@ class LazyList(Sequence):
         """
         self.generator = generator
         self.length = length
-        self.cache = cache
+        self._do_cache = cache
         self.pickle_cache = pickle_cache
         if cache_size is None:
             if not cache:
@@ -155,11 +155,28 @@ class LazyList(Sequence):
         return state
 
     def __setstate__(self, state):
-        if not '_cache' in state:
-            state['_cache'] = LRU(max_size=state['cache_size'], on_miss=state['generator'])
+        if state['_do_cache']:
+            actual_cache_size = state['cache_size']
         else:
-            state['_cache'] = LRU(max_size=state['cache_size'], values=state['_cache'], on_miss=state['generator'])
+            actual_cache_size = 1
+
+        if not '_cache' in state:
+            state['_cache'] = LRU(max_size=actual_cache_size, on_miss=state['generator'])
+        else:
+            state['_cache'] = LRU(max_size=actual_cache_size, values=state['_cache'], on_miss=state['generator'])
         self.__dict__ = dict(state)
+
+    @property
+    def cache(self):
+        return self._do_cache
+
+    @cache.setter
+    def cache(self, value):
+        self._do_cache = value
+        if value:
+            self._cache.max_size = self.cache_size
+        else:
+            self._cache.max_size = 1
 
 
 class TemporaryDirectory(object):
