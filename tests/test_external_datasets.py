@@ -192,14 +192,16 @@ def test_mit1003(location, matlab):
     assert (fixations.n == 0).sum() == 121
 
     assert 'duration_hist' in fixations.__attributes__
+    assert 'duration' in fixations.__attributes__
     assert len(fixations.duration_hist) == len(fixations.x)
+    assert len(fixations.duration) == len(fixations.x)
     for i in range(len(fixations.x)):
         assert len(remove_trailing_nans(fixations.duration_hist[i])) == len(remove_trailing_nans(fixations.x_hist[i]))
 
-    assert 'train_durations' in fixations.scanpath_attributes
-    assert len(fixations.scanpath_attributes['train_durations']) == len(fixations.train_xs)
+    assert 'durations' in fixations.scanpath_fixation_attributes
+    assert len(fixations.scanpath_fixation_attributes['durations']) == len(fixations.train_xs)
     for i in range(len(fixations.train_xs)):
-        assert len(remove_trailing_nans(fixations.scanpath_attributes['train_durations'][i])) == len(remove_trailing_nans(fixations.train_xs[i]))
+        assert len(remove_trailing_nans(fixations.scanpath_fixation_attributes['durations'][i])) == len(remove_trailing_nans(fixations.train_xs[i]))
 
     assert len(fixations) == len(pysaliency.datasets.remove_out_of_stimulus_fixations(stimuli, fixations))
 
