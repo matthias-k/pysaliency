@@ -283,7 +283,7 @@ def get_mit1003(location=None):
     return _get_mit1003('MIT1003', location=location, include_initial_fixation=False)
 
 
-def get_mit1003_with_initial_fixation(location=None):
+def get_mit1003_with_initial_fixation(location=None, replace_initial_invalid_fixations=False):
     """
     Loads or downloads and caches the MIT1003 dataset. The dataset
     consists of 1003 natural indoor and outdoor scenes of
@@ -293,6 +293,16 @@ def get_mit1003_with_initial_fixation(location=None):
 
     All fixations outside of the image are discarded. This includes
     blinks.
+
+    This version of the dataset include the initial central forced fixation,
+    which is usually discarded. However, for scanpath prediction,
+    it's important.
+
+    Sometimes, the first recorded fixation is invalid. In this case,
+    if `replace_initial_invalid_fixations` is True, it is replaced
+    with a central fixation of the same length. This makes
+    the dataset consistent with the ones without initial fixation
+    in the sense of `fixations_without_initial_fixations = fixations_with[fixations_with.lengths > 0].
 
     @type  location: string, defaults to `None`
     @param location: If and where to cache the dataset. The dataset
@@ -316,7 +326,11 @@ def get_mit1003_with_initial_fixation(location=None):
 
         http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
     """
-    return _get_mit1003('MIT1003_initial_fix', location=location, include_initial_fixation=True)
+    name = 'MIT1003_initial_fix'
+    if replace_initial_invalid_fixations:
+        name += '_consistent'
+
+    return _get_mit1003(name, location=location, include_initial_fixation=True, replace_initial_invalid_fixations=replace_initial_invalid_fixations)
 
 
 def get_mit1003_onesize(location=None):
