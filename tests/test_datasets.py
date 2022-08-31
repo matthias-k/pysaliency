@@ -46,7 +46,13 @@ def compare_fixations(f1, f2, crop_length=False):
     for attribute in f1.__attributes__:
         if attribute == 'scanpath_index':
             continue
-        np.testing.assert_array_equal(getattr(f1, attribute), getattr(f2, attribute))
+        attribute1 = getattr(f1, attribute)
+        attribute2 = getattr(f2, attribute)
+
+        if attribute.endswith('_hist'):
+            attribute1 = attribute1[:, :maximum_length]
+
+        np.testing.assert_array_equal(attribute1, attribute2, err_msg=f'attributes not equal: {attribute}')
 
 
 def compare_scanpaths(scanpaths1, scanpaths2):
@@ -243,7 +249,6 @@ class TestStimuli(TestWithData):
         self.assertEqual(stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
 
         new_stimuli = self.pickle_and_reload(stimuli, pickler=dill)
-        print(new_stimuli.stimuli)
 
         self.assertEqual(len(new_stimuli.stimuli), 2)
         for s1, s2 in zip(new_stimuli.stimuli, [img1, img2]):
@@ -306,7 +311,6 @@ class TestFileStimuli(TestWithData):
         self.assertEqual(stimuli.stimulus_objects[1].stimulus_id, stimuli.stimulus_ids[1])
 
         new_stimuli = self.pickle_and_reload(stimuli, pickler=dill)
-        print(new_stimuli.stimuli)
 
         self.assertEqual(len(new_stimuli.stimuli), 2)
         for s1, s2 in zip(new_stimuli.stimuli, [img1, img2]):
@@ -568,7 +572,6 @@ def file_stimuli_with_attributes(tmpdir):
 
 def test_file_stimuli_attributes(file_stimuli_with_attributes, tmp_path):
     filename = tmp_path / 'stimuli.hdf5'
-    print(file_stimuli_with_attributes.__attributes__)
     file_stimuli_with_attributes.to_hdf5(str(filename))
 
     new_stimuli = pysaliency.read_hdf5(str(filename))
@@ -629,14 +632,19 @@ def test_scanpaths_from_fixations(fixation_indices):
     ns = [0, 0, 1]
     subjects = [0, 1, 1]
     tasks = [0, 1, 0]
-    some_attribute = np.arange(len(sum(xs_trains, [])))
+    #some_attribute = np.arange(len(sum(xs_trains, [])))
+    some_attribute = [
+        [0, 1, 3],
+        [6, 10],
+        [15, 21, 28]
+    ]
     fixation_trains = pysaliency.FixationTrains.from_fixation_trains(
         xs_trains,
         ys_trains,
         ts_trains,
         ns,
         subjects,
-        attributes={'some_attribute': some_attribute},
+        scanpath_fixation_attributes={'some_attribute': some_attribute},
         scanpath_attributes={'task': tasks},
     )
 

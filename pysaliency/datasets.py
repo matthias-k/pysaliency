@@ -7,6 +7,7 @@ from hashlib import sha1
 from collections.abc import Sequence
 import json
 from functools import wraps
+import warnings
 from weakref import WeakValueDictionary
 
 from boltons.cacheutils import cached
@@ -452,6 +453,8 @@ class FixationTrains(Fixations):
 
         if attributes is None:
             attributes = {}
+        else:
+            warnings.warn("don't use attributes for FixationTrains, use scanpath_attributes or scanpath_fixation_attributes instead!")
 
         self.auto_attributes = []
 
@@ -1496,19 +1499,20 @@ def create_nonfixations(stimuli, fixations, index, adjust_n = True, adjust_histo
     return non_fixations
 
 
-def _scanpath_from_fixation_index(fixations, fixation_index, __attributes__):
+def _scanpath_from_fixation_index(fixations, fixation_index, scanpath_attribute_names, scanpath_fixation_attribute_names):
+    history_length = fixations.lengths[fixation_index]
     xs = np.hstack((
-        remove_trailing_nans(fixations.x_hist[fixation_index]),
+        fixations.x_hist[fixation_index, :history_length],
         [fixations.x[fixation_index]]
     ))
 
     ys = np.hstack((
-        remove_trailing_nans(fixations.y_hist[fixation_index]),
+        fixations.y_hist[fixation_index, :history_length],
         [fixations.y[fixation_index]]
     ))
 
     ts = np.hstack((
-        remove_trailing_nans(fixations.t_hist[fixation_index]),
+        fixations.t_hist[fixation_index, :history_length],
         [fixations.t[fixation_index]]
     ))
 
@@ -1516,15 +1520,36 @@ def _scanpath_from_fixation_index(fixations, fixation_index, __attributes__):
 
     subject = fixations.subjects[fixation_index]
 
-    attributes = {
+    scanpath_attributes = {
         attribute: getattr(fixations, attribute)[fixation_index]
-        for attribute in __attributes__
+        for attribute in scanpath_attribute_names
     }
 
-    return xs, ys, ts, n, subject, attributes
+    scanpath_fixation_attributes = {}
+    for attribute in scanpath_fixation_attribute_names:
+        attribute_value = np.hstack((
+            getattr(fixations, f'{attribute}_hist')[fixation_index, :history_length],
+            [getattr(fixations, attribute)[fixation_index]]
+        ))
+        scanpath_fixation_attributes[attribute] = attribute_value
+
+
+    return xs, ys, ts, n, subject, scanpath_attributes, scanpath_fixation_attributes
 
 
 def scanpaths_from_fixations(fixations, verbose=False):
+    """ reconstructs scanpaths (FixationTrains) from fixation which originally came from scanpaths.
+
+    when called as in
+
+        scanpaths, indices = scanpaths_from_fixations(fixations)
+
+    you will get scanpathhs[indices] == fixations.
+
+    :note
+        only works if the original scanpaths only used scanpath_attributes and scanpath_fixation_attribute,
+        but not attributes (which should not be used for scanpaths anyway).
+    """
     if 'scanpath_index' not in fixations.__attributes__:
         raise NotImplementedError("Fixations with scanpath_index attribute required!")
 
@@ -1533,12 +1558,18 @@ def scanpaths_from_fixations(fixations, verbose=False):
     scanpath_ts = []
     scanpath_ns = []
     scanpath_subjects = []
-    __attributes__ = [attribute for attribute in fixations.__attributes__ if attribute != 'subjects' and attribute != 'scanpath_index']
-    attributes = {attribute: [] for attribute in __attributes__}
+    __attributes__ = [attribute for attribute in fixations.__attributes__ if attribute != 'subjects' and attribute != 'scanpath_index' and not attribute.endswith('_hist')]
+    __scanpath_attributes__ = [attribute for attribute in __attributes__ if f'{attribute}_hist' not in fixations.__attributes__]
+    __scanpath_fixation_attributes__ = [attribute for attribute in __attributes__ if attribute not in __scanpath_attributes__]
+
+    scanpath_fixation_attributes = {attribute: [] for attribute in __scanpath_fixation_attributes__}
+    scanpath_attributes = {attribute: [] for attribute in __scanpath_attributes__}
 
     attribute_shapes = {
-        attribute: getattr(fixations, attribute)[0].shape for attribute in attributes
+        attribute: getattr(fixations, attribute)[0].shape for attribute in __attributes__
     }
+
+    __all_attributes__ = __attributes__ + [f'{attribute}_hist' for attribute in __scanpath_fixation_attributes__]
 
     indices = np.ones(len(fixations), dtype=int) * -1
     fixation_counter = 0
@@ -1553,10 +1584,11 @@ def scanpaths_from_fixations(fixations, verbose=False):
         _index_of_maximum_length = np.argmax(lengths)
         index_of_maximum_length = scanpath_integer_indices[_index_of_maximum_length]
 
-        xs, ys, ts, n, subject, _ = _scanpath_from_fixation_index(
+        xs, ys, ts, n, subject, this_scanpath_attributes, this_scanpath_fixation_attributes = _scanpath_from_fixation_index(
             fixations,
             index_of_maximum_length,
-            __attributes__
+            __scanpath_attributes__,
+            __scanpath_fixation_attributes__
         )
 
         scanpath_xs.append(xs)
@@ -1565,7 +1597,12 @@ def scanpaths_from_fixations(fixations, verbose=False):
         scanpath_ns.append(n)
         scanpath_subjects.append(subject)
 
-        # build attributes
+        for attribute, value in this_scanpath_fixation_attributes.items():
+            scanpath_fixation_attributes[attribute].append(value)
+        for attribute, value in this_scanpath_attributes.items():
+            scanpath_attributes[attribute].append(value)
+
+        # build indices
 
         for index_in_scanpath in range(maximum_length+1):
             if index_in_scanpath in lengths:
@@ -1576,24 +1613,10 @@ def scanpaths_from_fixations(fixations, verbose=False):
                 indices_in_fixations = scanpath_integer_indices[lengths == index_in_scanpath]
                 indices[indices_in_fixations] = fixation_counter + index_in_scanpath
 
-                # get attributes from fixations
-                _, _, _, _, _, this_attributes = _scanpath_from_fixation_index(
-                    fixations,
-                    index_in_fixations,
-                    __attributes__
-                )
-
-                for attribute in __attributes__:
-                    attributes[attribute].append(this_attributes[attribute])
-            else:
-                # use dummy attributes
-                for attribute in __attributes__:
-                    attributes[attribute].append(np.ones(attribute_shapes[attribute]) * np.nan)
-
         fixation_counter += len(xs)
 
-    attributes = {
-        attribute: np.array(value) for attribute, value in attributes.items()
+    scanpath_attributes = {
+        attribute: np.array(value) for attribute, value in scanpath_attributes.items()
     }
 
     return FixationTrains.from_fixation_trains(
@@ -1602,7 +1625,8 @@ def scanpaths_from_fixations(fixations, verbose=False):
         ts=scanpath_ts,
         ns=scanpath_ns,
         subjects=scanpath_subjects,
-        attributes=attributes
+        scanpath_attributes=scanpath_attributes,
+        scanpath_fixation_attributes=scanpath_fixation_attributes
     ), indices
 
 
