@@ -124,9 +124,6 @@ class ScanpathModel(SamplingModelMixin, object, metaclass=ABCMeta):
         return log_likelihoods
 
     def log_likelihood(self, stimuli, fixations, verbose=False, average='fixation'):
-        log_likelihoods = self.log_likelihoods(stimuli, fixations, verbose=verbose)
-
-
         return average_values(self.log_likelihoods(stimuli, fixations, verbose=verbose), fixations, average=average)
 
     def information_gains(self, stimuli, fixations, baseline_model=None, verbose=False, average='fixation'):
