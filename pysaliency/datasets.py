@@ -461,7 +461,7 @@ class FixationTrains(Fixations):
         for attribute_name, value in self.scanpath_attributes.items():
             new_attribute_name = self.scanpath_attribute_mapping.get(attribute_name, attribute_name)
             if new_attribute_name in attributes:
-                raise ValueError(f"attribute name clash: {new_attribute_name}")
+                raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
             attribute_shape = np.asarray(value[0]).shape
             attributes[new_attribute_name] = np.empty([N_trains] + list(attribute_shape), dtype=value.dtype)
             self.auto_attributes.append(new_attribute_name)
@@ -477,13 +477,13 @@ class FixationTrains(Fixations):
         for attribute_name, value in self.scanpath_fixation_attributes.items():
             new_attribute_name = self.scanpath_attribute_mapping.get(attribute_name, attribute_name)
             if new_attribute_name in attributes:
-                raise ValueError(f"attribute name clash: {new_attribute_name}")
+                raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
             attributes[new_attribute_name] = np.empty(N_trains)
             self.auto_attributes.append(new_attribute_name)
 
             hist_attribute_name = new_attribute_name + '_hist'
             if hist_attribute_name in attributes:
-                raise ValueError(f"attribute name clash: {hist_attribute_name}")
+                raise ValueError("attribute name clash: {hist_attribute_name}".format(hist_attribute_name=hist_attribute_name))
             attributes[hist_attribute_name] = np.full_like(self.x_hist, fill_value=np.nan)
             self.auto_attributes.append(hist_attribute_name)
 
@@ -1528,7 +1528,7 @@ def _scanpath_from_fixation_index(fixations, fixation_index, scanpath_attribute_
     scanpath_fixation_attributes = {}
     for attribute in scanpath_fixation_attribute_names:
         attribute_value = np.hstack((
-            getattr(fixations, f'{attribute}_hist')[fixation_index, :history_length],
+            getattr(fixations, '{attribute}_hist'.format(attribute=attribute))[fixation_index, :history_length],
             [getattr(fixations, attribute)[fixation_index]]
         ))
         scanpath_fixation_attributes[attribute] = attribute_value
@@ -1559,7 +1559,7 @@ def scanpaths_from_fixations(fixations, verbose=False):
     scanpath_ns = []
     scanpath_subjects = []
     __attributes__ = [attribute for attribute in fixations.__attributes__ if attribute != 'subjects' and attribute != 'scanpath_index' and not attribute.endswith('_hist')]
-    __scanpath_attributes__ = [attribute for attribute in __attributes__ if f'{attribute}_hist' not in fixations.__attributes__]
+    __scanpath_attributes__ = [attribute for attribute in __attributes__ if '{attribute}_hist'.format(attribute=attribute) not in fixations.__attributes__]
     __scanpath_fixation_attributes__ = [attribute for attribute in __attributes__ if attribute not in __scanpath_attributes__]
 
     scanpath_fixation_attributes = {attribute: [] for attribute in __scanpath_fixation_attributes__}
@@ -1569,7 +1569,7 @@ def scanpaths_from_fixations(fixations, verbose=False):
         attribute: getattr(fixations, attribute)[0].shape for attribute in __attributes__
     }
 
-    __all_attributes__ = __attributes__ + [f'{attribute}_hist' for attribute in __scanpath_fixation_attributes__]
+    __all_attributes__ = __attributes__ + ['{attribute}_hist'.format(attribute=attribute) for attribute in __scanpath_fixation_attributes__]
 
     indices = np.ones(len(fixations), dtype=int) * -1
     fixation_counter = 0
