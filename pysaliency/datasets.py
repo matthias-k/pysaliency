@@ -12,7 +12,10 @@ from weakref import WeakValueDictionary
 
 from boltons.cacheutils import cached
 import numpy as np
-from imageio.v3 import imread
+try:
+    from imageio.v3 import imread
+except ImportError:
+    from imageio import imread
 from PIL import Image
 from tqdm import tqdm
 
