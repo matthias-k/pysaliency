@@ -114,7 +114,9 @@ class SaliencyMapModelFromDirectory(SaliencyMapModelFromFiles):
         stimuli_files = get_minimal_unique_filenames(stimulus_filenames)
         stimuli_stems = [os.path.splitext(f)[0] for f in stimuli_files]
 
-        assert set(stimuli_stems).issubset(stems)
+        if not set(stimuli_stems).issubset(stems):
+            missing_predictions = set(stimuli_stems).difference(stems)
+            raise ValueError("missing predictions for {}".format(missing_predictions))
 
         indices = [stems.index(f) for f in stimuli_stems]
 
