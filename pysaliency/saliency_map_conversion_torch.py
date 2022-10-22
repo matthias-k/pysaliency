@@ -75,7 +75,7 @@ class SaliencyMapProcessing(nn.Module):
             centerbias = self.centerbias(tensor)
             if self.nonlinearity_target == 'density':
                 tensor *= centerbias
-            elif self.nonlineary_target == 'logdensity':
+            elif self.nonlinearity_target == 'logdensity':
                 tensor += centerbias
             else:
                 raise ValueError(self.nonlinearity_target)
