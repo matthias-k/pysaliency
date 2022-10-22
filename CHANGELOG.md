@@ -1,6 +1,7 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Bugfix: fixed some edge cases in `optimize_for_information_gain(framework='torch')`
   * Feature: COCO Seach18 dataset
   * Feature: `FixationTrains.train_lengths`
   * Feature: `FixationTrains.scanpath_fixation_attributes` allows handling of per-fixation attributes on scanpath level,

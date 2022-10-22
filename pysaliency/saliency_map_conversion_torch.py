@@ -55,33 +55,36 @@ class SaliencyMapProcessing(nn.Module):
         self.nonlinearity_target = nonlinearity_target
 
         if nonlinearity_target == 'density' and nonlinearity_values == 'logdensity':
-            self.nonlinearity = Nonlinearity(value_scale='log')
+            self.nonlinearity = Nonlinearity(num_values=num_nonlinearity, value_scale='log')
             with torch.no_grad():
                 self.nonlinearity.ys.mul_(8.0)
         elif nonlinearity_target == 'density' and nonlinearity_values == 'logdensity':
             raise ValueError("Invalid combination of nonlinearity target and values")
         elif nonlinearity_target == nonlinearity_values:
-            self.nonlinearity = Nonlinearity(value_scale='linear')
+            self.nonlinearity = Nonlinearity(num_values=num_nonlinearity, value_scale='linear')
 
         self.centerbias = CenterBias(num_values=num_centerbias)
 
     def forward(self, tensor):
-        tensor = self.blur(tensor)
-        tensor = self.nonlinearity(tensor)
+        if self.blur.sigma > 0:
+            tensor = self.blur(tensor)
+        if len(self.nonlinearity.ys) > 0:
+            tensor = self.nonlinearity(tensor)
 
-        centerbias = self.centerbias(tensor)
-        if self.nonlinearity_target == 'density':
-            tensor *= centerbias
-        elif self.nonlineary_target == 'logdensity':
-            tensor += centerbias
-        else:
-            raise ValueError(self.nonlinearity_target)
+        if len(self.centerbias.nonlinearity.ys) > 0:
+            centerbias = self.centerbias(tensor)
+            if self.nonlinearity_target == 'density':
+                tensor *= centerbias
+            elif self.nonlineary_target == 'logdensity':
+                tensor += centerbias
+            else:
+                raise ValueError(self.nonlinearity_target)
 
         if self.nonlinearity_target == 'density':
             sums = torch.sum(tensor, dim=(2, 3), keepdim=True)
             tensor = tensor / sums
             tensor = torch.log(tensor)
-        elif self.nonlineary_target == 'logdensity':
+        elif self.nonlinearity_target == 'logdensity':
             logsums = torch.logsumexp(tensor, dim=(2, 3), keepdim=True)
             tensor = tensor - logsums
         else:
