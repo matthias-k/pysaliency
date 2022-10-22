@@ -58,7 +58,7 @@ class SaliencyMapProcessing(nn.Module):
             self.nonlinearity = Nonlinearity(num_values=num_nonlinearity, value_scale='log')
             with torch.no_grad():
                 self.nonlinearity.ys.mul_(8.0)
-        elif nonlinearity_target == 'density' and nonlinearity_values == 'logdensity':
+        elif nonlinearity_target == 'logdensity' and nonlinearity_values == 'density':
             raise ValueError("Invalid combination of nonlinearity target and values")
         elif nonlinearity_target == nonlinearity_values:
             self.nonlinearity = Nonlinearity(num_values=num_nonlinearity, value_scale='linear')
@@ -484,3 +484,51 @@ class SaliencyMapProcessingModel(Model):
         saliency_map = self.normalized_saliency_map_model.saliency_map(stimulus)
         saliency_map_tensor = torch.tensor(saliency_map[np.newaxis, np.newaxis, :, :]).to(self.device)
         return self.saliency_map_processing.forward(saliency_map_tensor).detach().cpu().numpy()[0, 0, :, :]
+
+    def state_dict(self):
+        """returns a state dict for use with torch.load"""
+        nonlinearity_target = self.saliency_map_processing.nonlinearity_target
+
+        if nonlinearity_target == 'density' and self.saliency_map_processing.nonlinearity.value_scale == 'log':
+            nonlinearity_values = "logdensity"
+        elif nonlinearity_target == 'density' and self.saliency_map_processing.nonlinearity.value_scale == 'linear':
+            nonlinearity_values = "density"
+        elif nonlinearity_target == 'logdensity' and self.saliency_map_processing.nonlinearity.value_scale == 'linear':
+            nonlinearity_values = "logdensity"
+        else:
+            raise ValueError()
+        state_dict = {
+            "version": "1.0",
+            "saliency_min": self.normalized_saliency_map_model.saliency_min,
+            "saliency_max": self.normalized_saliency_map_model.saliency_max,
+            "nonlinearity_target": nonlinearity_target,
+            "nonlinearity_values": nonlinearity_values,
+            "saliency_map_processing": self.saliency_map_processing.state_dict(),
+        }
+
+        return state_dict
+
+    @classmethod
+    def build_from_state_dict(cls, saliency_map_model, state_dict, device=None, **kwargs):
+        assert state_dict['version'] == "1.0"
+
+        saliency_map_processing = SaliencyMapProcessing(
+            nonlinearity_values=state_dict['nonlinearity_values'],
+            nonlinearity_target=state_dict['nonlinearity_target'],
+            num_nonlinearity=len(state_dict['saliency_map_processing']['nonlinearity.ys']),
+            num_centerbias=len(state_dict['saliency_map_processing']['centerbias.nonlinearity.ys']),
+            blur_radius=state_dict['saliency_map_processing']['blur.sigma'],
+        )
+
+        saliency_map_processing.load_state_dict(state_dict['saliency_map_processing'])
+
+        return cls(
+            saliency_map_model=saliency_map_model,
+            nonlinearity_values=state_dict['nonlinearity_values'],
+            nonlinearity_target=state_dict['nonlinearity_target'],
+            saliency_min=state_dict['saliency_min'],
+            saliency_max=state_dict['saliency_max'],
+            saliency_map_processing=saliency_map_processing,
+            device=device,
+            **kwargs
+        )

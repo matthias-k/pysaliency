@@ -155,3 +155,15 @@ def test_optimize_for_information_gain(stimuli, fixations, saliency_model, proba
     #print(expected_information_gain, reached_information_gain)
     assert reached_information_gain >= expected_information_gain - 0.001
     assert reached_information_gain <= expected_information_gain + 0.001
+
+def test_saliency_map_processing_model_save_and_load(stimuli, saliency_model, probabilistic_model):
+    state_dict = probabilistic_model.state_dict()
+    new_model = SaliencyMapProcessingModel.build_from_state_dict(
+        saliency_map_model=saliency_model,
+        state_dict=state_dict,
+    )
+
+    for stimulus in stimuli:
+        old_prediction = probabilistic_model.log_density(stimulus)
+        new_prediction = new_model.log_density(stimulus)
+        np.testing.assert_allclose(old_prediction, new_prediction)
