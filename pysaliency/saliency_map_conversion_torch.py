@@ -175,7 +175,8 @@ def optimize_saliency_map_conversion(
         tol=None,
         maxiter=1000,
         minimize_options=None,
-        return_optimization_result=False):
+        return_optimization_result=False,
+        cache_directory=None):
 
     targets = [([model], stimuli, fixations)]
 
@@ -208,7 +209,8 @@ def optimize_saliency_map_conversion(
         batch_size=batch_size,
         tol=tol,
         maxiter=maxiter,
-        minimize_options=minimize_options)
+        minimize_options=minimize_options,
+        cache_directory=cache_directory)
 
     return_model = SaliencyMapProcessingModel(
         model,
@@ -244,7 +246,8 @@ def _optimize_saliency_map_conversion_over_multiple_models_and_datasets(
         batch_size=8,
         tol=None,
         maxiter=1000,
-        minimize_options=None):
+        minimize_options=None,
+        cache_directory=None):
 
     if len(list_of_targets) != 1:
         raise NotImplementedError()
@@ -296,6 +299,7 @@ def _optimize_saliency_map_conversion_over_multiple_models_and_datasets(
         tol=tol,
         maxiter=maxiter,
         minimize_options=minimize_options,
+        cache_directory=cache_directory,
     )
 
     return saliency_map_processing, optimization_result
@@ -309,7 +313,8 @@ def _optimize_saliency_map_processing(
         method='SLSQP',
         tol=None,
         maxiter=1000,
-        minimize_options=None):
+        minimize_options=None,
+        cache_directory=None):
 
     if optimize is None:
         optimize = ['blur_radius', 'nonlinearity', 'centerbias', 'alpha']
@@ -357,6 +362,11 @@ def _optimize_saliency_map_processing(
         ]
 
         return loss, tuple(gradients)
+
+    if cache_directory is not None:
+        import diskcache
+        cache = diskcache.Cache(directory=cache_directory)
+        func = cache.memoize()(func)
 
     bounds = {
         'alpha': [(1e-4, 1.0 - 1e-4)],

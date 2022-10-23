@@ -1,6 +1,8 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Feature: `optimize_for_information_gain(framework='torch', ...) now supports a `cache_directory`,
+    where intermediate steps are cached. This supports resuming crashed optimization runs.
   * Bugfix: fixed some edge cases in `optimize_for_information_gain(framework='torch')`
   * Feature: COCO Seach18 dataset
   * Feature: `FixationTrains.train_lengths`

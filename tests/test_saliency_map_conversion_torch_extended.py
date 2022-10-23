@@ -1,9 +1,11 @@
+import time
+
 import numpy as np
 import pytest
 
 import pysaliency
 from pysaliency.saliency_map_conversion import optimize_for_information_gain
-from pysaliency.saliency_map_conversion_torch import SaliencyMapProcessing, SaliencyMapProcessingModel
+from pysaliency.saliency_map_conversion_torch import SaliencyMapProcessing, SaliencyMapProcessingModel, optimize_saliency_map_conversion
 from pysaliency import Stimuli, Fixations, GaussianSaliencyMapModel
 
 import torch
@@ -153,7 +155,7 @@ def test_optimize_for_information_gain(stimuli, fixations, saliency_model, proba
     reached_information_gain = model1.information_gain(stimuli, fixations, average='image')
 
     #print(expected_information_gain, reached_information_gain)
-    assert reached_information_gain >= expected_information_gain - 0.001
+    assert reached_information_gain >= expected_information_gain - 0.0015
     assert reached_information_gain <= expected_information_gain + 0.001
 
 def test_saliency_map_processing_model_save_and_load(stimuli, saliency_model, probabilistic_model):
@@ -167,3 +169,69 @@ def test_saliency_map_processing_model_save_and_load(stimuli, saliency_model, pr
         old_prediction = probabilistic_model.log_density(stimulus)
         new_prediction = new_model.log_density(stimulus)
         np.testing.assert_allclose(old_prediction, new_prediction)
+
+def test_optimize_saliency_map_processing_disk_caching(tmp_path, stimuli, saliency_model):
+    num_nonlinearity = 20
+    num_centerbias = 12
+    cache_directory = tmp_path / 'optimize_cache'
+
+    saliency_map_processing = SaliencyMapProcessing(
+        nonlinearity_values='logdensity',
+        num_nonlinearity=num_nonlinearity,
+        num_centerbias=num_centerbias,
+        blur_radius=3
+    )
+
+    with torch.no_grad():
+        old_exp_sum = torch.exp(saliency_map_processing.nonlinearity.ys).sum().detach().cpu().numpy()
+        new_ys = 7 * np.linspace(0, 1, num_nonlinearity)**2
+        new_ys -= np.log(old_exp_sum)
+        saliency_map_processing.nonlinearity.ys.copy_(torch.tensor(new_ys))
+
+        new_centerbias = np.linspace(1, 0.5, num_centerbias)
+        saliency_map_processing.centerbias.nonlinearity.ys.copy_(torch.tensor(new_centerbias))
+
+        saliency_map_processing.centerbias.alpha.copy_(torch.tensor(0.83))
+
+        saliency_map_processing.blur.sigma.copy_(torch.tensor(4.0))
+
+    probabilistic_model = SaliencyMapProcessingModel(
+        saliency_map_model=saliency_model,
+        saliency_map_processing=saliency_map_processing,
+        saliency_min=0,
+        saliency_max=1,
+    )
+
+    fixations = probabilistic_model.sample(stimuli, 1000, rst=np.random.RandomState(seed=42))
+    start_time = time.time()
+    optimize_saliency_map_conversion(
+        model=saliency_model,
+        stimuli=stimuli,
+        fixations=fixations,
+        saliency_min=0,
+        saliency_max=1,
+        verbose=3,
+        maxiter=100,
+        method='trust-constr',
+        minimize_options={'verbose': 10},
+        cache_directory=str(cache_directory),
+    )
+
+    optimize_time = time.time() - start_time
+
+    start_time_2 = time.time()
+    optimize_saliency_map_conversion(
+        model=saliency_model,
+        stimuli=stimuli,
+        fixations=fixations,
+        saliency_min=0,
+        saliency_max=1,
+        verbose=3,
+        maxiter=100,
+        method='trust-constr',
+        minimize_options={'verbose': 10},
+        cache_directory=str(cache_directory),
+    )
+    optimize_time_2 = time.time() - start_time_2
+
+    assert optimize_time_2 <= 0.3 * optimize_time
