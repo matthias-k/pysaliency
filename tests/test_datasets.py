@@ -408,6 +408,17 @@ def test_copy_fixations(fixation_trains):
     compare_fixations(copied_fixations, fixations)
 
 
+def test_write_read_scanpaths_pathlib(tmp_path, fixation_trains):
+    filename = tmp_path / 'scanpaths.hdf5'
+    fixation_trains.to_hdf5(filename)
+
+    new_fixation_trains = pysaliency.read_hdf5(filename)
+
+    # make sure there is no sophisticated caching...
+    assert fixation_trains is not new_fixation_trains
+    compare_scanpaths(fixation_trains, new_fixation_trains)
+
+
 def test_write_read_scanpaths(tmp_path, fixation_trains):
     filename = tmp_path / 'scanpaths.hdf5'
     fixation_trains.to_hdf5(str(filename))

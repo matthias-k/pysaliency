@@ -2,11 +2,12 @@
 #kate: space-indent on; indent-width 4; backspace-indents on;
 from __future__ import absolute_import, print_function, division, unicode_literals
 
-import os
-from hashlib import sha1
 from collections.abc import Sequence
-import json
 from functools import wraps
+from hashlib import sha1
+import json
+import os
+import pathlib
 import warnings
 from weakref import WeakValueDictionary
 
@@ -26,7 +27,7 @@ def hdf5_wrapper(mode=None):
     def decorator(f):
         @wraps(f)
         def wrapped(self, target, *args, **kwargs):
-            if isinstance(target, str):
+            if isinstance(target, (str, pathlib.Path)):
                 import h5py
                 with h5py.File(target, mode) as hdf5_file:
                     return f(self, hdf5_file, *args, **kwargs)
@@ -65,7 +66,7 @@ def _split_crossval(fixations, part, partcount):
 
 
 def read_hdf5(source):
-    if isinstance(source, str):
+    if isinstance(source, (str, pathlib.Path)):
         return _read_hdf5_from_file(source)
 
     data_type = decode_string(source.attrs['type'])
