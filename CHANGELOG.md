@@ -1,6 +1,7 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Bugfix: Adapted setup.py for the package to build on Mac.
   * Feature: `optimize_for_information_gain(framework='torch', ...) now supports a `cache_directory`,
     where intermediate steps are cached. This supports resuming crashed optimization runs.
   * Bugfix: fixed some edge cases in `optimize_for_information_gain(framework='torch')`

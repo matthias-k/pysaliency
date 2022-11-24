@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from os import path
+import platform
 
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
@@ -22,12 +23,19 @@ try:
 except IOError:
     long_description = ''
 
+extra_compile_args = ['-O3']
+extra_link_args = []
+
+if platform.system() == 'Darwin':
+    extra_compile_args.append("-mmacosx-version-min=10.9")
+    extra_link_args.append("-mmacosx-version-min=10.9")
+
 extensions = [
     Extension("pysaliency.roc", ['pysaliency/*.pyx'],
               include_dirs = [np.get_include()],
-              extra_compile_args = ['-O3'],
+              extra_compile_args = extra_compile_args,
               #extra_compile_args = ['-fopenmp', '-O3'],
-              #extra_link_args=["-fopenmp"]
+              extra_link_args=extra_link_args,
               ),
 ]
 
