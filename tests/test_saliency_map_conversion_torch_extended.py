@@ -223,6 +223,7 @@ def test_optimize_saliency_map_processing_disk_caching(tmp_path, stimuli, salien
 
     cache = diskcache.Cache(directory=cache_directory)
     cache_size = len(cache)
+    print("CACHE SIZE", cache_size)
     print(result)
     assert cache_size >= result.nfev
 
@@ -242,7 +243,12 @@ def test_optimize_saliency_map_processing_disk_caching(tmp_path, stimuli, salien
     optimize_time_2 = time.time() - start_time_2
 
     new_cache_size = len(cache)
+    print("NEW CACHE SIZE", cache_size)
+
     assert new_cache_size == cache_size
+
+    for i, key in enumerate(cache):
+        print(i, key)
 
     # in the github test action, sometimes the second run is nearly as slow as the first one...
     assert optimize_time_2 <= 0.95 * optimize_time

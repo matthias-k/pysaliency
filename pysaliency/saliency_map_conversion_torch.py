@@ -446,6 +446,8 @@ def _optimize_saliency_map_processing(
     x0 = initial_params
 
     res = minimize(func, x0, jac=True, constraints=constraints, bounds=bounds, method=method, tol=tol, options=options, optimize=optimize)
+    if cache_directory is not None:
+        print("CACHE STATS", cache.stats())
     return res
 
 
