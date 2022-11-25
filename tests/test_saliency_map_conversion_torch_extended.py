@@ -1,5 +1,6 @@
 import time
 
+import diskcache
 import numpy as np
 import pytest
 
@@ -204,7 +205,7 @@ def test_optimize_saliency_map_processing_disk_caching(tmp_path, stimuli, salien
 
     fixations = probabilistic_model.sample(stimuli, 1000, rst=np.random.RandomState(seed=42))
     start_time = time.time()
-    optimize_saliency_map_conversion(
+    _, result = optimize_saliency_map_conversion(
         model=saliency_model,
         stimuli=stimuli,
         fixations=fixations,
@@ -215,9 +216,15 @@ def test_optimize_saliency_map_processing_disk_caching(tmp_path, stimuli, salien
         method='trust-constr',
         minimize_options={'verbose': 10},
         cache_directory=str(cache_directory),
+        return_optimization_result=True
     )
 
     optimize_time = time.time() - start_time
+
+    cache = diskcache.Cache(directory=cache_directory)
+    cache_size = len(cache)
+    print(result)
+    assert cache_size >= result.nfev
 
     start_time_2 = time.time()
     optimize_saliency_map_conversion(
@@ -234,4 +241,8 @@ def test_optimize_saliency_map_processing_disk_caching(tmp_path, stimuli, salien
     )
     optimize_time_2 = time.time() - start_time_2
 
-    assert optimize_time_2 <= 0.3 * optimize_time
+    new_cache_size = len(cache)
+    assert new_cache_size == cache_size
+
+    # in the github test action, sometimes the second run is nearly as slow as the first one...
+    assert optimize_time_2 <= 0.95 * optimize_time
