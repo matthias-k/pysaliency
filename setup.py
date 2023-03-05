@@ -77,6 +77,7 @@ setup(
                                  'scripts/models/BMS/patches/*',
                                  'scripts/models/GBVS/patches/*',
                                  'scripts/models/Judd/patches/*',
+                                 'external_datasets/scripts/*.m'
                                  ]},
     ext_modules = cythonize(extensions),
 )
