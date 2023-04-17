@@ -8,6 +8,7 @@ import zipfile
 
 
 import numpy as np
+from PIL import Image
 from tqdm import tqdm
 
 from ..datasets import FixationTrains, create_subset
@@ -29,7 +30,7 @@ condition_mapping = {
 TASKS = ['bottle', 'bowl', 'car', 'chair', 'clock', 'cup', 'fork', 'keyboard', 'knife', 'laptop', 'microwave', 'mouse', 'oven', 'potted plant', 'sink', 'stop sign', 'toilet', 'tv']
 
 
-def get_COCO_Search18(location=None, split=1):
+def get_COCO_Search18(location=None, split=1, merge_tasks=True, unique_images=True):
     """
     Loads or downloads and caches the COCO Search18 dataset.
 
@@ -71,7 +72,11 @@ def get_COCO_Search18(location=None, split=1):
     if split != 1:
         raise NotImplementedError
 
-    dataset_name = 'COCO-Search18'
+    if merge_tasks:
+        # automatically the case, no need to modify
+        unique_images = False
+    dataset_name = _dataset_name(merge_tasks, unique_images, split)
+
     if location:
         location = os.path.join(location, dataset_name)
         if os.path.exists(location):
@@ -118,30 +123,18 @@ def get_COCO_Search18(location=None, split=1):
             stimulus_directory = os.path.join(temp_dir, 'stimuli')
             os.makedirs(stimulus_directory)
 
-            filenames = []
-            for filename in tqdm(
-                    glob.glob(os.path.join(temp_dir, 'images', '*', '*.jpg'))
-                    + glob.glob(os.path.join(temp_dir, 'coco_search18_images_TA', '*', '*.jpg'))
-                ):
-                basename = os.path.basename(filename)
-                target_filename = os.path.join(stimulus_directory, basename)
-                if os.path.isfile(target_filename):
-                    with open(target_filename, 'rb') as old_file:
-                        md5_previous = md5(old_file.read()).hexdigest()
-                    with open(filename, 'rb') as new_file:
-                        md5_new = md5(new_file.read()).hexdigest()
-                    if md5_previous != md5_new:
-                        raise ValueError("same image with different md5 sums! " + md5_previous + '!=' + md5_new)
-                    continue
-
-                shutil.copy(filename, target_filename)
-                filenames.append(basename)
-            filenames = sorted(filenames)
+            filenames, stimulus_tasks = _prepare_stimuli(temp_dir, stimulus_directory, merge_tasks=merge_tasks, unique_images=unique_images)
 
             stimuli_src_location = os.path.join(temp_dir, 'stimuli')
             stimuli_target_location = os.path.join(location, 'stimuli') if location else None
             stimuli_filenames = filenames
-            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location)
+            if not merge_tasks:
+                attributes = {
+                    'task': stimulus_tasks
+                }
+            else:
+                attributes = None
+            stimuli = create_stimuli(stimuli_src_location, stimuli_filenames, stimuli_target_location, attributes=attributes)
 
             print('creating fixations')
 
@@ -152,7 +145,12 @@ def get_COCO_Search18(location=None, split=1):
             with zipfile.ZipFile(os.path.join(temp_dir, 'COCOSearch18-fixations-TA.zip')) as tp_fixations:
                 json_data_ta = json.loads(tp_fixations.read('coco_search18_fixations_TA/coco_search18_fixations_TA_trainval.json'))
 
-            all_scanpaths = _get_COCO_Search18_fixations(json_data_tp_train + json_data_tp_val + json_data_ta, filenames)
+            if unique_images:
+                orig_filenames = [os.path.splitext(filename)[0] + '.jpg' for filename in filenames]
+            else:
+                orig_filenames = filenames
+
+            all_scanpaths = _get_COCO_Search18_fixations(json_data_tp_train + json_data_tp_val + json_data_ta, orig_filenames, task_in_filename=not merge_tasks)
 
             scanpaths_train = all_scanpaths.filter_fixation_trains(all_scanpaths.scanpath_attributes['split'] == 'train')
             scanpaths_validation = all_scanpaths.filter_fixation_trains(all_scanpaths.scanpath_attributes['split'] == 'valid')
@@ -175,6 +173,88 @@ def get_COCO_Search18(location=None, split=1):
     return stimuli_train, fixations_train, stimuli_val, fixations_val
 
 
+def _dataset_name(merge_tasks, unique_images, split):
+    if merge_tasks:
+        if unique_images:
+            raise ValueError("Deduplicate cannot be true when merge_tasks is activated")
+        dataset_name = 'COCO-Search18'
+    else:
+        if unique_images:
+            dataset_name = 'COCO-Search18_no-task-merge_unique-images'
+        else:
+            dataset_name = 'COCO-Search18_no-task-merge_duplicate-images'
+    return dataset_name
+
+
+def _prepare_stimuli(source_directory, stimulus_directory, merge_tasks=True, unique_images=False):
+    filenames = []
+    rst = np.random.RandomState(seed=42)
+
+    for filename in tqdm(
+                    glob.glob(os.path.join(source_directory, 'images', '*', '*.jpg'))
+                    + glob.glob(os.path.join(source_directory, 'coco_search18_images_TA', '*', '*.jpg'))
+                ):
+        basename = os.path.basename(filename)
+        task = os.path.basename(os.path.dirname(filename))
+
+        if merge_tasks:
+            target_filename = os.path.join(stimulus_directory, basename)
+        else:
+            target_filename = os.path.join(stimulus_directory, task.replace(' ', '_'), basename)
+
+        if unique_images:
+            # we need to use PNG, otherwise our tiny modifications well get lost in saving
+            stem, ext = os.path.splitext(target_filename)
+            target_filename = stem + '.png'
+
+        if os.path.isfile(target_filename):
+            with open(target_filename, 'rb') as old_file:
+                md5_previous = md5(old_file.read()).hexdigest()
+            with open(filename, 'rb') as new_file:
+                md5_new = md5(new_file.read()).hexdigest()
+            if md5_previous != md5_new:
+                raise ValueError("same image with different md5 sums! " + md5_previous + '!=' + md5_new)
+            continue
+
+        os.makedirs(os.path.dirname(target_filename),exist_ok=True)
+        if not unique_images:
+            shutil.copy(filename, target_filename)
+        else:
+            _modify_image(filename, target_filename, rst)
+
+        filenames.append(os.path.relpath(target_filename, start=stimulus_directory))
+
+    filenames = sorted(filenames)
+    if not merge_tasks:
+        tasks = [TASKS.index(os.path.basename(os.path.dirname(filename)).replace('_', ' ')) for filename in filenames]
+    else:
+        tasks = None
+
+    return filenames, tasks
+
+
+def _modify_image(source_filename, target_filename, rst: np.random.RandomState):
+    image = Image.open(source_filename)
+    image_data = np.array(image)
+    width, height = image.size
+    x_pos, y_pos = rst.randint(0, width), rst.randint(0, height)
+    if image_data.ndim == 3:
+        channel = rst.randint(0, image_data.shape[-1])
+        image_pos = (y_pos, x_pos, channel)
+    else:
+        image_pos = (y_pos, x_pos)
+    if image_data[image_pos] > 0:
+        offset = -1
+    else:
+        offset = 1
+
+    image_data[image_pos] += offset
+
+    new_image = Image.fromarray(image_data)
+    new_image.save(target_filename)
+
+
+
 def get_COCO_Search18_train(location=None, split=1):
     stimuli_train, fixations_train, stimuli_val, fixations_val = get_COCO_Search18(location=location, split=split)
     return stimuli_train, fixations_train
@@ -185,7 +265,7 @@ def get_COCO_Search18_validation(location=None, split=1):
     return stimuli_val, fixations_val
 
 
-def _get_COCO_Search18_fixations(json_data, filenames):
+def _get_COCO_Search18_fixations(json_data, filenames, task_in_filename):
     train_xs = []
     train_ys = []
     train_ts = []
@@ -202,6 +282,9 @@ def _get_COCO_Search18_fixations(json_data, filenames):
 
     for item in tqdm(json_data):
         filename = item['name']
+        task = TASKS.index(item['task'])
+        if task_in_filename:
+            filename = f"{TASKS[task].replace(' ', '_')}/{filename}"
         n = filenames.index(filename)
 
         train_xs.append(item['X'])
@@ -210,7 +293,7 @@ def _get_COCO_Search18_fixations(json_data, filenames):
         train_ns.append(n)
         train_subjects.append(item['subject'])
         train_durations.append(np.array(item['T']) / 1000)
-        train_tasks.append(TASKS.index(item['task']))
+        train_tasks.append(task)
         if 'bbox' in item:
             target_bbox.append(item['bbox'])
         else:
