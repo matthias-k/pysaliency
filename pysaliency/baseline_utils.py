@@ -80,15 +80,26 @@ def fixations_to_scikit_learn(fixations, normalize=None, keep_aspect=False, add_
 
 
 class ScikitLearnImageCrossValidationGenerator(object):
-    def __init__(self, stimuli, fixations):
+    def __init__(self, stimuli, fixations, within_stimulus_attributes=None):
         self.stimuli = stimuli
         self.fixations = fixations
+        self.within_stimulus_attributes = within_stimulus_attributes or []
+        for attribute in self.within_stimulus_attributes:
+            if attribute not in self.stimuli.attributes:
+                raise ValueError(f"stimulus attribute '{attribute}' not available in given stimuli")
 
     def __iter__(self):
         for n in range(len(self.stimuli)):
-            inds = self.fixations.n == n
-            if inds.sum():
-                yield ~inds, inds
+            test_inds = self.fixations.n == n
+            train_inds = ~test_inds
+
+            for attribute_name in self.within_stimulus_attributes:
+                target_value = self.stimuli.attributes[attribute_name][n]
+                valid_stimulus_indices = np.nonzero(self.stimuli.attributes[attribute_name] == target_value)[0]
+                valid_fixation_indices = np.isin(self.fixations.n, valid_stimulus_indices)
+                train_inds = train_inds & valid_fixation_indices
+            if test_inds.sum():
+                yield train_inds, test_inds
 
     def __len__(self):
         return len(self.stimuli)
