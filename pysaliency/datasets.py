@@ -1318,6 +1318,11 @@ def create_subset(stimuli, fixations, stimuli_indices):
     """Create subset of stimuli and fixations using only stimuli
     with given indices.
     """
+    if isinstance(stimuli_indices, np.ndarray) and stimuli_indices.dtype == bool:
+        if len(stimuli_indices) != len(stimuli):
+            raise ValueError("length of mask doesn't match stimuli")
+        stimuli_indices = np.nonzero(stimuli_indices)[0]
+
     new_stimuli = stimuli[stimuli_indices]
     if isinstance(fixations, FixationTrains):
         fix_inds = np.in1d(fixations.train_ns, stimuli_indices)
