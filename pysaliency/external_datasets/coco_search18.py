@@ -255,13 +255,13 @@ def _modify_image(source_filename, target_filename, rst: np.random.RandomState):
 
 
 
-def get_COCO_Search18_train(location=None, split=1):
-    stimuli_train, fixations_train, stimuli_val, fixations_val = get_COCO_Search18(location=location, split=split)
+def get_COCO_Search18_train(location=None, split=1, merge_tasks=True, unique_images=True):
+    stimuli_train, fixations_train, stimuli_val, fixations_val = get_COCO_Search18(location=location, split=split, merge_tasks=merge_tasks, unique_images=unique_images)
     return stimuli_train, fixations_train
 
 
-def get_COCO_Search18_validation(location=None, split=1):
-    stimuli_train, fixations_train, stimuli_val, fixations_val = get_COCO_Search18(location=location, split=split)
+def get_COCO_Search18_validation(location=None, split=1, merge_tasks=True, unique_images=True):
+    stimuli_train, fixations_train, stimuli_val, fixations_val = get_COCO_Search18(location=location, split=split, merge_tasks=merge_tasks, unique_images=unique_images)
     return stimuli_val, fixations_val
 
 
