@@ -291,7 +291,7 @@ def _get_COCO_Search18_fixations(json_data, filenames, task_in_filename):
         train_ys.append(item['Y'])
         train_ts.append(np.arange(item['length']))
         train_ns.append(n)
-        train_subjects.append(item['subject'])
+        train_subjects.append(item['subject'] - 1) # subjects are 1 indexed in the source data
         train_durations.append(np.array(item['T']) / 1000)
         train_tasks.append(task)
         if 'bbox' in item:
