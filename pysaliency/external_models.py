@@ -48,7 +48,7 @@ def apply_quilt(source_location, package, resource_name, patch_directory, verbos
     series.apply(source_location, verbose=verbose)
 
 
-def download_extract_patch(url, hash, location, location_in_archive=True, patches=None):
+def download_extract_patch(url, hash, location, location_in_archive=True, patches=None, verify_ssl=True):
     """Download, extract and maybe patch code"""
     with TemporaryDirectory() as temp_dir:
         if not os.path.isdir(temp_dir):
@@ -56,7 +56,8 @@ def download_extract_patch(url, hash, location, location_in_archive=True, patche
         archive_name = os.path.basename(url)
         download_and_check(url,
                            os.path.join(temp_dir, archive_name),
-                           hash)
+                           hash,
+                           verify_ssl=verify_ssl)
 
         if location_in_archive:
             target = os.path.dirname(os.path.normpath(location))
@@ -458,7 +459,9 @@ class Judd(ExternalModelMixin, MatlabSaliencyMapModel):
                                '20502f8a40f1122e00f81dcc0d11a843',
                                os.path.join(source_location, 'voc-release3.1'),
                                location_in_archive=True,
-                               patches=os.path.join('Judd', 'voc_patches'))
+                               patches=os.path.join('Judd', 'voc_patches'),
+                               verify_ssl=False,  # doesn't seem to support SSL
+                               )
         run_matlab_cmd("compile;quit;", cwd=os.path.join(source_location, 'voc-release3.1'))
 
         print('Extracting Saliency Toolbox')
