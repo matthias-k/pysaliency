@@ -12,7 +12,7 @@ from tests.test_external_datasets import _location, entropy
 def test_COCO_Freeview(location):
     real_location = _location(location)
 
-    stimuli_train, fixations_train, stimuli_val, fixations_val = pysaliency.external_datasets.get_COCO_Freeview(location=real_location)
+    stimuli_train, fixations_train, stimuli_val, fixations_val, stimuli_test = pysaliency.external_datasets.get_COCO_Freeview(location=real_location)
     if location is None:
         assert isinstance(stimuli_train, pysaliency.Stimuli)
         assert not isinstance(stimuli_train, pysaliency.FileStimuli)
@@ -28,8 +28,10 @@ def test_COCO_Freeview(location):
 
     assert len(stimuli_train) == 3714
     assert len(stimuli_val) == 623
+    assert len(stimuli_test) == 1127
     assert set(stimuli_train.sizes) == {(1050, 1680)}
     assert set(stimuli_val.sizes) == {(1050, 1680)}
+    assert set(stimuli_test.sizes) == {(1050, 1680)}
 
     assert len(fixations_train.x) == 667428
 
