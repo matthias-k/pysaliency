@@ -29,3 +29,4 @@ from .nusef import get_NUSEF_public
 from .pascal_s import get_PASCAL_S
 from .dut_omrom import get_DUT_OMRON
 from .coco_search18 import get_COCO_Search18, get_COCO_Search18_train, get_COCO_Search18_validation
+from .coco_freeview import get_COCO_Freeview, get_COCO_Freeview_train, get_COCO_Freeview_validation
