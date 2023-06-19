@@ -97,13 +97,14 @@ def get_COCO_Search18(location=None, split=1, merge_tasks=True, unique_images=Tr
                                os.path.join(temp_dir, 'COCOSearch18-images-TA.zip'),
                                '85af7d74fa57c202320fa5e7d0dcc187')
 
-            download_and_check('https://saliency.tuebingen.ai/data/coco_search18_TP.zip',
-                               os.path.join(temp_dir, 'coco_search18_TP.zip'),
+            download_and_check('http://vision.cs.stonybrook.edu/~cvlab_download/COCOSearch18-fixations-TP.zip',
+                               os.path.join(temp_dir, 'COCOSearch18-fixations-TP.zip'),
                                'bfcf4c005a89c43a1719b28b028c5499')
 
-            download_and_check('http://vision.cs.stonybrook.edu/~cvlab_download/COCOSearch18-fixations-TA.zip',
-                               os.path.join(temp_dir, 'COCOSearch18-fixations-TA.zip'),
-                               'e44befa2e1bb764c35dc910673b4ff20')
+            download_and_check('http://vision.cs.stonybrook.edu/~cvlab_download/coco_search18_fixations_TA_trainval.json',
+                               os.path.join(temp_dir, 'coco_search18_fixations_TA_trainval.json'),
+                               'bd491cce105ff6470536afdab1184776.')
+
 
 
             # Stimuli
@@ -138,12 +139,12 @@ def get_COCO_Search18(location=None, split=1, merge_tasks=True, unique_images=Tr
 
             print('creating fixations')
 
-            with zipfile.ZipFile(os.path.join(temp_dir, 'coco_search18_TP.zip')) as tp_fixations:
+            with zipfile.ZipFile(os.path.join(temp_dir, 'COCOSearch18-fixations-TP.zip')) as tp_fixations:
                 json_data_tp_train = json.loads(tp_fixations.read('coco_search18_fixations_TP_train_split1.json'))
                 json_data_tp_val = json.loads(tp_fixations.read('coco_search18_fixations_TP_validation_split1.json'))
 
-            with zipfile.ZipFile(os.path.join(temp_dir, 'COCOSearch18-fixations-TA.zip')) as tp_fixations:
-                json_data_ta = json.loads(tp_fixations.read('coco_search18_fixations_TA/coco_search18_fixations_TA_trainval.json'))
+            with open(os.path.join(temp_dir, 'coco_search18_fixations_TA_trainval.json')) as ta_fixations:
+                json_data_ta = json.load(ta_fixations)
 
             if unique_images:
                 orig_filenames = [os.path.splitext(filename)[0] + '.jpg' for filename in filenames]
