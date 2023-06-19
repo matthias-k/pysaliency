@@ -1,0 +1,57 @@
+Index: voc-release3.1/resize.cc
+===================================================================
+--- voc-release3.1.orig/resize.cc	2009-05-19 16:13:23.000000000 +0200
++++ voc-release3.1/resize.cc	2023-06-13 23:11:21.000000000 +0200
+@@ -82,7 +82,7 @@
+ // returns resized image
+ mxArray *resize(const mxArray *mxsrc, const mxArray *mxscale) {
+   double *src = (double *)mxGetPr(mxsrc);
+-  const int *sdims = mxGetDimensions(mxsrc);
++  const mwSize *sdims = mxGetDimensions(mxsrc);
+   if (mxGetNumberOfDimensions(mxsrc) != 3 || 
+       mxGetClassID(mxsrc) != mxDOUBLE_CLASS)
+     mexErrMsgTxt("Invalid input");  
+@@ -91,7 +91,7 @@
+   if (scale > 1)
+     mexErrMsgTxt("Invalid scaling factor");   
+ 
+-  int ddims[3];
++  mwSize ddims[3];
+   ddims[0] = (int)round(sdims[0]*scale);
+   ddims[1] = (int)round(sdims[1]*scale);
+   ddims[2] = sdims[2];
+Index: voc-release3.1/dt.cc
+===================================================================
+--- voc-release3.1.orig/dt.cc	2009-05-19 16:13:23.000000000 +0200
++++ voc-release3.1/dt.cc	2023-06-13 23:16:11.000000000 +0200
+@@ -47,7 +47,7 @@
+   if (mxGetClassID(prhs[0]) != mxDOUBLE_CLASS)
+     mexErrMsgTxt("Invalid input");
+ 
+-  const int *dims = mxGetDimensions(prhs[0]);
++  const mwSize *dims = mxGetDimensions(prhs[0]);
+   double *vals = (double *)mxGetPr(prhs[0]);
+   double ax = mxGetScalar(prhs[1]);
+   double bx = mxGetScalar(prhs[2]);
+Index: voc-release3.1/features.cc
+===================================================================
+--- voc-release3.1.orig/features.cc	2009-05-19 16:13:23.000000000 +0200
++++ voc-release3.1/features.cc	2023-06-13 23:18:18.000000000 +0200
+@@ -35,7 +35,7 @@
+ // returns HOG features
+ mxArray *process(const mxArray *mximage, const mxArray *mxsbin) {
+   double *im = (double *)mxGetPr(mximage);
+-  const int *dims = mxGetDimensions(mximage);
++  const mwSize *dims = mxGetDimensions(mximage);
+   if (mxGetNumberOfDimensions(mximage) != 3 ||
+       dims[2] != 3 ||
+       mxGetClassID(mximage) != mxDOUBLE_CLASS)
+@@ -51,7 +51,7 @@
+   double *norm = (double *)mxCalloc(blocks[0]*blocks[1], sizeof(double));
+ 
+   // memory for HOG features
+-  int out[3];
++  mwSize out[3];
+   out[0] = max(blocks[0]-2, 0);
+   out[1] = max(blocks[1]-2, 0);
+   out[2] = 27+4;
