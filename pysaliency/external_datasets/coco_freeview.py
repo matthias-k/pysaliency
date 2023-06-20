@@ -139,7 +139,7 @@ TEST_STIMULUS_INDICES = [
 ]
 
 
-def get_COCO_Freeview(location=None):
+def get_COCO_Freeview(location=None, test_data=None):
     """
     Loads or downloads and caches the COCO Freeview dataset.
 
@@ -156,6 +156,10 @@ def get_COCO_Freeview(location=None):
     @param location: If and where to cache the dataset. The dataset
                      will be stored in the subdirectory `COCO-Search18` of
                      location and read from there, if already present.
+    @type test_data: string, defaults to `None`
+    @parm test_data: filename of the test data, if you have access to it. If that's the case, also a
+                     test data FixationTrains object will be created and saved, but not returned.
+
     @return: Training stimuli, training FixationTrains, validation Stimuli, validation FixationTrains
 
     .. seealso::
@@ -235,6 +239,17 @@ def get_COCO_Freeview(location=None):
             ns_val = sorted(set(scanpaths_validation.n))
             stimuli_val, fixations_val = create_subset(stimuli, scanpaths_validation, ns_val)
 
+
+            if test_data:
+                with open(test_data) as f:
+                    json_test_data = json.load(f)
+                    scanpaths_test = _get_COCO_Freeview_fixations(json_test_data, filenames)
+                    del scanpaths_test.scanpath_attributes['split']
+                    ns_test = sorted(set(scanpaths_test.n))
+                    assert len(ns_test) == TEST_STIMULUS_INDICES
+                    assert np.all(np.array(ns_test) == TEST_STIMULUS_INDICES)
+                    _, fixations_test = create_subset(stimuli, scanpaths_test, ns_test)
+
             stimuli_test = stimuli[TEST_STIMULUS_INDICES]
 
         if location:
@@ -243,6 +258,8 @@ def get_COCO_Freeview(location=None):
             stimuli_val.to_hdf5(os.path.join(location, 'stimuli_validation.hdf5'))
             fixations_val.to_hdf5(os.path.join(location, 'fixations_validation.hdf5'))
             stimuli_test.to_hdf5(os.path.join(location, 'stimuli_test.hdf5'))
+            if test_data:
+                fixations_test.to_hdf5(os.path.join(location, 'fixations_test.hdf5'))
 
     return stimuli_train, fixations_train, stimuli_val, fixations_val, stimuli_test
 
