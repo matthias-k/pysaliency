@@ -626,6 +626,29 @@ def test_create_subset_fixations(file_stimuli_with_attributes, fixation_trains, 
     np.testing.assert_array_equal(sub_fixations.x, fixations.x[np.isin(fixations.n, stimulus_indices)])
 
 
+def test_create_subset_numpy_indices(file_stimuli_with_attributes, fixation_trains):
+    stimulus_indices = np.array([0, 3])
+
+    sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixation_trains, stimulus_indices)
+
+    assert isinstance(sub_fixations, pysaliency.FixationTrains)
+    assert len(sub_stimuli) == 2
+    np.testing.assert_array_equal(sub_fixations.x, fixation_trains.x[np.isin(fixation_trains.n, stimulus_indices)])
+
+
+def test_create_subset_numpy_mask(file_stimuli_with_attributes, fixation_trains):
+    print(len(file_stimuli_with_attributes))
+    stimulus_indices = np.zeros(len(file_stimuli_with_attributes), dtype=bool)
+    stimulus_indices[0] = True
+    stimulus_indices[2] = True
+
+    sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixation_trains, stimulus_indices)
+
+    assert isinstance(sub_fixations, pysaliency.FixationTrains)
+    assert len(sub_stimuli) == 2
+    np.testing.assert_array_equal(sub_fixations.x, fixation_trains.x[np.isin(fixation_trains.n, [0, 2])])
+
+
 @given(st.lists(elements=st.integers(min_value=0, max_value=7), min_size=1))
 def test_scanpaths_from_fixations(fixation_indices):
     xs_trains = [

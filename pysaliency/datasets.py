@@ -1236,7 +1236,7 @@ class FileStimuli(Stimuli):
         if isinstance(index, slice):
             index = list(range(len(self)))[index]
 
-        if isinstance(index, list):
+        if isinstance(index, (list, np.ndarray)):
             filenames = [self.filenames[i] for i in index]
             shapes = [self.shapes[i] for i in index]
             attributes = {key: [value[i] for i in index] for key, value in self.attributes.items()}
