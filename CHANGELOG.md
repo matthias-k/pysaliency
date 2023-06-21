@@ -1,6 +1,7 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Feature: DeepGaze I and DeepGazeIIE models
   * Feature: COCO Freeview dataset
   * Feature: `optimize_for_information_gain(framework='torch', ...) now supports a `cache_directory`,
     where intermediate steps are cached. This supports resuming crashed optimization runs.
