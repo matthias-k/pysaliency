@@ -178,7 +178,9 @@ def get_COCO_Freeview(location=None, test_data=None):
             fixations_train = _load(os.path.join(location, 'fixations_train.hdf5'))
             stimuli_validation = _load(os.path.join(location, 'stimuli_validation.hdf5'))
             fixations_validation = _load(os.path.join(location, 'fixations_validation.hdf5'))
-            return stimuli_train, fixations_train, stimuli_validation, fixations_validation
+            stimuli_test = _load(os.path.join(location, 'stimuli_test.hdf5'))
+
+            return stimuli_train, fixations_train, stimuli_validation, fixations_validation, stimuli_test
         os.makedirs(location)
 
     with atomic_directory_setup(location):
@@ -246,7 +248,7 @@ def get_COCO_Freeview(location=None, test_data=None):
                     scanpaths_test = _get_COCO_Freeview_fixations(json_test_data, filenames)
                     del scanpaths_test.scanpath_attributes['split']
                     ns_test = sorted(set(scanpaths_test.n))
-                    assert len(ns_test) == TEST_STIMULUS_INDICES
+                    assert len(ns_test) == len(TEST_STIMULUS_INDICES)
                     assert np.all(np.array(ns_test) == TEST_STIMULUS_INDICES)
                     _, fixations_test = create_subset(stimuli, scanpaths_test, ns_test)
 
