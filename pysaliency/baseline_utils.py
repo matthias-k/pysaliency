@@ -1,5 +1,6 @@
 from __future__ import print_function, unicode_literals, division, absolute_import
 
+from boltons.iterutils import chunked
 import numba
 import numpy as np
 from scipy.special import logsumexp
@@ -80,29 +81,51 @@ def fixations_to_scikit_learn(fixations, normalize=None, keep_aspect=False, add_
 
 
 class ScikitLearnImageCrossValidationGenerator(object):
-    def __init__(self, stimuli, fixations, within_stimulus_attributes=None):
+    def __init__(self, stimuli, fixations, within_stimulus_attributes=None, leave_out_size=1, maximal_source_count=None):
         self.stimuli = stimuli
         self.fixations = fixations
         self.within_stimulus_attributes = within_stimulus_attributes or []
+        self.leave_out_size = leave_out_size
+        self.maximal_source_count = maximal_source_count
+        if self.within_stimulus_attributes and leave_out_size != 1:
+            raise NotImplemented("cannot yet specify both batchsize and within_stimulus_attributes")
         for attribute in self.within_stimulus_attributes:
             if attribute not in self.stimuli.attributes:
                 raise ValueError(f"stimulus attribute '{attribute}' not available in given stimuli")
 
     def __iter__(self):
-        for n in range(len(self.stimuli)):
-            test_inds = self.fixations.n == n
+        if self.leave_out_size == 1:
+            elements = chunked(range(len(self.stimuli)), size=1)
+        else:
+            indices = np.arange(len(self.stimuli))
+            np.random.RandomState(seed=42).shuffle(indices)
+            elements = chunked(list(indices), size=self.leave_out_size)
+
+        source_selection_rst = np.random.RandomState(seed=23)
+        for ns in elements:
+            test_inds = np.isin(self.fixations.n, ns)
             train_inds = ~test_inds
+            #print(ns, train_inds.sum(), test_inds.sum())
 
             for attribute_name in self.within_stimulus_attributes:
-                target_value = self.stimuli.attributes[attribute_name][n]
+                target_value = self.stimuli.attributes[attribute_name][ns[0]]
                 valid_stimulus_indices = np.nonzero(self.stimuli.attributes[attribute_name] == target_value)[0]
                 valid_fixation_indices = np.isin(self.fixations.n, valid_stimulus_indices)
                 train_inds = train_inds & valid_fixation_indices
             if test_inds.sum():
+                if self.maximal_source_count is not None and train_inds.sum() > self.maximal_source_count:
+                    train_inds = np.nonzero(train_inds)[0]
+                    selected_train_inds = source_selection_rst.choice(
+                        train_inds,
+                        size=self.maximal_source_count,
+                        replace=False
+                    )
+                    train_inds = np.zeros_like(test_inds, dtype=bool)
+                    train_inds[selected_train_inds] = True
                 yield train_inds, test_inds
 
     def __len__(self):
-        return len(self.stimuli)
+        return int(np.ceil(len(self.stimuli) / self.leave_out_size))
 
 
 class ScikitLearnImageSubjectCrossValidationGenerator(object):

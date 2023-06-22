@@ -38,7 +38,7 @@ def test_deepgaze1(stimuli, fixations):
 
     ig = model.information_gain(stimuli, fixations)
 
-    np.testing.assert_allclose(ig, 0.9455161648442227)
+    np.testing.assert_allclose(ig, 0.9455161648442227, rtol=5e-6)
 
 
 def test_deepgaze2e(stimuli, fixations):

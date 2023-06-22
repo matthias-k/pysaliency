@@ -324,10 +324,13 @@ class TestFileStimuli(TestWithData):
         count = 10
         widths = np.random.randint(20, 200, size=count)
         heights = np.random.randint(20, 200, size=count)
-        images = [np.random.randint(255, size=(h, w, 3)) for h, w in zip(heights, widths)]
+        images = [np.random.randint(255, size=(h, w, 3)).astype(np.uint8) for h, w in zip(heights, widths)]
         filenames = []
         for i, img in enumerate(images):
             filename = os.path.join(self.data_path, 'img{}.png'.format(i))
+            print(filename)
+            print(img.shape)
+            print(img.dtype)
             imwrite(filename, img)
             filenames.append(filename)
 
