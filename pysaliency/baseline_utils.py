@@ -105,7 +105,6 @@ class ScikitLearnImageCrossValidationGenerator(object):
         for ns in elements:
             test_inds = np.isin(self.fixations.n, ns)
             train_inds = ~test_inds
-            #print(ns, train_inds.sum(), test_inds.sum())
 
             for attribute_name in self.within_stimulus_attributes:
                 target_value = self.stimuli.attributes[attribute_name][ns[0]]
