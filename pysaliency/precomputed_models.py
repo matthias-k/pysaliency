@@ -28,7 +28,7 @@ def get_stimuli_filenames(stimuli):
         return stimuli.filenames
 
 
-def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True):
+def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True, flush=False):
     """Export pysaliency model predictions for stimuli into hdf5 file
 
     model: Model or SaliencyMapModel
@@ -38,6 +38,7 @@ def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True
     overwrite: if False, an existing file will be appended to and
       if for some stimuli predictions already exist, they will be
       kept.
+    flush: whether the hdf5 file should be flushed after each stimulus
     """
     filenames = get_stimuli_filenames(stimuli)
     names = get_minimal_unique_filenames(filenames)
@@ -61,6 +62,8 @@ def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True
             else:
                 raise TypeError(type(model))
             f.create_dataset(names[k], data=smap, compression=compression)
+            if flush:
+                f.flush()
 
 
 class SaliencyMapModelFromFiles(SaliencyMapModel):
