@@ -301,6 +301,7 @@ def run_matlab_cmd(cmd, cwd=None):
     matlab = get_matlab_or_octave()
     args = []
     if os.path.basename(matlab).startswith('matlab'):
+        cmd = "cd('%s'); %s" % (cwd, cmd)
         args += ['-nodesktop', '-nosplash', '-r']
         args.append("try;{};catch exc;disp(getReport(exc));disp('__ERROR__');exit(1);end;quit".format(cmd))
     else:
