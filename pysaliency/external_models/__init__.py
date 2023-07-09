@@ -10,3 +10,5 @@ from .matlab_models import (
     RARE2012,
     CovSal,
 )
+
+from .utils import ExternalModelMixin
