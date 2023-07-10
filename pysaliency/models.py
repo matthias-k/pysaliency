@@ -22,13 +22,7 @@ from .sampling_models import SamplingModelMixin
 from .utils import Cache, average_values, deprecated_class, remove_trailing_nans
 
 
-def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
-    """ Sample from log probabilities (robust to many bins and small probabilities).
-
-        +-np.inf and np.nan will be interpreted as zero probability
-    """
-    if rst is None:
-        rst = np.random
+def _prepare_logprobabilities_for_sampling(log_probabilities):
     log_probabilities = np.asarray(log_probabilities)
 
     valid_indices = np.nonzero(np.isfinite(log_probabilities))[0]
@@ -39,10 +33,29 @@ def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
     cumsums = np.logaddexp.accumulate(sorted_log_probabilities)
     cumsums -= cumsums[-1]
 
+    return cumsums, ndxs, valid_indices
+
+
+def _sample_from_cumsums(cumsums, ndxs, valid_indices, size, rst=None):
+    if rst is None:
+        rst = np.random
+
     tmps = -rst.exponential(size=size)
     js = np.searchsorted(cumsums, tmps)
     valid_values = ndxs[js]
     values = valid_indices[valid_values]
+
+    return values
+
+
+def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
+    """ Sample from log probabilities (robust to many bins and small probabilities).
+
+        +-np.inf and np.nan will be interpreted as zero probability
+    """
+
+    cumsums, ndxs, valid_indices = _prepare_logprobabilities_for_sampling(log_probabilities)
+    values = _sample_from_cumsums(cumsums, ndxs, valid_indices, size, rst=rst)
 
     return values
 
@@ -63,6 +76,29 @@ def sample_from_logdensity(log_density, count=None, rst=None):
         return sample_xs[0], sample_ys[0]
     else:
         return np.asarray(sample_xs), np.asarray(sample_ys)
+
+
+class LogDensitySampler(object):
+    """use this class if you need to sample repeatedly from the same log density. It will do the
+       slow parts (sorting the log density, computing log cum sums etc) only once.
+    """
+    def __init__(self, log_density):
+        self.height, self.width = log_density.shape
+        flat_log_density = log_density.flatten(order='C')
+        self.cumsums, self.ndxs, self.valid_indices = _prepare_logprobabilities_for_sampling(flat_log_density)
+
+    def sample(self, size, rst=None):
+        samples = _sample_from_cumsums(self.cumsums, self.ndxs, self.valid_indices, size, rst=rst)
+        sample_xs = samples % self.width
+        sample_ys = samples // self.width
+
+        return np.asarray(sample_xs), np.asarray(sample_ys)
+
+    def sample_batch_fixations(self, fixations_per_image, batch_size, rst=None):
+        xs, ys = self.sample(fixations_per_image * batch_size, rst=rst)
+        ns = np.repeat(np.arange(batch_size, dtype=int), repeats=fixations_per_image)
+
+        return xs, ys, ns
 
 
 def sample_from_image(densities, count=None, rst=None):
