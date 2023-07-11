@@ -686,11 +686,12 @@ class ShuffledBaselineModel(Model):
     def __init__(self, parent_model, stimuli, resized_predictions_cache_size=5000,
                  compute_size=(500, 500),
                  library='torch',
+                 prepopulate_cache=False,
                  **kwargs):
         super(ShuffledBaselineModel, self).__init__(**kwargs)
         self.parent_model = parent_model
         self.stimuli = stimuli
-        self.compute_size = compute_size
+        self.compute_size = tuple(compute_size)
         self.resized_predictions_cache = LRU(
             max_size=resized_predictions_cache_size,
             on_miss=self._cache_miss
@@ -699,8 +700,14 @@ class ShuffledBaselineModel(Model):
             raise ValueError(library)
         self.library = library
 
+        if prepopulate_cache:
+            print("populating cache")
+            for k, s in enumerate(tqdm(self.stimuli)):
+                self.resized_predictions_cache[k]
+
     def _resize_prediction(self, prediction, target_shape):
         if prediction.shape != target_shape:
+            orig_shape = prediction.shape
             x_factor = target_shape[1] / prediction.shape[1]
             y_factor = target_shape[0] / prediction.shape[0]
 
@@ -708,7 +715,13 @@ class ShuffledBaselineModel(Model):
 
             prediction -= logsumexp(prediction)
 
-            assert prediction.shape == target_shape
+            if prediction.shape != target_shape:
+                print("compute size", self.compute_size)
+                print("prediction shape", orig_shape)
+                print("target shape", target_shape)
+                print("x factor", x_factor)
+                print("y factor", y_factor)
+                raise ValueError(prediction.shape)
 
         return prediction
 
@@ -749,15 +762,19 @@ class ShuffledSimpleBaselineModel(Model):
     def __init__(self, parent_model, stimuli,
                  compute_size=(500, 500),
                  library='torch',
+                 prepopulate_cache=False,
                  **kwargs):
         super(ShuffledSimpleBaselineModel, self).__init__(**kwargs)
         self.parent_model = parent_model
         self.stimuli = stimuli
-        self.compute_size = compute_size
+        self.compute_size = tuple(compute_size)
         self.prediction = None
         if library not in ['torch', 'tensorflow', 'numpy']:
             raise ValueError(library)
         self.library = library
+
+        if prepopulate_cache:
+            self.get_average_prediction(verbose=True)
 
     def get_average_prediction(self, verbose=False):
         if self.prediction is not None:
@@ -776,12 +793,21 @@ class ShuffledSimpleBaselineModel(Model):
 
     def _resize_prediction(self, prediction, target_shape):
         if prediction.shape != target_shape:
+            orig_shape = prediction.shape
             x_factor = target_shape[1] / prediction.shape[1]
             y_factor = target_shape[0] / prediction.shape[0]
 
             prediction = zoom(prediction, [y_factor, x_factor], order=1, mode='nearest')
 
             prediction -= logsumexp(prediction)
+
+            if prediction.shape != target_shape:
+                print("compute size", self.compute_size)
+                print("prediction shape", orig_shape)
+                print("target shape", target_shape)
+                print("x factor", x_factor)
+                print("y factor", y_factor)
+                raise ValueError(prediction.shape)
 
             assert prediction.shape == target_shape
 
