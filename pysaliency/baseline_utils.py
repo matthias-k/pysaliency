@@ -322,12 +322,14 @@ class KDEGoldModel(Model):
     def __init__(self, stimuli, fixations, bandwidth, eps=1e-20, keep_aspect=False, verbose=False, grid_spacing=1, **kwargs):
         super(KDEGoldModel, self).__init__(**kwargs)
         self.stimuli = stimuli
-        self.fixations = fixations
         self.bandwidth = bandwidth
         self.eps = eps
         self.keep_aspect = keep_aspect
         self.grid_spacing = grid_spacing
-        self.xs, self.ys = normalize_fixations(stimuli, fixations, keep_aspect=self.keep_aspect, verbose=verbose)
+        self.X = fixations_to_scikit_learn(
+            fixations, normalize=self.stimuli,
+            keep_aspect=self.keep_aspect, add_shape=False, verbose=False)
+        self.stimulus_indices = fixations.n
         self.shape_cache = {}
 
     def _log_density(self, stimulus):
@@ -336,14 +338,12 @@ class KDEGoldModel(Model):
         stimulus_id = get_image_hash(stimulus)
         stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
 
-        inds = self.fixations.n == stimulus_index
+        inds = self.stimulus_indices == stimulus_index
 
         if not inds.sum():
             return UniformModel().log_density(stimulus)
 
-        X = fixations_to_scikit_learn(
-            self.fixations[inds], normalize=self.stimuli,
-            keep_aspect=self.keep_aspect, add_shape=False, verbose=False)
+        X = self.X[inds]
         kde = KernelDensity(bandwidth=self.bandwidth).fit(X)
 
         height, width = shape

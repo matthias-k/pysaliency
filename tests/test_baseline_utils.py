@@ -63,3 +63,9 @@ def test_kde_gold_model(stimuli, fixation_trains):
 
     assert kl_div1 < 0.002
     assert kl_div2 < 0.002
+
+    full_ll = kde_gold_model.information_gain(stimuli, fixation_trains, average='image')
+    spaced_ll = spaced_kde_gold_model.information_gain(stimuli, fixation_trains, average='image')
+    print(full_ll, spaced_ll)
+    np.testing.assert_allclose(full_ll, 2.1912009255501252)
+    np.testing.assert_allclose(spaced_ll, 2.191055750664578)
