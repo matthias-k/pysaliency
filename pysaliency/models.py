@@ -19,7 +19,7 @@ from .saliency_map_models import (SaliencyMapModel, handle_stimulus,
 from .datasets import FixationTrains, get_image_hash, as_stimulus
 from .metrics import probabilistic_image_based_kl_divergence, convert_saliency_map_to_density
 from .sampling_models import SamplingModelMixin
-from .utils import Cache, average_values, deprecated_class, remove_trailing_nans
+from .utils import Cache, average_values, deprecated_class, remove_trailing_nans, iterator_chunks
 
 
 def _prepare_logprobabilities_for_sampling(log_probabilities):
@@ -657,8 +657,61 @@ class ShuffledAUCSaliencyMapModel(SaliencyMapModel):
         return self.probabilistic_model.log_density(stimulus) - self.baseline_model.log_density(stimulus)
 
 
-def average_predictions(predictions, library):
-    predictions = np.array(predictions) - np.log(len(predictions))
+def average_predictions(log_densities, log_density_count=None, maximal_chunk_size=None, verbose=False, library='torch'):
+    """ compute average log density given multiple log densities.
+
+    specifying log_density_count allows to process generator arrays to avoid keeping all predictions in memory.
+    specifying maximal_chunk_size allows to process the log densities such that not too many log densities are kept in
+    memory at all (which only makes sense if log_densities is a generator), see logsumexp_iterator for more details
+    """
+
+    if maximal_chunk_size is not None and log_density_count is None:
+        print("Warning: specifying maximal_chunk_size without log_density_count doesn't make sense because then the log densities have to be converted into a list and hence put in memory anyway.")
+
+    if log_density_count is None:
+        log_densities = np.array(list(log_densities))
+        log_density_count = len(log_densities)
+
+    normalization_constant = np.log(log_density_count)
+    def weighted_log_densities(log_densities, normalization_constant):
+        for log_density in log_densities:
+            yield log_density - normalization_constant
+
+    result = logsumexp_iterator(weighted_log_densities(log_densities, normalization_constant), log_density_count, maximal_chunk_size=maximal_chunk_size, verbose=verbose, library=library)
+    result_norm = logsumexp(result)
+
+    if not (-0.0001 < result_norm < 0.0001):
+        print(f"Warning: result of averaging not well normalized (logsum={result_norm}). This could either be a problem with the averaged predictions or indicate numerical issues in averaging.")
+
+    result -= result_norm
+
+    return result
+
+
+def logsumexp_iterator(log_density_iterator, iterator_length, maximal_chunk_size=10, verbose=False, library='torch'):
+    """computes logsumexp of iterator such not too many values are in memory.
+
+    Works by splitting the sequence into shorter chunks, processing them and then adding the results up.
+    This is done in a recursive manner: If the chunks are still too long, they are again split up.
+    This guarantees that per recursion level never more than `maximal_chunk_size` items are kept in memory.
+    """
+    if iterator_length is None or maximal_chunk_size is None or (maximal_chunk_size is not None and iterator_length <= maximal_chunk_size):
+        if verbose:
+            print(f"directly handling {iterator_length} predictions")
+        predictions = np.array(list(log_density_iterator))
+    else:
+        predictions = []
+        chunk_size = iterator_length // (maximal_chunk_size // 2)
+        if verbose:
+            print(f"splitting {iterator_length} predictions up into chunks of length {chunk_size}")
+        for i, iterator_chunk in enumerate(iterator_chunks(log_density_iterator, chunk_size=chunk_size)):
+            if verbose:
+                print(f"handling {i}th chunk of length {chunk_size}")
+            predictions.append(logsumexp_iterator(iterator_chunk, chunk_size, maximal_chunk_size=maximal_chunk_size, verbose=verbose))
+        predictions = np.array(predictions)
+        if verbose:
+            print(f"Done handling {iterator_length} predictions in chunks of {chunk_size}")
+
 
     if library == 'tensorflow':
         from .tf_utils import tf_logsumexp
@@ -743,7 +796,7 @@ class ShuffledBaselineModel(Model):
             other_prediction = self.resized_predictions_cache[k]
             predictions.append(other_prediction)
 
-        prediction = average_predictions(predictions, self.library)
+        prediction = average_predictions(predictions, library=self.library)
 
         prediction = self._resize_prediction(prediction, target_shape)
 
@@ -786,7 +839,7 @@ class ShuffledSimpleBaselineModel(Model):
                 self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
             )
 
-        prediction = average_predictions(predictions, self.library)
+        prediction = average_predictions(predictions, library=self.library)
 
         self.prediction = prediction
         return self.prediction

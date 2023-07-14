@@ -11,7 +11,7 @@ import hashlib
 from functools import partial
 import warnings
 import shutil
-from itertools import filterfalse
+from itertools import count, filterfalse, groupby
 import subprocess as sp
 from tempfile import mkdtemp
 
@@ -497,3 +497,11 @@ def inter_and_extrapolate(data, interpolation_method='linear', extrapolation_met
     extrapolated = griddata(points, values, (grid_x, grid_y), method=extrapolation_method)
 
     return extrapolated
+
+
+def iterator_chunks(iterable, chunk_size=10):
+    """return iterarable in chunks which are themselves iterables."""
+
+    counter = count()
+    for _, g in groupby(iterable, lambda _: next(counter) // chunk_size):
+        yield g
