@@ -1,6 +1,10 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Feature: ShuffledBaselineModel is now much more efficient and able to handle large numbers of stimuli.
+    hence, ShuffledSimpleBaselineModel is not necessary anymore and a deprecated alias to ShuffledBaselineModel
+  * Feature: ShuffledBaselineModel can now compute predictions for very large numbers of stimuli without needing
+    to have all individual predictions in memory due to a recursive reduce logsumexp implementation.
   * Feature: `plotting.plot_scanpath` to visualize scanpaths and saccades. WIP, expect the API to change!
   * Feature: DeepGaze I and DeepGazeIIE models
   * Feature: COCO Freeview dataset

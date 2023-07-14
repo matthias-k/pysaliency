@@ -733,81 +733,9 @@ class ShuffledBaselineModel(Model):
 
     This model will usually be used as baseline model for computing sAUC saliency maps.
 
-    use the library parameter to define whether the logsumexp should be computed
-    with torch (default), tensorflow or numpy.
-    """
-    def __init__(self, parent_model, stimuli, resized_predictions_cache_size=5000,
-                 compute_size=(500, 500),
-                 library='torch',
-                 prepopulate_cache=False,
-                 **kwargs):
-        super(ShuffledBaselineModel, self).__init__(**kwargs)
-        self.parent_model = parent_model
-        self.stimuli = stimuli
-        self.compute_size = tuple(compute_size)
-        self.resized_predictions_cache = LRU(
-            max_size=resized_predictions_cache_size,
-            on_miss=self._cache_miss
-        )
-        if library not in ['torch', 'tensorflow', 'numpy']:
-            raise ValueError(library)
-        self.library = library
-
-        if prepopulate_cache:
-            print("populating cache")
-            for k, s in enumerate(tqdm(self.stimuli)):
-                self.resized_predictions_cache[k]
-
-    def _resize_prediction(self, prediction, target_shape):
-        if prediction.shape != target_shape:
-            orig_shape = prediction.shape
-            x_factor = target_shape[1] / prediction.shape[1]
-            y_factor = target_shape[0] / prediction.shape[0]
-
-            prediction = zoom(prediction, [y_factor, x_factor], order=1, mode='nearest')
-
-            prediction -= logsumexp(prediction)
-
-            if prediction.shape != target_shape:
-                print("compute size", self.compute_size)
-                print("prediction shape", orig_shape)
-                print("target shape", target_shape)
-                print("x factor", x_factor)
-                print("y factor", y_factor)
-                raise ValueError(prediction.shape)
-
-        return prediction
-
-    def _cache_miss(self, key):
-        stimulus = self.stimuli[key]
-        return self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
-
-    def _log_density(self, stimulus):
-        stimulus_id = get_image_hash(stimulus)
-
-        predictions = []
-        prediction = None
-
-        target_shape = (stimulus.shape[0], stimulus.shape[1])
-
-        for k, other_stimulus in enumerate((self.stimuli)):
-            if other_stimulus.stimulus_id == stimulus_id:
-                continue
-            other_prediction = self.resized_predictions_cache[k]
-            predictions.append(other_prediction)
-
-        prediction = average_predictions(predictions, library=self.library)
-
-        prediction = self._resize_prediction(prediction, target_shape)
-
-        return prediction
-
-
-class ShuffledSimpleBaselineModel(Model):
-    """Predicts a mixture of all predictions for all images.
-
-    This model will usually be used as baseline model for computing sAUC saliency maps
-    when the ShuffledBaselineModel is not feasible.
+    To avoid computing many averages over many images, this model will once compute an
+    an average over all predictions, and then only remove the prediction for a given
+    image when computing model predictions.
 
     use the library parameter to define whether the logsumexp should be computed
     with torch (default), tensorflow or numpy.
@@ -816,11 +744,13 @@ class ShuffledSimpleBaselineModel(Model):
                  compute_size=(500, 500),
                  library='torch',
                  prepopulate_cache=False,
+                 maximal_chunk_size=20,
                  **kwargs):
-        super(ShuffledSimpleBaselineModel, self).__init__(**kwargs)
+        super(ShuffledBaselineModel, self).__init__(**kwargs)
         self.parent_model = parent_model
         self.stimuli = stimuli
         self.compute_size = tuple(compute_size)
+        self.maximal_chunk_size = maximal_chunk_size
         self.prediction = None
         if library not in ['torch', 'tensorflow', 'numpy']:
             raise ValueError(library)
@@ -833,13 +763,17 @@ class ShuffledSimpleBaselineModel(Model):
         if self.prediction is not None:
             return self.prediction
 
-        predictions = []
-        for stimulus in tqdm(self.stimuli, disable=not verbose):
-            predictions.append(
-                self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
-            )
 
-        prediction = average_predictions(predictions, library=self.library)
+        def log_density_iterable():
+            for stimulus in tqdm(self.stimuli, disable=not verbose):
+                yield self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
+
+        prediction = average_predictions(
+            log_density_iterable(),
+            log_density_count=len(self.stimuli),
+            maximal_chunk_size=self.maximal_chunk_size,
+            library=self.library
+        )
 
         self.prediction = prediction
         return self.prediction
@@ -867,12 +801,24 @@ class ShuffledSimpleBaselineModel(Model):
         return prediction
 
     def _log_density(self, stimulus):
-        prediction = self.get_average_prediction()
+        average_log_density = self.get_average_prediction()
+
+        # here we're effectively computing the average prediction of all predictions except for the
+        # one for this stimulus, by substracting the current prection from the average prediction
+        # with correct weights. This allows us to only once iterate over all predictions at model start.
+        this_log_density = self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
+        N = len(self.stimuli)
+        prediction =np.log(
+            np.exp(average_log_density + np.log(N) - np.log(N - 1))
+            -np.exp(this_log_density - np.log(N - 1))
+        )
 
         target_shape = (stimulus.shape[0], stimulus.shape[1])
         prediction = self._resize_prediction(prediction, target_shape)
 
         return prediction
+
+ShuffledSimpleBaselineModel = deprecated_class(deprecated_in='0.2.22', removed_in='1.0.0', details="Use ShuffledBaselineModel instead, which is now as effective as the old ShuffledSimpleBaselineModel")(ShuffledBaselineModel)
 
 
 class GaussianModel(Model):

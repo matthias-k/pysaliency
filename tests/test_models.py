@@ -66,14 +66,7 @@ def test_log_likelihood_gauss(stimuli, fixation_trains):
                                                           -9.286885,   -9.057075,  -8.067126,  -9.905604]))
 
 
-# @pytest.mark.parametrize("library", ['tensorflow', 'torch', 'numpy'])
-@pytest.mark.parametrize("library", ['torch', 'numpy'])
-def test_shuffled_baseline_model(stimuli, library):
-    # TODO: implement actual test
-    model = GaussianSaliencyModel()
-    shuffled_model = pysaliency.models.ShuffledBaselineModel(model, stimuli, library=library)
 
-    assert model.log_density(stimuli[0]).shape == shuffled_model.log_density(stimuli[0]).shape
 
 
 def test_sampling(stimuli):
@@ -178,3 +171,15 @@ def test_average_predictions_tensorflow(long_stimuli, test_model):
     average_log_density_numpy = pysaliency.models.average_predictions(log_densities, library='numpy')
 
     np.testing.assert_allclose(average_log_density_tf, average_log_density_numpy)
+
+
+
+# @pytest.mark.parametrize("library", ['tensorflow', 'torch', 'numpy'])
+@pytest.mark.parametrize("library", ['torch', 'numpy'])
+def test_shuffled_baseline_model(long_stimuli, test_model, library):
+    shuffled_model = pysaliency.models.ShuffledBaselineModel(test_model, long_stimuli, library=library, compute_size=long_stimuli.sizes[0])
+
+    log_densities = [test_model.log_density(s) for s in long_stimuli[1:]]
+    average_log_density = pysaliency.models.average_predictions(log_densities, library=library)
+
+    np.testing.assert_allclose(shuffled_model.log_density(long_stimuli[0]), average_log_density, rtol=1e-6)
