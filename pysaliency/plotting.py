@@ -244,6 +244,7 @@ def plot_scanpath(stimuli, fixations, index, ax=None, show_history=True, show_cu
                 linestyle=history_linestyle,
                 zorder=10,
                 alpha=history_alpha,
+                ax=ax,
             )
 
         ax.scatter(x_hist, y_hist, fixation_size, color=fixation_color, zorder=40)
@@ -269,6 +270,7 @@ def plot_scanpath(stimuli, fixations, index, ax=None, show_history=True, show_cu
             color=next_saccade_color,
             linestyle=(0, (2,1)),
             zorder=10,
+            ax=ax,
         )
 
         ax.scatter([x2], [y2], fixation_size, color=fixation_color, zorder=40)
