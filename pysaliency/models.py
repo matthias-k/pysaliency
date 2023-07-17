@@ -10,7 +10,7 @@ from scipy.ndimage import zoom
 from scipy.special import logsumexp
 from tqdm import tqdm
 
-from .saliency_map_models import (SaliencyMapModel, handle_stimulus,
+from .saliency_map_models import (SaliencyMapModel, ScanpathSaliencyMapModel, handle_stimulus,
                                   SubjectDependentSaliencyMapModel,
                                   ExpSaliencyMapModel,
                                   DisjointUnionMixin,
@@ -655,6 +655,19 @@ class ShuffledAUCSaliencyMapModel(SaliencyMapModel):
 
     def _saliency_map(self, stimulus):
         return self.probabilistic_model.log_density(stimulus) - self.baseline_model.log_density(stimulus)
+
+
+class ShuffledAUCScanpathSaliencyMapModel(ScanpathSaliencyMapModel):
+    def __init__(self, probabilistic_model: ScanpathModel, baseline_model: Model):
+        super(ShuffledAUCScanpathSaliencyMapModel, self).__init__()
+        self.probabilistic_model = probabilistic_model
+        self.baseline_model = baseline_model
+
+    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
+        return (
+            self.probabilistic_model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes)
+            - self.baseline_model.log_density(stimulus)
+        )
 
 
 def average_predictions(log_densities, log_density_count=None, maximal_chunk_size=None, verbose=False, library='torch'):
