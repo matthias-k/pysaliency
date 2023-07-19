@@ -177,6 +177,7 @@ class LazyList(Sequence):
             self._cache.max_size = self.cache_size
         else:
             self._cache.max_size = 1
+            self._cache.clear()
 
 
 class TemporaryDirectory(object):
