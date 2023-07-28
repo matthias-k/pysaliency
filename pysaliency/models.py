@@ -752,18 +752,24 @@ class ShuffledBaselineModel(Model):
 
     use the library parameter to define whether the logsumexp should be computed
     with torch (default), tensorflow or numpy.
+
+    predict_overall_average: If False (default), for each image, the average over all
+    other images in `stimuli` will be predicted. If set to True, simply the average
+    over all images in stimuli will be predicted.
     """
     def __init__(self, parent_model, stimuli,
                  compute_size=(500, 500),
                  library='torch',
                  prepopulate_cache=False,
                  maximal_chunk_size=20,
+                 predict_overall_average=False,
                  **kwargs):
         super(ShuffledBaselineModel, self).__init__(**kwargs)
         self.parent_model = parent_model
         self.stimuli = stimuli
         self.compute_size = tuple(compute_size)
         self.maximal_chunk_size = maximal_chunk_size
+        self.predict_overall_average = predict_overall_average
         self.prediction = None
         if library not in ['torch', 'tensorflow', 'numpy']:
             raise ValueError(library)
@@ -816,15 +822,18 @@ class ShuffledBaselineModel(Model):
     def _log_density(self, stimulus):
         average_log_density = self.get_average_prediction()
 
-        # here we're effectively computing the average prediction of all predictions except for the
-        # one for this stimulus, by substracting the current prection from the average prediction
-        # with correct weights. This allows us to only once iterate over all predictions at model start.
-        this_log_density = self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
-        N = len(self.stimuli)
-        prediction =np.log(
-            np.exp(average_log_density + np.log(N) - np.log(N - 1))
-            -np.exp(this_log_density - np.log(N - 1))
-        )
+        if self.predict_overall_average:
+            prediction = average_log_density
+        else:
+            # here we're effectively computing the average prediction of all predictions except for the
+            # one for this stimulus, by substracting the current prection from the average prediction
+            # with correct weights. This allows us to only once iterate over all predictions at model start.
+            this_log_density = self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
+            N = len(self.stimuli)
+            prediction =np.log(
+                np.exp(average_log_density + np.log(N) - np.log(N - 1))
+                -np.exp(this_log_density - np.log(N - 1))
+            )
 
         target_shape = (stimulus.shape[0], stimulus.shape[1])
         prediction = self._resize_prediction(prediction, target_shape)
