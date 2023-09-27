@@ -1376,11 +1376,30 @@ def create_subset(stimuli, fixations, stimuli_indices):
     return new_stimuli, new_fixations
 
 
+def _get_merged_attribute_list(attributes):
+    all_attributes = set(attributes[0])
+    common_attributes = set(attributes[0])
+
+    for _attributes in attributes[1:]:
+        all_attributes = all_attributes.union(_attributes)
+        common_attributes = common_attributes.intersection(_attributes)
+
+    if common_attributes != all_attributes:
+        lost_attributes = all_attributes.difference(common_attributes)
+        warnings.warn(f"Discarding attributes which are not present everywhere: {lost_attributes}", stacklevel=4)
+
+    return sorted(common_attributes)
+
+
 def concatenate_stimuli(stimuli):
     attributes = {}
-    for key in stimuli[0].attributes.keys():
+    for key in _get_merged_attribute_list([list(s.attributes.keys()) for s in stimuli]):
         attributes[key] = concatenate_attributes(s.attributes[key] for s in stimuli)
-    return ObjectStimuli(sum([s.stimulus_objects for s in stimuli], []), attributes=attributes)
+
+    if all(isinstance(s, FileStimuli) for s in stimuli):
+        return FileStimuli(sum([s.filenames for s in stimuli], []), attributes=attributes)
+    else:
+        return ObjectStimuli(sum([s.stimulus_objects for s in stimuli], []), attributes=attributes)
 
 
 def concatenate_attributes(attributes):
@@ -1417,7 +1436,7 @@ def concatenate_fixations(fixations):
     attributes = set(fixations[0].__attributes__)
     for f in fixations:
         attributes = attributes.intersection(f.__attributes__)
-    attributes = sorted(attributes, key=fixations[0].__attributes__.index)
+    attributes = _get_merged_attribute_list([list(f.attributes.keys()) for f in fixations])
     for key in attributes:
         if key == 'subjects':
             continue

@@ -609,6 +609,13 @@ def test_concatenate_stimuli_with_attributes(stimuli_with_attributes, file_stimu
     np.testing.assert_allclose(file_stimuli_with_attributes.attributes['dva'], concatenated_stimuli.attributes['dva'][len(stimuli_with_attributes):])
 
 
+def test_concatenate_file_stimuli(file_stimuli_with_attributes):
+    concatenated_stimuli = pysaliency.datasets.concatenate_stimuli([file_stimuli_with_attributes, file_stimuli_with_attributes])
+
+    assert isinstance(concatenated_stimuli, pysaliency.FileStimuli)
+    assert concatenated_stimuli.filenames == file_stimuli_with_attributes.filenames + file_stimuli_with_attributes.filenames
+
+
 @pytest.mark.parametrize('stimulus_indices', [[0], [1], [0, 1]])
 def test_create_subset_fixation_trains(file_stimuli_with_attributes, fixation_trains, stimulus_indices):
     sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixation_trains, stimulus_indices)
