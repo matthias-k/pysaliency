@@ -616,6 +616,54 @@ def test_concatenate_file_stimuli(file_stimuli_with_attributes):
     assert concatenated_stimuli.filenames == file_stimuli_with_attributes.filenames + file_stimuli_with_attributes.filenames
 
 
+def test_concatenate_fixations(fixation_trains):
+    new_fixations = pysaliency.Fixations.concatenate((fixation_trains, fixation_trains))
+    assert isinstance(new_fixations, pysaliency.Fixations)
+    np.testing.assert_allclose(
+        new_fixations.x,
+        np.concatenate((fixation_trains.x, fixation_trains.x))
+    )
+
+    np.testing.assert_allclose(
+        new_fixations.n,
+        np.concatenate((fixation_trains.n, fixation_trains.n))
+    )
+
+    assert new_fixations.__attributes__ == ['subjects', 'duration', 'duration_hist', 'multi_dim_attribute', 'scanpath_index', 'some_attribute', 'task']
+
+    np.testing.assert_allclose(
+        new_fixations.some_attribute,
+        np.concatenate((fixation_trains.some_attribute, fixation_trains.some_attribute))
+    )
+
+def test_concatenate_scanpaths(fixation_trains):
+    fixation_trains2 = fixation_trains.copy()
+
+    del fixation_trains2.scanpath_attributes['task']
+    delattr(fixation_trains2, 'task')
+    fixation_trains2.auto_attributes.remove('task')
+    fixation_trains2.__attributes__.remove('task')
+
+    new_scanpaths = pysaliency.FixationTrains.concatenate((fixation_trains, fixation_trains2))
+    assert isinstance(new_scanpaths, pysaliency.Fixations)
+    np.testing.assert_allclose(
+        new_scanpaths.x,
+        np.concatenate((fixation_trains.x, fixation_trains2.x))
+    )
+
+    np.testing.assert_allclose(
+        new_scanpaths.n,
+        np.concatenate((fixation_trains.n, fixation_trains2.n))
+    )
+
+    assert set(new_scanpaths.__attributes__) == {'subjects', 'duration', 'duration_hist', 'multi_dim_attribute', 'scanpath_index', 'some_attribute'}
+
+    np.testing.assert_allclose(
+        new_scanpaths.some_attribute,
+        np.concatenate((fixation_trains.some_attribute, fixation_trains2.some_attribute))
+    )
+
+
 @pytest.mark.parametrize('stimulus_indices', [[0], [1], [0, 1]])
 def test_create_subset_fixation_trains(file_stimuli_with_attributes, fixation_trains, stimulus_indices):
     sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixation_trains, stimulus_indices)

@@ -210,6 +210,25 @@ class Fixations(object):
         n = np.hstack(ns)
         return cls.create_without_history(x, y, n)
 
+    @classmethod
+    def concatenate(cls, fixations):
+        kwargs = {}
+        for key in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']:
+            kwargs[key] = concatenate_attributes(getattr(f, key) for f in fixations)
+
+        attributes = _get_merged_attribute_list([f.__attributes__ for f in fixations])
+        attribute_dict = {}
+        for key in attributes:
+            if key == 'subjects':
+                continue
+            attribute_dict[key] = concatenate_attributes(getattr(f, key) for f in fixations)
+
+        kwargs['attributes'] = attribute_dict
+
+        new_fixations = cls(**kwargs)
+
+        return new_fixations
+
     def __getitem__(self, indices):
         return self.filter(indices)
 
@@ -510,6 +529,56 @@ class FixationTrains(Fixations):
                 setattr(self, key, value)
 
         self.full_nonfixations = None
+
+
+    @classmethod
+    def concatenate(cls, fixation_trains):
+        kwargs = {}
+
+        for key in ['train_xs', 'train_ys', 'train_ts', 'train_ns', 'train_subjects']:
+            kwargs[key] = concatenate_attributes(getattr(f, key) for f in fixation_trains)
+
+        def _real_attributes(scanpaths: FixationTrains):
+            return [attribute_name for attribute_name in scanpaths.__attributes__ if attribute_name not in scanpaths.auto_attributes + ['scanpath_index']]
+
+        def _mapped_attribute_name(attribute_name: str, scanpaths: FixationTrains):
+            names = [s.scanpath_attribute_mapping.get(attribute_name) for s in scanpaths]
+            if len(set(names)) > 1:
+                raise ValueError(f"inconsistent attribute name mappings for '{attribute_name}': {names}")
+
+            return names[0]
+
+        attributes = _get_merged_attribute_list([_real_attributes(f) for f in fixation_trains])
+        attribute_dict = {}
+        for key in attributes:
+            if key == 'subjects':
+                continue
+            attribute_dict[key] = concatenate_attributes(getattr(f, key) for f in fixation_trains)
+
+        kwargs['attributes'] = attribute_dict
+
+        scanpath_attribute_names = _get_merged_attribute_list([list(f.scanpath_attributes) for f in fixation_trains])
+
+        kwargs['scanpath_attributes'] = {}
+        kwargs['scanpath_attribute_mapping'] = {}
+        for name in scanpath_attribute_names:
+            kwargs['scanpath_attributes'][name] = concatenate_attributes(f.scanpath_attributes[name] for f in fixation_trains)
+            mapped_name = _mapped_attribute_name(name, fixation_trains)
+            if mapped_name is not None:
+                kwargs['scanpath_attribute_mapping'][name] = mapped_name
+
+        scanpath_fixation_attribute_names = _get_merged_attribute_list([list(f.scanpath_fixation_attributes) for f in fixation_trains])
+
+        kwargs['scanpath_fixation_attributes'] = {}
+        for name in scanpath_fixation_attribute_names:
+            kwargs['scanpath_fixation_attributes'][name] = concatenate_attributes(f.scanpath_fixation_attributes[name] for f in fixation_trains)
+            mapped_name = _mapped_attribute_name(name, fixation_trains)
+            if mapped_name is not None:
+                kwargs['scanpath_attribute_mapping'][name] = mapped_name
+
+        new_fixations = cls(**kwargs)
+
+        return new_fixations
 
 
     def set_scanpath_attribute(self, name, data, fixation_attribute_name=None):
@@ -1429,22 +1498,10 @@ def concatenate_attributes(attributes):
 
 
 def concatenate_fixations(fixations):
-    kwargs = {}
-    for key in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']:
-        kwargs[key] = concatenate_attributes(getattr(f, key) for f in fixations)
-    new_fixations = Fixations(**kwargs)
-    attributes = set(fixations[0].__attributes__)
-    for f in fixations:
-        attributes = attributes.intersection(f.__attributes__)
-    attributes = _get_merged_attribute_list([list(f.attributes.keys()) for f in fixations])
-    for key in attributes:
-        if key == 'subjects':
-            continue
-        setattr(new_fixations, key, concatenate_attributes(getattr(f, key) for f in fixations))
-
-    new_fixations.__attributes__ = attributes
-
-    return new_fixations
+    if all(isinstance(f, FixationTrains) for f in fixations):
+        return FixationTrains.concatenate(fixations)
+    else:
+        return Fixations.concatenate(fixations)
 
 
 def concatenate_datasets(stimuli, fixations):
@@ -1460,6 +1517,8 @@ def concatenate_datasets(stimuli, fixations):
         offset = sum(len(s) for s in stimuli[:i])
         f = fixations[i].copy()
         f.n += offset
+        if isinstance(f, FixationTrains):
+            f.train_ns += offset
         fixations[i] = f
 
     return concatenate_stimuli(stimuli), concatenate_fixations(fixations)
