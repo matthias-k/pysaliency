@@ -512,6 +512,35 @@ class FixationTrains(Fixations):
         self.full_nonfixations = None
 
 
+    def set_scanpath_attribute(self, name, data, fixation_attribute_name=None):
+        """Sets a scanpath attribute
+        name: name of scanpath attribute
+        data: data of scanpath attribute, has to be of same length as number of scanpaths
+        fixation_attribute: name of automatically generated fixation attribute if it should be different than scanpath attribute name
+        """
+        if not len(data) == len(self.train_xs):
+            raise ValueError(f'Length of scanpath attribute data has to match number of scanpaths: {len(data)} != {len(self.train_xs)}')
+        self.scanpath_attributes[name] = data
+
+        if fixation_attribute_name is not None:
+            self.scanpath_attribute_mapping[name] = fixation_attribute_name
+
+        new_attribute_name = self.scanpath_attribute_mapping.get(name, name)
+        if new_attribute_name in self.attributes and new_attribute_name not in self.auto_attributes:
+            raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
+
+        attribute_shape = np.asarray(data[0]).shape
+        self.attributes[new_attribute_name] = np.empty([len(self.train_xs)] + list(attribute_shape), dtype=data.dtype)
+        if new_attribute_name not in self.auto_attributes:
+            self.auto_attributes.append(new_attribute_name)
+
+        out_index = 0
+        for train_index in range(self.train_xs.shape[0]):
+            fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
+            for _ in range(fix_length):
+                self.attributes[new_attribute_name][out_index] = self.scanpath_attributes[name][train_index]
+                out_index += 1
+
     def copy(self):
         copied_attributes = {}
         for attribute_name in self.__attributes__:
