@@ -1,6 +1,7 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Feature: DVAAwareScanpathModel
   * Feature: ShuffledBaselineModel is now much more efficient and able to handle large numbers of stimuli.
     hence, ShuffledSimpleBaselineModel is not necessary anymore and a deprecated alias to ShuffledBaselineModel
   * Feature: ShuffledBaselineModel can now compute predictions for very large numbers of stimuli without needing

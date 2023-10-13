@@ -932,7 +932,8 @@ class DVAAwareModel(Model):
         self.factor = self.parent_model_dva / self.dva
 
     def _log_density(self, stimulus):
-        stimulus = self.ensure_color(stimulus)
+        stimulus_data = as_stimulus(stimulus).stimulus_data
+        stimulus = self.ensure_color(stimulus_data)
 
         if self.factor != 1.0:
             if self.verbose:
@@ -942,6 +943,87 @@ class DVAAwareModel(Model):
             stimulus_for_parent_model = stimulus
 
         log_density = self.parent_model.log_density(stimulus_for_parent_model)
+
+        factor_y = stimulus.shape[0] / log_density.shape[0]
+        factor_x = stimulus.shape[1] / log_density.shape[1]
+
+        if factor_y != 1.0 or factor_x != 1.0:
+            if self.verbose:
+                print("Wrong shape, resizing log densities", stimulus.shape, log_density.shape)
+            log_density = zoom(log_density, [factor_y, factor_x], order=1, mode='nearest')
+            log_density -= logsumexp(log_density)
+
+        assert log_density.shape[0] == stimulus.shape[0]
+        assert log_density.shape[1] == stimulus.shape[1]
+
+        return log_density
+
+    def ensure_color(self, image):
+        if image.ndim == 2:
+            return np.dstack((image, image, image))
+        return image
+
+
+class DVAAwareScanpathModel(ScanpathModel):
+    """ A scanpath model which adapts another model to a new image resolution by rescaling images before computing predictions
+
+    - dva: expected image resolution in pixel per dva for this model
+    - parent_model_dva: image resolution expected by parent_model
+    """
+    def __init__(self, dva: float, parent_model: ScanpathModel, parent_model_dva: float, verbose=False, **kwargs):
+
+        super(DVAAwareScanpathModel, self).__init__(**kwargs)
+
+        self.dva = dva
+        self.parent_model = parent_model
+        self.parent_model_dva = parent_model_dva
+        self.verbose = verbose
+
+        self.factor = self.parent_model_dva / self.dva
+
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
+        stimulus_data = as_stimulus(stimulus).stimulus_data
+        stimulus = self.ensure_color(stimulus_data)
+        if out is not None:
+            raise NotImplementedError()
+
+        if self.factor != 1.0:
+            if self.verbose:
+                print("Resizing with factor", self.factor)
+            stimulus_for_parent_model = zoom(stimulus, [self.factor, self.factor, 1.0], order=1, mode='nearest')
+
+            outer_shape = (
+                stimulus.shape[0],
+                stimulus.shape[1]
+            )
+
+            inner_shape = (
+                stimulus_for_parent_model.shape[0],
+                stimulus_for_parent_model.shape[1]
+            )
+
+            x_factor = outer_shape[1] / inner_shape[1]
+            y_factor = outer_shape[0] / inner_shape[0]
+
+            if x_factor != 1:
+                x_hist_for_parent_model = np.array(x_hist) / x_factor
+            if y_factor != 1:
+                y_hist_for_parent_model = np.array(y_hist) / y_factor
+
+
+        else:
+            stimulus_for_parent_model = stimulus
+            x_hist_for_parent_model = x_hist
+            y_hist_for_parent_model = y_hist
+
+
+        log_density = self.parent_model.conditional_log_density(
+            stimulus=stimulus_for_parent_model,
+            x_hist = x_hist_for_parent_model,
+            y_hist=y_hist_for_parent_model,
+            t_hist=t_hist,
+            attributes=attributes
+        )
 
         factor_y = stimulus.shape[0] / log_density.shape[0]
         factor_x = stimulus.shape[1] / log_density.shape[1]
