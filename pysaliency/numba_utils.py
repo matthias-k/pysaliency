@@ -66,14 +66,19 @@ def general_roc_numba(positives, negatives, judd=0):
     hit_rates = np.zeros(len(all_values) + 1)
     positive_count = len(positives)
     negative_count = len(negatives)
-    return _general_roc_numba(all_values, sorted_positives, sorted_negatives, positive_count, negative_count, false_positive_rates, hit_rates)
+    hit_rates, false_positive_rates = _general_roc_numba(all_values, sorted_positives, sorted_negatives, false_positive_rates, hit_rates)
+    auc = np.trapz(hit_rates, false_positive_rates)
+
+    return auc, hit_rates, false_positive_rates
 
 
 @numba.jit(nopython=True)
-def _general_roc_numba(all_values, sorted_positives, sorted_negatives, positive_count, negative_count, false_positive_rates, hit_rates):
+def _general_roc_numba(all_values, sorted_positives, sorted_negatives, false_positive_rates, hit_rates):
     """calculate ROC score for given values of positive and negative
     distribution"""
 
+    positive_count = len(sorted_positives)
+    negative_count = len(sorted_negatives)
     true_positive_count = 0
     false_positive_count = 0
     for i in range(len(all_values)):
@@ -85,5 +90,4 @@ def _general_roc_numba(all_values, sorted_positives, sorted_negatives, positive_
         false_positive_rates[i+1] = float(false_positive_count) / negative_count
         hit_rates[i+1] = float(true_positive_count) / positive_count
 
-    auc = np.trapz(hit_rates, false_positive_rates)
-    return auc, hit_rates, false_positive_rates
+    return hit_rates, false_positive_rates
