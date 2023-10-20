@@ -17,7 +17,6 @@ def test_simple_auc_hypothesis(negatives, positive):
     old_auc, _, _ = general_roc(np.array([positive]), np.array(negatives))
     new_auc = auc_for_one_positive(positive, np.array(negatives))
     np.testing.assert_allclose(old_auc, new_auc)
-@given(st.lists(st.floats(allow_infinity=False,allow_nan=False),min_size=1), st.floats(allow_infinity=False,allow_nan=False))\n",
 
 
 @settings(deadline=None)
