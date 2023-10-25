@@ -1,1 +1,1 @@
-from .numba_utils import general_roc_numba as general_roc
+from .numba_utils import general_roc_numba as general_roc, general_rocs_per_positive_numba as general_rocs_per_positive
