@@ -1,22 +1,19 @@
-from __future__ import print_function, unicode_literals, division, absolute_import
+from __future__ import absolute_import, division, print_function, unicode_literals
 
-from boltons.iterutils import chunked
 import numba
 import numpy as np
-from scipy.special import logsumexp
+from boltons.iterutils import chunked
+from typing import List
 from scipy.ndimage.filters import gaussian_filter
-
+from scipy.special import logsumexp
+from sklearn.base import BaseEstimator, DensityMixin
 from sklearn.neighbors import KernelDensity
-from sklearn.model_selection import BaseCrossValidator
-from sklearn.base import BaseEstimator
 
-from tqdm import tqdm
-
+from . import Model, UniformModel
+from .numba_utils import fill_fixation_map
 from .precomputed_models import get_image_hash
 from .roc import general_roc
-from .numba_utils import fill_fixation_map
 from .utils import inter_and_extrapolate
-from . import Model, UniformModel
 
 
 @numba.jit(nopython=True)
@@ -176,7 +173,62 @@ class ScikitLearnWithinImageCrossValidationGenerator(object):
         return len(self.stimuli)*self.chunks_per_image
 
 
-class RegularizedKernelDensityEstimator(BaseEstimator):
+
+class GeneralMixtureKernelDensityEstimator(DensityMixin, BaseEstimator):
+    """
+    computes the log likelihood of data under a mixture of a kernel density estimator and multiple
+    other regularizations.
+
+    Other regulariations are given by their log likelihoods for each sample, where X must contain
+    sample indices in the last column. Previous columns will be used for the KDE.
+
+    bandwidth: bandwidth of the kernel density estimator
+    regularizations: list of regularization weights of the regularizations. The sum of the weights must be <= 1.0,
+            the difference to 1 will the the weight of the KDE.
+    regularizing_log_likelihoods: list of log likelihoods of the regularizations for samples. The second dimension
+            must match the length of regularizations. The first dimension will be indexed by the last dimension
+            of the handed over samples.
+    """
+    def __init__(self, bandwidth: float, regularizations: List[float], regularizing_log_likelihoods: List[float]):
+        self.bandwidth = bandwidth
+        self.regularizations = np.asarray(regularizations)
+        self.regularizing_log_likelihoods = np.asarray(regularizing_log_likelihoods)
+
+        if not len(self.regularizations) == self.regularizing_log_likelihoods.shape[1]:
+            raise ValueError("regularizations and regularizing_log_likelihoods don't match")
+
+    def setup(self):
+        assert np.sum(self.regularizations) <= 1.0
+        self.kde = KernelDensity(kernel='gaussian', bandwidth=self.bandwidth)
+
+        self.kde_constant = np.log(1-self.regularizations.sum())
+        self.regularization_constants = np.log(self.regularizations)
+
+    def fit(self, X):
+        assert X.shape[1] == 3
+
+        self.setup()
+        self.kde.fit(X[:, 0:2])
+        return self
+
+    def score_samples(self, X):
+        assert X.shape[1] == 3
+
+        kde_logliks = self.kde.score_samples(X[:, :2])
+        fix_inds = X[:, 2].astype(int)
+        fix_lls = self.regularizing_log_likelihoods[fix_inds]
+
+        logliks = logsumexp(np.hstack([(self.kde_constant + kde_logliks)[:, np.newaxis],
+                                       self.regularization_constants + fix_lls
+                                       ]), axis=-1)
+
+        return logliks
+
+    def score(self, X):
+        return np.sum(self.score_samples(X))
+
+
+class RegularizedKernelDensityEstimatorOld(DensityMixin, BaseEstimator):
     def __init__(self, bandwidth=1.0, regularization = 1.0e-5):
         self.bandwidth = bandwidth
         self.regularization = regularization
@@ -209,13 +261,11 @@ class RegularizedKernelDensityEstimator(BaseEstimator):
         return np.sum(self.score_samples(X))
 
 
-class MixtureKernelDensityEstimator(BaseEstimator):
+class MixtureKernelDensityEstimator(DensityMixin, BaseEstimator):
     def __init__(self, bandwidth=1.0, regularization = 1.0e-5, regularizing_log_likelihoods=None):
         self.bandwidth = bandwidth
         self.regularization = regularization
-        #self.regularizer_model = regularizer_model
-        ##self.stimuli = stimuli
-        self.regularizing_log_likelihoods = regularizing_log_likelihoods
+        self.regularizing_log_likelihoods = np.asarray(regularizing_log_likelihoods)
 
     def setup(self):
         self.kde = KernelDensity(kernel='gaussian', bandwidth=self.bandwidth)
@@ -247,7 +297,7 @@ class MixtureKernelDensityEstimator(BaseEstimator):
         return np.sum(self.score_samples(X))
 
 
-class AUCKernelDensityEstimator(BaseEstimator):
+class AUCKernelDensityEstimator(DensityMixin, BaseEstimator):
     def __init__(self, nonfixations, bandwidth=1.0):
         self.bandwidth = bandwidth
         self.nonfixations = nonfixations

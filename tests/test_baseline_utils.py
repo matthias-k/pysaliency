@@ -1,10 +1,10 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import pytest
 import numpy as np
+import pytest
 
 import pysaliency
-from pysaliency.baseline_utils import fill_fixation_map, KDEGoldModel
+from pysaliency.baseline_utils import KDEGoldModel, GeneralMixtureKernelDensityEstimator, MixtureKernelDensityEstimator, fill_fixation_map
 
 
 @pytest.fixture
@@ -69,3 +69,62 @@ def test_kde_gold_model(stimuli, fixation_trains):
     print(full_ll, spaced_ll)
     np.testing.assert_allclose(full_ll, 2.1912009255501252)
     np.testing.assert_allclose(spaced_ll, 2.191055750664578)
+
+
+def test_general_mixture_kernel_density_estimator():
+    # Test initialization
+    estimator = GeneralMixtureKernelDensityEstimator(bandwidth=1.0, regularizations=[0.2, 0.1], regularizing_log_likelihoods=[[-1, 0.0], [-0.1, -10.0], [-10, -0.1]])
+    assert estimator.bandwidth == 1.0
+    assert np.allclose(estimator.regularizations, [0.2, 0.1])
+    assert np.allclose(estimator.regularizing_log_likelihoods, [[-1, 0.0], [-0.1, -10.0], [-10, -0.1]])
+
+    # Test setup
+    estimator.setup()
+    assert estimator.kde is not None
+    assert estimator.kde_constant is not None
+    assert estimator.regularization_constants is not None
+
+    # Test fit
+    X = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
+    estimator.fit(X)
+    assert estimator.kde is not None
+
+    # Test score_samples
+    X = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
+    logliks = estimator.score_samples(X)
+    assert logliks.shape == (3,)
+    np.testing.assert_allclose(logliks, [-1.49141561, -1.40473767, -1.95213405])
+
+    # Test score
+    X = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
+    score = estimator.score(X)
+    assert isinstance(score, float)
+
+
+def test_mixture_kernel_density_estimator():
+    # Test initialization
+    estimator = MixtureKernelDensityEstimator(bandwidth=1.0, regularization=1.0e-5, regularizing_log_likelihoods=[-0.3, -0.2, -0.1])
+    assert estimator.bandwidth == 1.0
+    assert estimator.regularization == 1.0e-5
+
+    # Test setup
+    estimator.setup()
+    assert estimator.kde is not None
+    assert estimator.kde_constant is not None
+    assert estimator.uniform_constant is not None
+
+    # Test fit
+    X = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
+    estimator.fit(X)
+    assert estimator.kde is not None
+
+    # Test score_samples
+    X = np.array([[0, 0.2, 0], [0.3, 1, 1], [1, 1, 2]])
+    logliks = estimator.score_samples(X)
+    assert logliks.shape == (3,)
+    np.testing.assert_allclose(logliks, [-2.56662505, -2.5272495,  -2.38495638])
+
+    # Test score
+    X = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
+    score = estimator.score(X)
+    assert isinstance(score, float)
