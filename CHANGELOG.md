@@ -1,6 +1,7 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Feature: CrossvalMultipleRegularizations, CrossvalGoldMultipleRegularizations and GeneralMixtureKernelDensityEstimator in baseline utils (names might change!)
   * Feature: DVAAwareScanpathModel
   * Feature: ShuffledBaselineModel is now much more efficient and able to handle large numbers of stimuli.
     hence, ShuffledSimpleBaselineModel is not necessary anymore and a deprecated alias to ShuffledBaselineModel
