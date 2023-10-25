@@ -1,10 +1,19 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from collections import OrderedDict
+
 import numpy as np
 import pytest
 
 import pysaliency
-from pysaliency.baseline_utils import KDEGoldModel, GeneralMixtureKernelDensityEstimator, MixtureKernelDensityEstimator, fill_fixation_map
+from pysaliency.baseline_utils import (
+    CrossvalMultipleRegularizations,
+    GeneralMixtureKernelDensityEstimator,
+    KDEGoldModel,
+    MixtureKernelDensityEstimator,
+    ScikitLearnImageCrossValidationGenerator,
+    fill_fixation_map,
+)
 
 
 @pytest.fixture
@@ -127,4 +136,24 @@ def test_mixture_kernel_density_estimator():
     # Test score
     X = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
     score = estimator.score(X)
+    assert isinstance(score, float)
+
+
+def test_crossval_multiple_regularizations(stimuli, fixation_trains):
+    # Test initialization
+    regularization_models = OrderedDict([('model1', pysaliency.UniformModel()), ('model2', pysaliency.models.GaussianModel())])
+    crossvalidation = ScikitLearnImageCrossValidationGenerator(stimuli, fixation_trains)
+    estimator = CrossvalMultipleRegularizations(stimuli, fixation_trains, regularization_models, crossvalidation)
+    assert estimator.stimuli is stimuli
+    assert estimator.fixations is fixation_trains
+    assert estimator.cv is crossvalidation
+    assert estimator.mean_area is not None
+    assert estimator.X is not None
+    assert estimator.regularization_log_likelihoods is not None
+
+    # Test score
+    log_bandwidth = 0.1
+    log_regularizations = [0.1, 0.2]
+
+    score = estimator.score(log_bandwidth, *log_regularizations)
     assert isinstance(score, float)

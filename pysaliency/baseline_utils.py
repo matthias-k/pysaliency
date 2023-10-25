@@ -1,12 +1,13 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+from collections import OrderedDict
+from typing import List
 
 import numba
 import numpy as np
 from boltons.iterutils import chunked
-from typing import List
 from scipy.ndimage.filters import gaussian_filter
 from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, DensityMixin
+from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KernelDensity
 
 from . import Model, UniformModel
@@ -77,6 +78,9 @@ def fixations_to_scikit_learn(fixations, normalize=None, keep_aspect=False, add_
     return np.vstack(data).T.copy()
 
 
+# crossvalidation generators
+
+
 class ScikitLearnImageCrossValidationGenerator(object):
     def __init__(self, stimuli, fixations, within_stimulus_attributes=None, leave_out_size=1, maximal_source_count=None):
         self.stimuli = stimuli
@@ -85,7 +89,7 @@ class ScikitLearnImageCrossValidationGenerator(object):
         self.leave_out_size = leave_out_size
         self.maximal_source_count = maximal_source_count
         if self.within_stimulus_attributes and leave_out_size != 1:
-            raise NotImplemented("cannot yet specify both batchsize and within_stimulus_attributes")
+            raise NotImplementedError("cannot yet specify both batchsize and within_stimulus_attributes")
         for attribute in self.within_stimulus_attributes:
             if attribute not in self.stimuli.attributes:
                 raise ValueError(f"stimulus attribute '{attribute}' not available in given stimuli")
@@ -172,6 +176,8 @@ class ScikitLearnWithinImageCrossValidationGenerator(object):
 
         return len(self.stimuli)*self.chunks_per_image
 
+
+# Scikit-learn compatible estimators for baseline models
 
 
 class GeneralMixtureKernelDensityEstimator(DensityMixin, BaseEstimator):
@@ -322,6 +328,99 @@ class AUCKernelDensityEstimator(DensityMixin, BaseEstimator):
     def score(self, X):
         return np.sum(self.score_samples(X))
 
+
+# Classes for computing crossvalidation scores of fixations on stimuli on KDE models
+# with multiple regularization models
+
+def _normalize_regularization_factors(args):
+    """ makes sure that sum(10**args) <= 1.0, i.e. they can be used as regularizing weights """
+    log_regularizations = np.asarray(args)
+    for i, value in enumerate(log_regularizations):
+        if value >= 0:
+            log_regularizations[i] = -1e-10
+
+    for i in list(range(len(log_regularizations)))[::-1]:
+        if np.sum([10**value for value in log_regularizations]) <= 1.0:
+            break
+        #else:
+        #    print("not normal", np.sum([10**value for value in log_regularizations]))
+        new_value = 1.0 - (10**log_regularizations).sum()
+        if new_value < 0:
+            new_value = -10
+        else:
+            new_value = np.log10(new_value)
+        log_regularizations[i] = new_value
+
+    return log_regularizations
+
+
+class CrossvalMultipleRegularizations(object):
+    """ Class for computing crossvalidation scores of a fixation KDE with multiple regularization models"""
+    def __init__(self, stimuli, fixations, regularization_models: OrderedDict, crossvalidation):
+        self.stimuli = stimuli
+        self.fixations = fixations
+
+        self.cv = crossvalidation
+
+        X_areas = fixations_to_scikit_learn(
+            self.fixations, normalize=stimuli,
+            keep_aspect=True,
+            add_shape=True,
+            verbose=False
+        )
+
+        mean_area = np.mean([x[2]*x[3] for x in X_areas])
+        self.mean_area = mean_area
+
+        self.X = fixations_to_scikit_learn(
+            self.fixations,
+            normalize=self.stimuli,
+            keep_aspect=True, add_shape=False, add_fixation_number=True, verbose=False
+        )
+
+        real_areas = [self.stimuli.sizes[n][0]*self.stimuli.sizes[n][1] for n in self.fixations.n]
+        areas_gold = [x[2]*x[3] for x in X_areas]
+        correction = np.log(areas_gold) - np.log(real_areas)
+        self.regularization_log_likelihoods = []
+
+        self.regularization_models = []
+        self.params = ['log_bandwidth']
+        for model_name, model in regularization_models.items():
+            model_lls = model.log_likelihoods(self.stimuli, self.fixations, verbose=True)
+            self.regularization_log_likelihoods.append(model_lls - correction)
+            self.params.append('log_{}'.format(model_name))
+
+        self.regularization_log_likelihoods = np.asarray(self.regularization_log_likelihoods).T
+
+    def score(self, log_bandwidth, *args, **kwargs):
+        for i, arg in enumerate(args):
+            name = self.params[i+1]
+            if name in kwargs:
+                raise ValueError("double arguments!", args, kwargs)
+            kwargs[name] = arg
+        log_regularizations = np.array([kwargs[k] for k in self.params[1:]])
+        log_regularizations = _normalize_regularization_factors(log_regularizations)
+
+        val = cross_val_score(GeneralMixtureKernelDensityEstimator(
+            bandwidth=10**log_bandwidth,
+            regularizations=10**log_regularizations,
+            regularizing_log_likelihoods=self.regularization_log_likelihoods),
+            self.X, cv=self.cv, verbose=1).sum() / len(self.X) / np.log(2)
+        val += np.log2(self.mean_area)
+        return val
+
+
+class CrossvalGoldMultipleRegularizations(CrossvalMultipleRegularizations):
+    def __init__(self, stimuli, fixations, regularization_models):
+        if fixations.subject_count > 1:
+            crossvalidation_factory = ScikitLearnImageSubjectCrossValidationGenerator
+        else:
+            crossvalidation_factory = ScikitLearnWithinImageCrossValidationGenerator
+
+        super().__init__(stimuli, fixations, regularization_models, crossvalidation_factory=crossvalidation_factory)
+
+
+# baseline models
 
 class GoldModel(Model):
     def __init__(self, stimuli, fixations, bandwidth, eps = 1e-20, keep_aspect=False, verbose=False, **kwargs):
