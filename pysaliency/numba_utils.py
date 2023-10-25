@@ -92,8 +92,6 @@ def _general_roc_numba(all_values, sorted_positives, sorted_negatives, false_pos
 
 
 def general_rocs_per_positive_numba(positives, negatives):
-    """calculate ROC scores for each positive against a list of negatives
-    distribution. The mean over the result will equal the return value of `general_roc`."""
     sorted_positives = np.sort(positives)
     sorted_negatives = np.sort(negatives)
     sorted_inds = np.argsort(positives)
@@ -106,6 +104,9 @@ def general_rocs_per_positive_numba(positives, negatives):
 
 @numba.jit(nopython=True)
 def _general_rocs_per_positive_numba(sorted_positives, sorted_negatives, sorted_inds, results):
+    """calculate ROC scores for each positive against a list of negatives
+    distribution. The mean over the result will equal the return value of `general_roc`."""
+    
     true_negatives_count = 0
     equal_count = 0
     last_theta = -np.inf
