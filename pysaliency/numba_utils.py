@@ -64,8 +64,6 @@ def general_roc_numba(positives, negatives, judd=0):
 
     false_positive_rates = np.zeros(len(all_values) + 1)
     hit_rates = np.zeros(len(all_values) + 1)
-    positive_count = len(positives)
-    negative_count = len(negatives)
     hit_rates, false_positive_rates = _general_roc_numba(all_values, sorted_positives, sorted_negatives, false_positive_rates, hit_rates)
     auc = np.trapz(hit_rates, false_positive_rates)
 
