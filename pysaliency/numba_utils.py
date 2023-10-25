@@ -89,3 +89,46 @@ def _general_roc_numba(all_values, sorted_positives, sorted_negatives, false_pos
         hit_rates[i+1] = float(true_positive_count) / positive_count
 
     return hit_rates, false_positive_rates
+
+
+def general_rocs_per_positive_numba(positives, negatives):
+    """calculate ROC scores for each positive against a list of negatives
+    distribution. The mean over the result will equal the return value of `general_roc`."""
+    sorted_positives = np.sort(positives)
+    sorted_negatives = np.sort(negatives)
+    sorted_inds = np.argsort(positives)
+
+    results = np.empty(len(positives))
+    results = _general_rocs_per_positive_numba(sorted_positives, sorted_negatives, sorted_inds, results)
+
+    return results
+
+
+@numba.jit(nopython=True)
+def _general_rocs_per_positive_numba(sorted_positives, sorted_negatives, sorted_inds, results):
+    true_negatives_count = 0
+    equal_count = 0
+    last_theta = -np.inf
+    negative_count = len(sorted_negatives)
+
+    for i in range(len(sorted_positives)):
+        theta = sorted_positives[i]
+
+        if theta == last_theta:
+            results[sorted_inds[i]] = (1.0 * true_negatives_count + 0.5 * equal_count) / negative_count
+            continue
+
+        true_negatives_count = true_negatives_count + equal_count
+
+        while true_negatives_count < negative_count and sorted_negatives[true_negatives_count] < theta:
+            true_negatives_count += 1
+
+        equal_count = 0
+        while true_negatives_count + equal_count < negative_count and sorted_negatives[true_negatives_count + equal_count] <= theta:
+            equal_count += 1
+
+        results[sorted_inds[i]] = (1.0 * true_negatives_count + 0.5 * equal_count) / negative_count
+
+        last_theta = theta
+
+    return results
