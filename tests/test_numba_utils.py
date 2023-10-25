@@ -1,8 +1,8 @@
 from hypothesis import given, strategies as st, assume, settings
 import numpy as np
 
-from pysaliency.numba_utils import auc_for_one_positive
-from pysaliency.roc import general_roc
+from pysaliency.numba_utils import auc_for_one_positive, general_roc_numba
+from pysaliency.roc_cython import general_roc
 
 
 def test_auc_for_one_positive():
@@ -19,9 +19,9 @@ def test_simple_auc_hypothesis(negatives, positive):
     np.testing.assert_allclose(old_auc, new_auc)
 
 
-@settings(deadline=None)
+@settings(deadline=None)        #to remove time limit from a test
 @given(st.lists(st.floats(allow_infinity=False,allow_nan=False),min_size=1), st.lists(st.floats(allow_infinity=False,allow_nan=False),min_size=1))
-def numba_auc_test1(positives,negatives):
+def test_numba_auc_test1(positives,negatives):
     positives = np.array(positives)
     negatives = np.array(negatives)
     numba_output = general_roc_numba(positives,negatives)
@@ -33,7 +33,7 @@ def numba_auc_test1(positives,negatives):
 
 @settings(deadline=None)
 @given(st.lists(st.floats(allow_infinity=False,allow_nan=False),min_size=1), st.floats(allow_infinity=False,allow_nan=False))
-def numba_auc_test2(positives,temp_variable):
+def test_numba_auc_test2(positives,temp_variable):
     positives = np.array(positives)
     negatives = positives+temp_variable
     numba_output = general_roc_numba(positives,negatives)
