@@ -24,7 +24,6 @@ def test_simple_auc_hypothesis(negatives, positive):
 def numba_auc_test1(positives,negatives):
     positives = np.array(positives)
     negatives = np.array(negatives)
-    assume (len(positives) == len(negatives))
     numba_output = general_roc_numba(positives,negatives)
     cython_output = general_roc(positives,negatives)
     assert np.isclose(numba_output[0],cython_output[0])
