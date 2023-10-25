@@ -23,7 +23,7 @@ except IOError:
     long_description = ''
 
 extensions = [
-    Extension("pysaliency.roc", ['pysaliency/*.pyx'],
+    Extension("pysaliency.roc_cython", ['pysaliency/*.pyx'],
               include_dirs = [np.get_include()],
               extra_compile_args = ['-O3'],
               #extra_compile_args = ['-fopenmp', '-O3'],
