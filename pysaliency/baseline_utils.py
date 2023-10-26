@@ -234,7 +234,7 @@ class GeneralMixtureKernelDensityEstimator(DensityMixin, BaseEstimator):
         return np.sum(self.score_samples(X))
 
 
-class RegularizedKernelDensityEstimatorOld(DensityMixin, BaseEstimator):
+class RegularizedKernelDensityEstimator(DensityMixin, BaseEstimator):
     def __init__(self, bandwidth=1.0, regularization = 1.0e-5):
         self.bandwidth = bandwidth
         self.regularization = regularization

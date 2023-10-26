@@ -49,7 +49,6 @@ jobs:
           scipy \
           setuptools \
           sphinx \
-          theano \
           torchvision \
           tqdm
         pip install h5py  # https://github.com/h5py/h5py/issues/1880
@@ -65,7 +64,7 @@ jobs:
         conda install pytest hypothesis
 
         python setup.py build_ext --inplace
-        python -m pytest --nomatlab tests
+        python -m pytest --nomatlab --notheano tests
     - name: test build and install
       run: |
         python setup.py sdist
