@@ -19,7 +19,7 @@ def test_maximize_expected_sim_decay_1overk():
     )
 
     print(score)
-    np.testing.assert_allclose(score, -0.8202784448862075, rtol=8e-7)  # need bigger tolerance to handle differences between CPU and GPU
+    np.testing.assert_allclose(score, -0.8202784448862075, rtol=1e-6)  # need bigger tolerance to handle differences between CPU and GPU
 
 
 def test_maximize_expected_sim_decay_on_plateau():
