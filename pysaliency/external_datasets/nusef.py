@@ -1,19 +1,19 @@
-from __future__ import absolute_import, print_function, division
+from __future__ import absolute_import, division, print_function
 
-import zipfile
-import os
 import glob
+import os
+import zipfile
+from datetime import datetime, timedelta
 
 from tqdm import tqdm
 
 from ..datasets import FixationTrains
 from ..utils import (
     TemporaryDirectory,
-    download_and_check,
     atomic_directory_setup,
+    download_and_check,
 )
-
-from .utils import create_stimuli, _load
+from .utils import _load, create_stimuli
 
 
 # TODO: extract fixation durations
@@ -29,6 +29,12 @@ def get_NUSEF_public(location=None):
     under a special license and only upon request. This
     function returns only the 444 images which are
     available public (and the corresponding fixations).
+
+    Subjects ids used currently might not be the real subject ids 
+    and might be inconsistent across images.
+
+    The data collection experiment didn't enforce a specific 
+    fixation at stimulus onset.
 
     @type  location: string, defaults to `None`
     @param location: If and where to cache the dataset. The dataset
@@ -84,6 +90,7 @@ def get_NUSEF_public(location=None):
             ns = []
             train_subjects = []
             durations = []
+            date_format = "%H:%M:%S.%f"
 
             scale_x = 1024 / 260
             scale_y = 768 / 280
@@ -105,8 +112,7 @@ def get_NUSEF_public(location=None):
                     y = []
                     t = []
                     fixation_durations = []
-                    initial_minute = 0
-                    current_minute = 0
+                    initial_start_time = None
                     for i in range(len(lines)):
                         (_,
                          seg_no,
@@ -126,12 +132,9 @@ def get_NUSEF_public(location=None):
                         x.append(float(hor_pos) * scale_x)
                         y.append(float(ver_pos) * scale_y)
                         if i == 0:
-                            initial_minute = float(start_time.split(':')[-2])
-                        current_minute = float(start_time.split(':')[-2])
-                        start_time_seconds = float(start_time.split(':')[-1])
-                        if current_minute - initial_minute > 0:
-                            start_time_seconds += 60
-                        t.append(start_time_seconds)
+                            initial_start_time = datetime.strptime(str(start_time), date_format)
+                        current_start_time = datetime.strptime(str(start_time), date_format) 
+                        t.append(float((current_start_time - initial_start_time).total_seconds()))
                         fixation_durations.append(float(fix_dur))
 
                     xs.append(x)
