@@ -131,9 +131,9 @@ def get_NUSEF_public(location=None):
                          interfix_loss) = lines[i].split()
                         x.append(float(hor_pos) * scale_x)
                         y.append(float(ver_pos) * scale_y)
+                        current_start_time = datetime.strptime(str(start_time), date_format)
                         if i == 0:
-                            initial_start_time = datetime.strptime(str(start_time), date_format)
-                        current_start_time = datetime.strptime(str(start_time), date_format) 
+                            initial_start_time = current_start_time
                         t.append(float((current_start_time - initial_start_time).total_seconds()))
                         fixation_durations.append(float(fix_dur))
 
