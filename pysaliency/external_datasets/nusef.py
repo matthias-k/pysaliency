@@ -1,19 +1,19 @@
-from __future__ import absolute_import, print_function, division
+from __future__ import absolute_import, division, print_function
 
-import zipfile
-import os
 import glob
+import os
+import zipfile
+from datetime import datetime, timedelta
 
 from tqdm import tqdm
 
 from ..datasets import FixationTrains
 from ..utils import (
     TemporaryDirectory,
-    download_and_check,
     atomic_directory_setup,
+    download_and_check,
 )
-
-from .utils import create_stimuli, _load
+from .utils import _load, create_stimuli
 
 
 # TODO: extract fixation durations
@@ -29,6 +29,12 @@ def get_NUSEF_public(location=None):
     under a special license and only upon request. This
     function returns only the 444 images which are
     available public (and the corresponding fixations).
+
+    Subjects ids used currently might not be the real subject ids 
+    and might be inconsistent across images.
+
+    The data collection experiment didn't enforce a specific 
+    fixation at stimulus onset.
 
     @type  location: string, defaults to `None`
     @param location: If and where to cache the dataset. The dataset
@@ -83,6 +89,8 @@ def get_NUSEF_public(location=None):
             ts = []
             ns = []
             train_subjects = []
+            durations = []
+            date_format = "%H:%M:%S.%f"
 
             scale_x = 1024 / 260
             scale_y = 768 / 280
@@ -94,6 +102,7 @@ def get_NUSEF_public(location=None):
                     continue
                 n = stimuli_indices[sub_dir + '.jpg']
                 for subject_data in glob.glob(os.path.join(fix_location, sub_dir, '*.fix')):
+                    subject_id = int(subject_data.split('+')[0][-2:])
                     data = open(subject_data).read().replace('\r\n', '\n')
                     data = data.split('COLS=', 1)[1]
                     data = data.split('[Fix Segment Summary')[0]
@@ -102,7 +111,9 @@ def get_NUSEF_public(location=None):
                     x = []
                     y = []
                     t = []
-                    for line in lines:
+                    fixation_durations = []
+                    initial_start_time = None
+                    for i in range(len(lines)):
                         (_,
                          seg_no,
                          fix_no,
@@ -117,18 +128,23 @@ def get_NUSEF_public(location=None):
                          eye_scn_dist,
                          no_of_flags,
                          fix_loss,
-                         interfix_loss) = line.split()
+                         interfix_loss) = lines[i].split()
                         x.append(float(hor_pos) * scale_x)
                         y.append(float(ver_pos) * scale_y)
-                        t.append(float(start_time.split(':')[-1]))
+                        current_start_time = datetime.strptime(str(start_time), date_format)
+                        if i == 0:
+                            initial_start_time = current_start_time
+                        t.append(float((current_start_time - initial_start_time).total_seconds()))
+                        fixation_durations.append(float(fix_dur))
 
                     xs.append(x)
                     ys.append(y)
                     ts.append(t)
                     ns.append(n)
-                    train_subjects.append(0)
+                    train_subjects.append(subject_id)
+                    durations.append(fixation_durations)
 
-        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects)
+        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects, durations)
 
         if location:
             stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
