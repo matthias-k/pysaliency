@@ -104,6 +104,13 @@ def get_NUSEF_public(location=None):
 
                 size = stimuli.sizes[n]
 
+                # according to the MATLAB visualiation code, images were scaled to screen size by
+                # 1. scaling the images to have a height of 768 pixels
+                # 2. checking if the resulting width is larger than 1024, in this case
+                #    the image is downscaled to have a width of 1024
+                #    (and hence a height of less than 768)
+                # here we recompute the scale factors so that we can compute fixation locations
+                # in image coordinates from the screen coordinates
                 image_resize_factor = 768 / size[0]
                 resized_height = 768
                 resized_width = size[1] * image_resize_factor
@@ -112,6 +119,7 @@ def get_NUSEF_public(location=None):
                     resized_width = 1024
                     resized_height *= (1024 / resized_width)
 
+                # images were shown centered
                 x_offset = (1024 - resized_width) / 2
                 y_offset = (768 - resized_height) / 2
 
