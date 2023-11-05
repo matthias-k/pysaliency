@@ -30,10 +30,10 @@ def get_NUSEF_public(location=None):
     function returns only the 444 images which are
     available public (and the corresponding fixations).
 
-    Subjects ids used currently might not be the real subject ids 
+    Subjects ids used currently might not be the real subject ids
     and might be inconsistent across images.
 
-    The data collection experiment didn't enforce a specific 
+    The data collection experiment didn't enforce a specific
     fixation at stimulus onset.
 
     @type  location: string, defaults to `None`
@@ -92,15 +92,29 @@ def get_NUSEF_public(location=None):
             durations = []
             date_format = "%H:%M:%S.%f"
 
-            scale_x = 1024 / 260
-            scale_y = 768 / 280
-
             fix_location = os.path.join(temp_dir, 'NUSEF_database', 'fix_data')
             for sub_dir in tqdm(os.listdir(fix_location)):
-                if not sub_dir + '.jpg' in stimuli_indices:
+                if sub_dir + '.jpg' not in stimuli_indices:
                     # one of the non public images
                     continue
                 n = stimuli_indices[sub_dir + '.jpg']
+
+                scale_x = 1024 / 260
+                scale_y = 768 / 280
+
+                size = stimuli.sizes[n]
+
+                image_resize_factor = 768 / size[0]
+                resized_height = 768
+                resized_width = size[1] * image_resize_factor
+                if resized_width > 1024:
+                    image_resize_factor * (1024 / resized_width)
+                    resized_width = 1024
+                    resized_height *= (1024 / resized_width)
+
+                x_offset = (1024 - resized_width) / 2
+                y_offset = (768 - resized_height) / 2
+
                 for subject_data in glob.glob(os.path.join(fix_location, sub_dir, '*.fix')):
                     subject_id = int(subject_data.split('+')[0][-2:])
                     data = open(subject_data).read().replace('\r\n', '\n')
@@ -129,8 +143,22 @@ def get_NUSEF_public(location=None):
                          no_of_flags,
                          fix_loss,
                          interfix_loss) = lines[i].split()
-                        x.append(float(hor_pos) * scale_x)
-                        y.append(float(ver_pos) * scale_y)
+
+                        # transform from eye trackoer to screen pixels
+                        this_x = float(hor_pos) * scale_x
+                        this_y = float(ver_pos) * scale_y
+
+                        # transform to screen image coordinate
+                        this_x -= x_offset
+                        this_y -= y_offset
+
+                        # transform to original image coordinates
+                        this_x /= image_resize_factor
+                        this_y /= image_resize_factor
+
+                        x.append(this_x)
+                        y.append(this_y)
+
                         current_start_time = datetime.strptime(str(start_time), date_format)
                         if i == 0:
                             initial_start_time = current_start_time
@@ -144,7 +172,17 @@ def get_NUSEF_public(location=None):
                     train_subjects.append(subject_id)
                     durations.append(fixation_durations)
 
-        fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects, durations)
+        fixations = FixationTrains.from_fixation_trains(
+            xs,
+            ys,
+            ts,
+            ns,
+            train_subjects,
+            scanpath_fixation_attributes={
+            'durations': durations,
+            },
+            scanpath_attribute_mapping={'durations': 'duration'}
+        )
 
         if location:
             stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
