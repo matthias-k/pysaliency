@@ -1,0 +1,4 @@
+[tool.ruff]
+select = ["B", "E", "F", "FIX", "I", "T20"]
+line-length = 200
+ignore = ["T201"]  # ignore print statements
