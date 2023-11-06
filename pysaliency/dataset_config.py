@@ -5,7 +5,7 @@ from .filter_datasets import (
     filter_stimuli_by_size,
     train_split,
     validation_split,
-    test_split,
+    test_split
 )
 
 from schema import Schema, Optional
@@ -51,7 +51,7 @@ def apply_dataset_filter_config(stimuli, fixations, filter_config):
 
     return filter_fn(stimuli, fixations, **filter_config['parameters'])
 
-   
+
 def _clip_out_of_stimulus_fixations(stimuli, fixations):
     clipped_fixations = clip_out_of_stimulus_fixations(fixations, stimuli=stimuli)
     return stimuli, clipped_fixations
