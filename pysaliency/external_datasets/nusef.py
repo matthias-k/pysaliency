@@ -16,7 +16,36 @@ from ..utils import (
 from .utils import _load, create_stimuli
 
 
-# TODO: extract fixation durations
+IMAGE_TYPOS = {
+    '3005_0.jpg': '3005.1.jpg',
+    '3005_2.jpg': '3005.2.jpg',
+}
+
+# for some images, only segmentation masks are included in the dataset,
+# the actual images seem to be part of the non-public IAPS dataset.
+IMAGES_WITH_ONLY_PUBLIC_SEGMENTATION_MASKS = [
+    '1112_0.jpg',
+    '1112_2.jpg',
+    '1303_0.jpg',
+    '1303_2.jpg',
+    '3005.1.jpg',
+    '3005.2.jpg',
+    '7233_0.jpg',
+    '7233_1.jpg',
+    '7233_2.jpg',
+    '9006_0.jpg',
+    '9006_1.jpg',
+    # '9501_0.jpg',  # actual image included
+    # '9501_2.jpg',  # actual image included
+    # '9502_1.jpg',  # actual image included
+    # '9502_2.jpg',  # actual image included
+    '9561_0.jpg',
+    '9561_2.jpg',
+    '9635_0.jpg',
+    '9635_2.jpg'
+ ]
+
+
 def get_NUSEF_public(location=None):
     """
     Loads or downloads and caches the part of the NUSEF dataset,
@@ -25,10 +54,15 @@ def get_NUSEF_public(location=None):
     and the fixations of 25 subjects while doing a
     freeviewing task with 5 seconds presentation time.
 
-    Part of the stimuli from NUSEF are available only
+    Part of the stimuli from NUSEF are from the IAPS dataset
+    and are available only
     under a special license and only upon request. This
     function returns only the 444 images which are
     available public (and the corresponding fixations).
+
+    For some images only segmentation masks are included in the
+    public data, those images and their fixations are also not
+    included in this pysaliency dataset.
 
     Subjects ids used currently might not be the real subject ids
     and might be inconsistent across images.
@@ -77,6 +111,7 @@ def get_NUSEF_public(location=None):
             stimuli_src_location = os.path.join(temp_dir, 'NUSEF_database', 'stimuli')
             images = glob.glob(os.path.join(stimuli_src_location, '*.jpg'))
             images = [os.path.relpath(img, start=stimuli_src_location) for img in images]
+            images = [filename for filename in images if os.path.basename(filename) not in IMAGES_WITH_ONLY_PUBLIC_SEGMENTATION_MASKS]
             stimuli_filenames = sorted(images)
 
             stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
@@ -99,10 +134,18 @@ def get_NUSEF_public(location=None):
 
             fix_location = os.path.join(temp_dir, 'NUSEF_database', 'fix_data')
             for sub_dir in tqdm(os.listdir(fix_location)):
-                if sub_dir + '.jpg' not in stimuli_indices:
+                stimulus_name = sub_dir + '.jpg'
+
+                stimulus_name = IMAGE_TYPOS.get(stimulus_name, stimulus_name)
+
+                if stimulus_name not in stimuli_indices:
                     # one of the non public images
+                    print("missing stimulus for", stimulus_name)
                     continue
-                n = stimuli_indices[sub_dir + '.jpg']
+
+                if stimulus_name in IMAGES_WITH_ONLY_PUBLIC_SEGMENTATION_MASKS:
+                    continue
+                n = stimuli_indices[stimulus_name]
 
                 scale_x = 1024 / 260
                 scale_y = 768 / 280
