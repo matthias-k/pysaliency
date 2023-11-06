@@ -20,6 +20,7 @@ def test_NUSEF(location):
         assert isinstance(stimuli, pysaliency.FileStimuli)
         assert location.join('NUSEF_public/stimuli.hdf5').check()
         assert location.join('NUSEF_public/fixations.hdf5').check()
+        assert location.join('NUSEF_public/src/NUSEF_database.zip').check()
 
     assert len(stimuli.stimuli) == 444
 

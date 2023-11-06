@@ -60,13 +60,18 @@ def get_NUSEF_public(location=None):
     with atomic_directory_setup(location):
         with TemporaryDirectory(cleanup=True) as temp_dir:
 
+            source_directory = os.path.join(location, 'src')
+            os.makedirs(source_directory)
+
+            source_file = os.path.join(source_directory, 'NUSEF_database.zip')
+
             download_and_check('https://ncript.comp.nus.edu.sg/site/mmas/NUSEF_database.zip',
-                               os.path.join(temp_dir, 'NUSEF_database.zip'),
+                               source_file,
                                '429a78ad92184e8a4b37419988d98953')
 
             # Stimuli
             print('Creating stimuli')
-            f = zipfile.ZipFile(os.path.join(temp_dir, 'NUSEF_database.zip'))
+            f = zipfile.ZipFile(source_file)
             f.extractall(temp_dir)
 
             stimuli_src_location = os.path.join(temp_dir, 'NUSEF_database', 'stimuli')
