@@ -24,10 +24,11 @@ jobs:
         #auto-activate-base: false
         channels: conda-forge
     - name: Conda info
+      # the shell setting is necessary for loading profile etc which activates the conda environment
       shell: bash -el {0}
       run: conda info
     - name: Conda list
-      shell: pwsh
+      shell: bash -el {0}
       run: conda list
 #    - name: Set up Python
 #      uses: actions/setup-python@v4
@@ -90,6 +91,10 @@ jobs:
     - name: test build and install
       shell: bash -el {0}
       run: |
+        conda list
+        echo "which python"
+        type python
+        echo "starting build"
         python setup.py sdist
         pip install dist/*.tar.gz
         mkdir tmp && cd tmp && python -c "import pysaliency"
