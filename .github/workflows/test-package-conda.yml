@@ -28,7 +28,7 @@ jobs:
       run: conda info
     - name: Conda list
       shell: pwsh
-        run: conda list
+      run: conda list
 #    - name: Set up Python
 #      uses: actions/setup-python@v4
 #      with:
