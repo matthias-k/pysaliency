@@ -1,6 +1,6 @@
 name: Tests
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   build-linux:
@@ -18,10 +18,6 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
-        #activate-environment: anaconda-client-env
-        #environment-file: etc/example-environment.yml
-        #condarc-file: etc/example-condarc.yml
-        #auto-activate-base: false
         channels: conda-forge
     - name: Conda info
       # the shell setting is necessary for loading profile etc which activates the conda environment
@@ -30,14 +26,6 @@ jobs:
     - name: Conda list
       shell: bash -el {0}
       run: conda list
-#    - name: Set up Python
-#      uses: actions/setup-python@v4
-#      with:
-#        python-version: ${{ matrix.python-version }}
-#    - name: Add conda to system path
-#      run: |
-#        # $CONDA is an environment variable pointing to the root of the miniconda directory
-#        echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       shell: bash -el {0}
       run: |
@@ -77,27 +65,20 @@ jobs:
 #        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 #        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
 #        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    # - name: Test with pytest
-    #   shell: bash -el {0}
-    #   run: |
-    #     echo "which conda"
-    #     type conda
-    #     conda install pytest hypothesis
-    #     echo "which python"
-    #     type python
-    #     echo "Running setup py"
-    #     python setup.py build_ext --inplace
-    #     python -m pytest --nomatlab --notheano tests
+    - name: Test with pytest
+      shell: bash -el {0}
+      run: |
+        echo "which conda"
+        type conda
+        conda install pytest hypothesis
+        echo "which python"
+        type python
+        echo "Running setup py"
+        python setup.py build_ext --inplace
+        python -m pytest --nomatlab --notheano tests
     - name: test build and install
       shell: bash -el {0}
       run: |
-        conda list
-        echo "which python"
-        type python
-        echo "starting build"
         python setup.py sdist
-        echo "which pip"
-        type pip
-        python -c "import Cython; print(Cython); print('done')"
         pip install dist/*.tar.gz
         mkdir tmp && cd tmp && python -c "import pysaliency"
