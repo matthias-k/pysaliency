@@ -98,5 +98,6 @@ jobs:
         python setup.py sdist
         echo "which pip"
         type pip
+        python -c "import Cython; print(Cython); print('done')"
         pip install dist/*.tar.gz
         mkdir tmp && cd tmp && python -c "import pysaliency"
