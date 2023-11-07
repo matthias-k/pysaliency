@@ -78,7 +78,7 @@ jobs:
     - name: Test with pytest
       run: |
         echo "which conda"
-        type coda
+        type conda
         conda install pytest hypothesis
         echo "which python"
         type python
