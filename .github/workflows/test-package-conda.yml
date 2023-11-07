@@ -77,8 +77,12 @@ jobs:
 #        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
+        echo "which conda"
+        type coda
         conda install pytest hypothesis
-
+        echo "which python"
+        type python
+        echo "Running setup py"
         python setup.py build_ext --inplace
         python -m pytest --nomatlab --notheano tests
     - name: test build and install
