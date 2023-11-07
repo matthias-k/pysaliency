@@ -67,6 +67,6 @@ jobs:
         python -m pytest --nomatlab --notheano tests
     - name: test build and install
       run: |
-        python setup.py sdist
+        $CONDA/bin/python setup.py sdist
         $CONDA/bin/pip install dist/*.tar.gz
         mkdir tmp && cd tmp && python -c "import pysaliency"
