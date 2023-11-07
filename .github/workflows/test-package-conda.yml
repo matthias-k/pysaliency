@@ -68,5 +68,5 @@ jobs:
     - name: test build and install
       run: |
         python setup.py sdist
-        pip install dist/*.tar.gz
+        $CONDA/bin/pip install dist/*.tar.gz
         mkdir tmp && cd tmp && python -c "import pysaliency"
