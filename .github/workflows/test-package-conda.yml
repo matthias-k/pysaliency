@@ -41,6 +41,7 @@ jobs:
           pandas \
           piexif \
           pillow \
+          pip \
           pkg-config \
           pytorch \
           requests \
