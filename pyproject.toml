@@ -4,4 +4,9 @@ line-length = 200
 ignore = ["T201"]  # ignore print statements
 
 [build-system]
-requires = ["setuptools", "wheel", "Cython"]
+requires = [
+    "numpy",
+    "setuptools",
+    "wheel",
+    "Cython"
+]
