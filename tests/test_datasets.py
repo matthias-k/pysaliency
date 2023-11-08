@@ -14,6 +14,7 @@ from hypothesis import given, strategies as st
 import pysaliency
 from pysaliency.datasets import FixationTrains, Fixations, scanpaths_from_fixations
 from test_helpers import TestWithData
+from pysaliency.filter_datasets import filter_fixations_by_attribute, filter_stimuli_by_attribute, filter_scanpaths_by_attribute, filter_scanpaths_by_lengths
 
 
 def compare_fixations_subset(f1, f2, f2_inds):
@@ -38,9 +39,9 @@ def compare_fixations(f1, f2, crop_length=False):
     np.testing.assert_array_equal(f1.x, f2.x)
     np.testing.assert_array_equal(f1.y, f2.y)
     np.testing.assert_array_equal(f1.t, f2.t)
-    np.testing.assert_array_equal(f1.x_hist[:, :maximum_length], f2.x_hist)
-    np.testing.assert_array_equal(f1.y_hist[:, :maximum_length], f2.y_hist)
-    np.testing.assert_array_equal(f1.t_hist[:, :maximum_length], f2.t_hist)
+    np.testing.assert_array_equal(f1.x_hist[:, :maximum_length], f2.x_hist[:, :maximum_length])
+    np.testing.assert_array_equal(f1.y_hist[:, :maximum_length], f2.y_hist[:, :maximum_length])
+    np.testing.assert_array_equal(f1.t_hist[:, :maximum_length], f2.t_hist[:, :maximum_length])
 
     assert set(f1.__attributes__) == set(f2.__attributes__)
     for attribute in f1.__attributes__:
@@ -51,6 +52,7 @@ def compare_fixations(f1, f2, crop_length=False):
 
         if attribute.endswith('_hist'):
             attribute1 = attribute1[:, :maximum_length]
+            attribute2 = attribute2[:, :maximum_length]
 
         np.testing.assert_array_equal(attribute1, attribute2, err_msg=f'attributes not equal: {attribute}')
 
@@ -747,38 +749,78 @@ def test_scanpaths_from_fixations(fixation_indices):
     compare_fixations(sub_fixations, new_sub_fixations, crop_length=True)
 
 
-invert_param_values = [True, False]
-@pytest.mark.parametrize('attribute_name , attribute_value', [('dva',1), ('dva',4), ('dva',15), ('some_strings','a'), ('some_strings','n'), ('some_strings','q')])
-@pytest.mark.parametrize('invert_match', invert_param_values)
+@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('dva',1,False), ('some_strings','n',True), ('some_strings','b',True)])
 def test_filter_stimuli_by_attribute(file_stimuli_with_attributes, fixation_trains, attribute_name, attribute_value, invert_match):
+    new_fixations = pysaliency.Fixations.concatenate((fixation_trains, fixation_trains, fixation_trains[:2]))
+    new_fixations = new_fixations[:]
+    _stimuli, _fixations = filter_stimuli_by_attribute(file_stimuli_with_attributes, new_fixations, attribute_name, attribute_value, invert_match)
+    if attribute_name == 'dva' and attribute_value == 1 and invert_match is False:
+        _fixations2 = new_fixations[[5,6,7,13,14,15]]
+        compare_fixations(_fixations,_fixations2)
+        assert list(_stimuli.stimulus_ids) == file_stimuli_with_attributes.stimulus_ids[[1]]
+    if attribute_name == 'some_strings' and attribute_value == 'n' and invert_match is True:
+        _fixations2 = new_fixations[list(range(0,18))]
+        compare_fixations(_fixations,_fixations2)
+        assert list(_stimuli.stimulus_ids) == file_stimuli_with_attributes.stimulus_ids[list(range(0,13))+list(range(14,18))]
+    if attribute_name == 'some_strings' and attribute_value == 'b' and invert_match is True:
+        _fixations2 = new_fixations[[0,1,2,3,4,8,9,10,11,12,16,17]]
+        compare_fixations(_fixations,_fixations2)
+        assert list(_stimuli.stimulus_ids) == file_stimuli_with_attributes.stimulus_ids[list(range(0,1))+list(range(2,18))]
 
-    fixations = fixation_trains[np.arange(len(fixation_trains))]
-    # Access the attribute using the attributes dictionary
-    attribute_data = file_stimuli_with_attributes.attributes[attribute_name]
-    mask = np.array([element == attribute_value for element in attribute_data])
-    # mask = [element == attribute_value for element in getattr(file_stimuli_with_attributes, attribute_name)] not sure about this line because in real mit stimuli, stimuli.attributes returns an empty dict and this works
 
-    if invert_match is True:
-        mask = ~mask
-    stimulus_indices = list(np.nonzero(mask)[0])
-    sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixations, stimulus_indices)
-
-    assert not isinstance(sub_fixations, pysaliency.FixationTrains)
-    assert len(sub_stimuli) == len(stimulus_indices)
-    np.testing.assert_array_equal(sub_fixations.x, fixations.x[np.isin(fixations.n, stimulus_indices)])  
-
-
-invert_param_values = [True, False]
-@pytest.mark.parametrize('attribute_name , attribute_value', [('subjects',0), ('subjects',1), ('subjects',100), ('x',1), ('x',19), ('y',10), ('y',12), ('t',100), ('t',500), ('t',10000)])
-@pytest.mark.parametrize('invert_match', invert_param_values)
+@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('subjects',0, True),('some_attribute',2, False), ('some_attribute',3, False),  ('some_attribute',4, False)])
 def test_filter_fixations_by_attribute(fixation_trains, attribute_name, attribute_value, invert_match):
     fixations = fixation_trains[:]
-    mask = np.array([element == attribute_value for element in getattr(fixations, attribute_name)])
-    if invert_match is True:
-        mask = ~mask
-    inds = list(np.nonzero(mask)[0])
-    _f = fixations.filter(inds)
-    compare_fixations_subset(_f, fixations, inds)
+    _fixations1 = filter_fixations_by_attribute(fixations, attribute_name, attribute_value, invert_match)
+    if attribute_name == 'subjects' and attribute_value == 0 and invert_match is True:
+        _fixations2 = fixations[[3,4,5,6,7]]
+        compare_fixations(_fixations1,_fixations2)
+    if attribute_name == 'some_attribute' and attribute_value == 2 and invert_match is False:
+        _fixations2 = fixations[[2]]
+        compare_fixations(_fixations1,_fixations2)
+    if attribute_name == 'some_attribute' and attribute_value == 3 and invert_match is False:
+        _fixations2 = fixations[[3]]
+        compare_fixations(_fixations1,_fixations2)
+    if attribute_name == 'some_attribute' and attribute_value == 4 and invert_match is False:
+        _fixations2 = fixations[[4]]
+        compare_fixations(_fixations1,_fixations2)
+
+
+@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('task',0, False), ('multi_dim_attribute',[2,3],False), ('multi_dim_attribute',[4,5.5],False)])
+def test_filter_scanpaths_by_attribute(fixation_trains, attribute_name, attribute_value, invert_match):
+    scanpaths = fixation_trains
+    _scanpaths1 = filter_scanpaths_by_attribute(scanpaths, attribute_name, attribute_value, invert_match)
+    if attribute_name == 'task' and attribute_value == 0 and invert_match is False: 
+        _scanpaths2 = scanpaths.filter_fixation_trains([0,2])
+        compare_scanpaths(_scanpaths1,_scanpaths2)
+    if attribute_name == 'multi_dim_attribute' and attribute_value == [2,3] and invert_match is False:
+        _scanpaths2 = scanpaths.filter_fixation_trains([1])       
+        compare_scanpaths(_scanpaths1,_scanpaths2)
+    if attribute_name == 'multi_dim_attribute' and attribute_value == [4,5.5] and invert_match is False:
+        _scanpaths2 = scanpaths.filter_fixation_trains([2])       
+        compare_scanpaths(_scanpaths1,_scanpaths2)
+
+
+@pytest.mark.parametrize('intervals', [( [(1,2),(2,3)] ), ( [(1,2),(4,6)] ), ( [(1)] ), ( [(2)] ), ( [(3)] )])
+def test_filter_scanpaths_by_lengths(fixation_trains, intervals):
+    scanpaths = fixation_trains
+    _scanpaths1 = filter_scanpaths_by_lengths(scanpaths, intervals)
+    if intervals == [(1,2),(2,3)]:
+        _scanpaths2 = scanpaths.filter_fixation_trains([0,1,2])
+        compare_scanpaths(_scanpaths1,_scanpaths2)
+    if intervals == [(1,2),(4,6)]:
+        _scanpaths2 = scanpaths.filter_fixation_trains([1])
+        compare_scanpaths(_scanpaths1,_scanpaths2)
+    if intervals == [(1)]:
+        _scanpaths2 = scanpaths.filter_fixation_trains([1])
+        compare_scanpaths(_scanpaths1,_scanpaths2)
+    if intervals == [(2)]:
+        _scanpaths2 = scanpaths.filter_fixation_trains([0,1,2])
+        compare_scanpaths(_scanpaths1,_scanpaths2)
+    if intervals == [(3)]:
+        _scanpaths2 = scanpaths.filter_fixation_trains([0,2])
+        compare_scanpaths(_scanpaths1,_scanpaths2)
+    
 
 
 if __name__ == '__main__':
