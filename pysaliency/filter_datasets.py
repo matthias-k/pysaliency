@@ -253,6 +253,7 @@ def filter_fixations_by_attribute(fixations: Fixations, attribute_name, attribut
     mask = np.asarray(getattr(fixations, attribute_name)) == attribute_value
     if mask.ndim > 1:
         mask = np.all(mask, axis=1)
+
     if invert_match is True:
         mask = ~mask
 
@@ -265,6 +266,7 @@ def filter_stimuli_by_attribute(stimuli: Stimuli, fixations: Fixations, attribut
     mask = np.asarray(stimuli.attributes[attribute_name]) == attribute_value
     if mask.ndim > 1:
         mask = np.all(mask, axis=1)
+
     if invert_match is True:
         mask = ~mask
     indices = list(np.nonzero(mask)[0])
