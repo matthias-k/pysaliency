@@ -9,30 +9,31 @@ jobs:
       max-parallel: 5
       matrix:
         python-version:
-        - "3.7"
+        # - "3.7"  # conda takes forever to install the dependencies
         - "3.8"
         - "3.9"
-
+        - "3.10"
+        - "3.11"
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
+    - uses: conda-incubator/setup-miniconda@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Add conda to system path
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo $CONDA/bin >> $GITHUB_PATH
+        channels: conda-forge
+    - name: Conda info
+      # the shell setting is necessary for loading profile etc which activates the conda environment
+      shell: bash -el {0}
+      run: conda info
     - name: Install dependencies
+      shell: bash -el {0}
       run: |
-        # conda env update --file environment.yml --name base
-        conda config --add channels conda-forge
         conda install \
           boltons \
           cython \
           deprecation \
           dill \
           diskcache \
+          h5py \
           imageio \
           natsort \
           numba \
@@ -41,6 +42,7 @@ jobs:
           pandas \
           piexif \
           pillow \
+          pip \
           pkg-config \
           pytorch \
           requests \
@@ -51,21 +53,17 @@ jobs:
           sphinx \
           torchvision \
           tqdm
-        pip install h5py  # https://github.com/h5py/h5py/issues/1880
-#    - name: Lint with flake8
-#      run: |
-#        conda install flake8
-#        # stop the build if there are Python syntax errors or undefined names
-#        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-#        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-#        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Conda list
+      shell: bash -el {0}
+      run: conda list
     - name: Test with pytest
+      shell: bash -el {0}
       run: |
         conda install pytest hypothesis
-
         python setup.py build_ext --inplace
         python -m pytest --nomatlab --notheano tests
     - name: test build and install
+      shell: bash -el {0}
       run: |
         python setup.py sdist
         pip install dist/*.tar.gz
