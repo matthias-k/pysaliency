@@ -392,7 +392,7 @@ def test_filter_fixations_by_attribute_some_attribute_invert_match(fixation_trai
     fixations = fixation_trains[:]
     filtered_fixations = filter_fixations_by_attribute(fixations, attribute_name, attribute_value, invert_match)
     if attribute_name == 'some_attribute' and attribute_value == 3 and invert_match is False:
-        inds = list(range(0,3)) + list(range(4,8))
+        inds = list(range(0, 3)) + list(range(4, 8))
         expected_fixations = fixations[inds]
         compare_fixations(filtered_fixations, expected_fixations)
 
