@@ -14,7 +14,6 @@ from hypothesis import given, strategies as st
 import pysaliency
 from pysaliency.datasets import FixationTrains, Fixations, scanpaths_from_fixations
 from test_helpers import TestWithData
-from pysaliency.filter_datasets import filter_fixations_by_attribute, filter_stimuli_by_attribute, filter_scanpaths_by_attribute, filter_scanpaths_by_lengths
 
 
 def compare_fixations_subset(f1, f2, f2_inds):
@@ -747,80 +746,6 @@ def test_scanpaths_from_fixations(fixation_indices):
     new_sub_fixations = new_scanpaths[new_indices]
 
     compare_fixations(sub_fixations, new_sub_fixations, crop_length=True)
-
-
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('dva',1,False), ('some_strings','n',True), ('some_strings','b',True)])
-def test_filter_stimuli_by_attribute(file_stimuli_with_attributes, fixation_trains, attribute_name, attribute_value, invert_match):
-    new_fixations = pysaliency.Fixations.concatenate((fixation_trains, fixation_trains, fixation_trains[:2]))
-    new_fixations = new_fixations[:]
-    _stimuli, _fixations = filter_stimuli_by_attribute(file_stimuli_with_attributes, new_fixations, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'dva' and attribute_value == 1 and invert_match is False:
-        _fixations2 = new_fixations[[5,6,7,13,14,15]]
-        compare_fixations(_fixations,_fixations2)
-        assert list(_stimuli.stimulus_ids) == file_stimuli_with_attributes.stimulus_ids[[1]]
-    if attribute_name == 'some_strings' and attribute_value == 'n' and invert_match is True:
-        _fixations2 = new_fixations[list(range(0,18))]
-        compare_fixations(_fixations,_fixations2)
-        assert list(_stimuli.stimulus_ids) == file_stimuli_with_attributes.stimulus_ids[list(range(0,13))+list(range(14,18))]
-    if attribute_name == 'some_strings' and attribute_value == 'b' and invert_match is True:
-        _fixations2 = new_fixations[[0,1,2,3,4,8,9,10,11,12,16,17]]
-        compare_fixations(_fixations,_fixations2)
-        assert list(_stimuli.stimulus_ids) == file_stimuli_with_attributes.stimulus_ids[list(range(0,1))+list(range(2,18))]
-
-
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('subjects',0, True),('some_attribute',2, False), ('some_attribute',3, False),  ('some_attribute',4, False)])
-def test_filter_fixations_by_attribute(fixation_trains, attribute_name, attribute_value, invert_match):
-    fixations = fixation_trains[:]
-    _fixations1 = filter_fixations_by_attribute(fixations, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'subjects' and attribute_value == 0 and invert_match is True:
-        _fixations2 = fixations[[3,4,5,6,7]]
-        compare_fixations(_fixations1,_fixations2)
-    if attribute_name == 'some_attribute' and attribute_value == 2 and invert_match is False:
-        _fixations2 = fixations[[2]]
-        compare_fixations(_fixations1,_fixations2)
-    if attribute_name == 'some_attribute' and attribute_value == 3 and invert_match is False:
-        _fixations2 = fixations[[3]]
-        compare_fixations(_fixations1,_fixations2)
-    if attribute_name == 'some_attribute' and attribute_value == 4 and invert_match is False:
-        _fixations2 = fixations[[4]]
-        compare_fixations(_fixations1,_fixations2)
-
-
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('task',0, False), ('multi_dim_attribute',[2,3],False), ('multi_dim_attribute',[4,5.5],False)])
-def test_filter_scanpaths_by_attribute(fixation_trains, attribute_name, attribute_value, invert_match):
-    scanpaths = fixation_trains
-    _scanpaths1 = filter_scanpaths_by_attribute(scanpaths, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'task' and attribute_value == 0 and invert_match is False: 
-        _scanpaths2 = scanpaths.filter_fixation_trains([0,2])
-        compare_scanpaths(_scanpaths1,_scanpaths2)
-    if attribute_name == 'multi_dim_attribute' and attribute_value == [2,3] and invert_match is False:
-        _scanpaths2 = scanpaths.filter_fixation_trains([1])       
-        compare_scanpaths(_scanpaths1,_scanpaths2)
-    if attribute_name == 'multi_dim_attribute' and attribute_value == [4,5.5] and invert_match is False:
-        _scanpaths2 = scanpaths.filter_fixation_trains([2])       
-        compare_scanpaths(_scanpaths1,_scanpaths2)
-
-
-@pytest.mark.parametrize('intervals', [( [(1,2),(2,3)] ), ( [(1,2),(4,6)] ), ( [(1)] ), ( [(2)] ), ( [(3)] )])
-def test_filter_scanpaths_by_lengths(fixation_trains, intervals):
-    scanpaths = fixation_trains
-    _scanpaths1 = filter_scanpaths_by_lengths(scanpaths, intervals)
-    if intervals == [(1,2),(2,3)]:
-        _scanpaths2 = scanpaths.filter_fixation_trains([0,1,2])
-        compare_scanpaths(_scanpaths1,_scanpaths2)
-    if intervals == [(1,2),(4,6)]:
-        _scanpaths2 = scanpaths.filter_fixation_trains([1])
-        compare_scanpaths(_scanpaths1,_scanpaths2)
-    if intervals == [(1)]:
-        _scanpaths2 = scanpaths.filter_fixation_trains([1])
-        compare_scanpaths(_scanpaths1,_scanpaths2)
-    if intervals == [(2)]:
-        _scanpaths2 = scanpaths.filter_fixation_trains([0,1,2])
-        compare_scanpaths(_scanpaths1,_scanpaths2)
-    if intervals == [(3)]:
-        _scanpaths2 = scanpaths.filter_fixation_trains([0,2])
-        compare_scanpaths(_scanpaths1,_scanpaths2)
-    
 
 
 if __name__ == '__main__':
