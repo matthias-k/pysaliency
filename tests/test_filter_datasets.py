@@ -343,88 +343,94 @@ def test_stratified_crossval_splits_multiple_attributes(many_stimuli, crossval_f
     assert len(train_stimuli) == crossval_folds
 
 
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('dva', 1, False)])
-def test_filter_stimuli_by_attribute_dva(file_stimuli_with_attributes, fixation_trains, attribute_name, attribute_value, invert_match):
+def test_filter_stimuli_by_attribute_dva(file_stimuli_with_attributes, fixation_trains):
     fixations = fixation_trains[:]
+    attribute_name = 'dva' 
+    attribute_value = 1
+    invert_match = False
     filtered_stimuli, filtered_fixations = filter_stimuli_by_attribute(file_stimuli_with_attributes, fixations, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'dva' and attribute_value == 1 and invert_match is False:
-        inds = [1]
-        expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
-        compare_fixations(filtered_fixations, expected_fixations)
-        assert list(filtered_stimuli.stimulus_ids) == file_stimuli_with_attributes.stimulus_ids[inds]
-        assert_stimuli_equal(filtered_stimuli, expected_stimuli)
+    inds = [1]
+    expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
+    compare_fixations(filtered_fixations, expected_fixations)
+    assert_stimuli_equal(filtered_stimuli, expected_stimuli)
 
 
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('some_strings', 'n', True)])
-def test_filter_stimuli_by_attribute_some_strings_invert_match(file_stimuli_with_attributes, fixation_trains, attribute_name, attribute_value, invert_match):
+def test_filter_stimuli_by_attribute_some_strings_invert_match(file_stimuli_with_attributes, fixation_trains):
     fixations = fixation_trains[:]
+    attribute_name = 'some_strings' 
+    attribute_value = 'n'
+    invert_match = True
     filtered_stimuli, filtered_fixations = filter_stimuli_by_attribute(file_stimuli_with_attributes, fixations, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'some_strings' and attribute_value == 'n' and invert_match is True:
-        inds = list(range(0, 13))+list(range(14, 18))
-        expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
-        compare_fixations(filtered_fixations, expected_fixations)
-        assert list(filtered_stimuli.stimulus_ids) == file_stimuli_with_attributes.stimulus_ids[inds]
-        assert_stimuli_equal(filtered_stimuli, expected_stimuli)
+    inds = list(range(0, 13)) + list(range(14, 18))
+    expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
+    compare_fixations(filtered_fixations, expected_fixations)
+    assert_stimuli_equal(filtered_stimuli, expected_stimuli)
 
 
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('subjects', 0, True)])
-def test_filter_fixations_by_attribute_subject_invert_match(fixation_trains, attribute_name, attribute_value, invert_match):
+def test_filter_fixations_by_attribute_subject_invert_match(fixation_trains):
     fixations = fixation_trains[:]
+    attribute_name = 'subjects' 
+    attribute_value = 0
+    invert_match = True
     filtered_fixations = filter_fixations_by_attribute(fixations, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'subjects' and attribute_value == 0 and invert_match is True:
-        inds = [3, 4, 5, 6, 7]
-        expected_fixations = fixations[inds]
-        compare_fixations(filtered_fixations, expected_fixations)
+    inds = [3, 4, 5, 6, 7]
+    expected_fixations = fixations[inds]
+    compare_fixations(filtered_fixations, expected_fixations)
 
 
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('some_attribute', 2, False)])
-def test_filter_fixations_by_attribute_some_attribute(fixation_trains, attribute_name, attribute_value, invert_match):
+def test_filter_fixations_by_attribute_some_attribute(fixation_trains):
     fixations = fixation_trains[:]
+    attribute_name = 'some_attribute' 
+    attribute_value = 2
+    invert_match = False
     filtered_fixations = filter_fixations_by_attribute(fixations, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'some_attribute' and attribute_value == 2 and invert_match is False:
-        inds = [2]
-        expected_fixations = fixations[inds]
-        compare_fixations(filtered_fixations, expected_fixations)
+    inds = [2]
+    expected_fixations = fixations[inds]
+    compare_fixations(filtered_fixations, expected_fixations)
 
 
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('some_attribute', 3, True)])
-def test_filter_fixations_by_attribute_some_attribute_invert_match(fixation_trains, attribute_name, attribute_value, invert_match):
+def test_filter_fixations_by_attribute_some_attribute_invert_match(fixation_trains):
     fixations = fixation_trains[:]
+    attribute_name = 'some_attribute' 
+    attribute_value = 3
+    invert_match = True
     filtered_fixations = filter_fixations_by_attribute(fixations, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'some_attribute' and attribute_value == 3 and invert_match is False:
-        inds = list(range(0, 3)) + list(range(4, 8))
-        expected_fixations = fixations[inds]
-        compare_fixations(filtered_fixations, expected_fixations)
+    inds = list(range(0, 3)) + list(range(4, 8))
+    expected_fixations = fixations[inds]
+    compare_fixations(filtered_fixations, expected_fixations)
 
 
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('task', 0, False)])
-def test_filter_scanpaths_by_attribute_task(fixation_trains, attribute_name, attribute_value, invert_match):
+def test_filter_scanpaths_by_attribute_task(fixation_trains):
     scanpaths = fixation_trains
+    attribute_name = 'task' 
+    attribute_value = 0
+    invert_match = False
     filtered_scanpaths = filter_scanpaths_by_attribute(scanpaths, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'task' and attribute_value == 0 and invert_match is False:
-        inds = [0, 2]
-        expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-        compare_scanpaths(filtered_scanpaths, expected_scanpaths)
+    inds = [0, 2]
+    expected_scanpaths = scanpaths.filter_fixation_trains(inds)
+    compare_scanpaths(filtered_scanpaths, expected_scanpaths)
 
 
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('multi_dim_attribute', [0, 3], False)])
-def test_filter_scanpaths_by_attribute_multi_dim_attribute(fixation_trains, attribute_name, attribute_value, invert_match):
+def test_filter_scanpaths_by_attribute_multi_dim_attribute(fixation_trains):
     scanpaths = fixation_trains
+    attribute_name = 'multi_dim_attribute' 
+    attribute_value = [0, 3]
+    invert_match = False
     filtered_scanpaths = filter_scanpaths_by_attribute(scanpaths, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'multi_dim_attribute' and attribute_value == [0, 3] and invert_match is False:
-        inds = [1]
-        expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-        compare_scanpaths(filtered_scanpaths, expected_scanpaths)
+    inds = [1]
+    expected_scanpaths = scanpaths.filter_fixation_trains(inds)
+    compare_scanpaths(filtered_scanpaths, expected_scanpaths)
 
 
-@pytest.mark.parametrize('attribute_name , attribute_value, invert_match', [('multi_dim_attribute', [0, 1], True)])
-def test_filter_scanpaths_by_attribute_multi_dim_attribute_invert_match(fixation_trains, attribute_name, attribute_value, invert_match):
+def test_filter_scanpaths_by_attribute_multi_dim_attribute_invert_match(fixation_trains):
     scanpaths = fixation_trains
+    attribute_name = 'multi_dim_attribute' 
+    attribute_value = [0, 1]
+    invert_match = True
     filtered_scanpaths = filter_scanpaths_by_attribute(scanpaths, attribute_name, attribute_value, invert_match)
-    if attribute_name == 'multi_dim_attribute' and attribute_value == [0, 1] and invert_match is True:
-        inds = [1, 2]
-        expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-        compare_scanpaths(filtered_scanpaths, expected_scanpaths)
+    inds = [1, 2]
+    expected_scanpaths = scanpaths.filter_fixation_trains(inds)
+    compare_scanpaths(filtered_scanpaths, expected_scanpaths)
 
 
 @pytest.mark.parametrize('intervals', [([(1, 2), (2, 3)]), ([(2, 3), (3, 4)]), ([(2)]), ([(3)])])
