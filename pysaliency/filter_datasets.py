@@ -238,11 +238,12 @@ def filter_scanpaths_by_attribute(scanpaths:  FixationTrains, attribute_name, at
     """Filter Scanpaths by values of scanpath attribute (fixation_trains.scanpath_attributes)"""
 
     mask = scanpaths.scanpath_attributes[attribute_name] == attribute_value
+    if mask.ndim > 1:
+        mask = np.all(mask, axis=1)
+
     if invert_match is True:
         mask = ~mask
-    if mask.ndim>1:
-        mask = np.all(mask, axis=1)
-        
+
     return scanpaths.filter_fixation_trains(mask)
 
 
@@ -250,37 +251,38 @@ def filter_fixations_by_attribute(fixations: Fixations, attribute_name, attribut
     """Filter Fixations by values of attribute (fixations.__attributes__)"""
 
     mask = np.asarray(getattr(fixations, attribute_name)) == attribute_value
+    if mask.ndim > 1:
+        mask = np.all(mask, axis=1)
     if invert_match is True:
         mask = ~mask
-    if mask.ndim>1:
-        mask = np.all(mask, axis=1)
-        
+
     return fixations[mask]
+
 
 def filter_stimuli_by_attribute(stimuli: Stimuli, fixations: Fixations, attribute_name, attribute_value, invert_match=False):
     """Filter stimuli by values of attribute (stimuli.attributes)"""
 
     mask = np.asarray(stimuli.attributes[attribute_name]) == attribute_value
+    if mask.ndim > 1:
+        mask = np.all(mask, axis=1)
     if invert_match is True:
         mask = ~mask
-    if mask.ndim>1:
-        mask = np.all(mask, axis=1)
     indices = list(np.nonzero(mask)[0])
-    
+
     return create_subset(stimuli, fixations, indices)
 
 
 def filter_scanpaths_by_lengths(scanpaths: FixationTrains, intervals: list):
     """Filter Scanpaths by number of fixations"""
-    
+
     intervals = _check_intervals(intervals, type=int)
     mask = np.zeros(len(scanpaths.train_lengths), dtype=bool)
-    for n1, n2 in intervals:
-        temp_mask = np.logical_and(scanpaths.train_lengths>=n1,scanpaths.train_lengths<=n2)
+    for start, end in intervals:
+        temp_mask = np.logical_and(
+            scanpaths.train_lengths >= start, scanpaths.train_lengths < end)
         mask = np.logical_or(mask, temp_mask)
     indices = list(np.nonzero(mask)[0])
-    
+
     scanpaths = scanpaths.filter_fixation_trains(indices)
-    
+
     return scanpaths
- 
