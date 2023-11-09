@@ -485,7 +485,7 @@ class FixationTrains(Fixations):
             new_attribute_name = self.scanpath_attribute_mapping.get(attribute_name, attribute_name)
             if new_attribute_name in attributes:
                 raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
-            attribute_shape = np.asarray(value[0]).shape
+            attribute_shape = [] if not value.any() else np.asarray(value[0]).shape
             attributes[new_attribute_name] = np.empty([N_trains] + list(attribute_shape), dtype=value.dtype)
             self.auto_attributes.append(new_attribute_name)
 
