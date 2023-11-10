@@ -38,9 +38,9 @@ def compare_fixations(f1, f2, crop_length=False):
     np.testing.assert_array_equal(f1.x, f2.x)
     np.testing.assert_array_equal(f1.y, f2.y)
     np.testing.assert_array_equal(f1.t, f2.t)
-    np.testing.assert_array_equal(f1.x_hist[:, :maximum_length], f2.x_hist)
-    np.testing.assert_array_equal(f1.y_hist[:, :maximum_length], f2.y_hist)
-    np.testing.assert_array_equal(f1.t_hist[:, :maximum_length], f2.t_hist)
+    np.testing.assert_array_equal(f1.x_hist[:, :maximum_length], f2.x_hist[:, :maximum_length])
+    np.testing.assert_array_equal(f1.y_hist[:, :maximum_length], f2.y_hist[:, :maximum_length])
+    np.testing.assert_array_equal(f1.t_hist[:, :maximum_length], f2.t_hist[:, :maximum_length])
 
     assert set(f1.__attributes__) == set(f2.__attributes__)
     for attribute in f1.__attributes__:
@@ -51,6 +51,7 @@ def compare_fixations(f1, f2, crop_length=False):
 
         if attribute.endswith('_hist'):
             attribute1 = attribute1[:, :maximum_length]
+            attribute2 = attribute2[:, :maximum_length]
 
         np.testing.assert_array_equal(attribute1, attribute2, err_msg=f'attributes not equal: {attribute}')
 
