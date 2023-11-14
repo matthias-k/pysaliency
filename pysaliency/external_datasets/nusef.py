@@ -140,7 +140,6 @@ def get_NUSEF_public(location=None):
 
                 if stimulus_name not in stimuli_indices:
                     # one of the non public images
-                    print("missing stimulus for", stimulus_name)
                     continue
 
                 if stimulus_name in IMAGES_WITH_ONLY_PUBLIC_SEGMENTATION_MASKS:
@@ -162,10 +161,12 @@ def get_NUSEF_public(location=None):
                 image_resize_factor = 768 / size[0]
                 resized_height = 768
                 resized_width = size[1] * image_resize_factor
+
                 if resized_width > 1024:
-                    image_resize_factor * (1024 / resized_width)
+                    additional_factor = (1024 / resized_width)
+                    image_resize_factor *= additional_factor
+                    resized_height *= additional_factor
                     resized_width = 1024
-                    resized_height *= (1024 / resized_width)
 
                 # images were shown centered
                 x_offset = (1024 - resized_width) / 2

@@ -26,23 +26,23 @@ def test_NUSEF(location):
 
     assert len(fixations.x) == 66133
 
-    assert np.mean(fixations.x) == approx(452.88481928283653)
-    assert np.mean(fixations.y) == approx(337.03301271592267)
+    assert np.mean(fixations.x) == approx(461.73823151304873)
+    assert np.mean(fixations.y) == approx(336.54399742934976)
     assert np.mean(fixations.t) == approx(2.0420471776571456)
     assert np.mean(fixations.lengths) == approx(4.085887529675049)
 
-    assert np.std(fixations.x) == approx(187.61359889152612)
-    assert np.std(fixations.y) == approx(142.59867038067452)
+    assert np.std(fixations.x) == approx(191.71434262715272)
+    assert np.std(fixations.y) == approx(144.60874197688884)
     assert np.std(fixations.t) == approx(1.82140623534086)
     assert np.std(fixations.lengths) == approx(3.4339653884944963)
 
-    assert kurtosis(fixations.x) == approx(0.403419633086465)
-    assert kurtosis(fixations.y) == approx(2.0001760382566793)
+    assert kurtosis(fixations.x) == approx(0.29833124844005354)
+    assert kurtosis(fixations.y) == approx(1.9158192030098018)
     assert kurtosis(fixations.t) == approx(5285.812604733467)
     assert kurtosis(fixations.lengths) == approx(0.8320210638515699)
 
-    assert skew(fixations.x) == approx(0.42747360917257937)
-    assert skew(fixations.y) == approx(0.7441609934536769)
+    assert skew(fixations.x) == approx(0.3994141751115464)
+    assert skew(fixations.y) == approx(0.7246047287335385)
     assert skew(fixations.t) == approx(39.25751334379433)
     assert skew(fixations.lengths) == approx(0.9874139139443956)
 
