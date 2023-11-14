@@ -9,7 +9,7 @@ from .filter_datasets import (
     filter_scanpaths_by_attribute,
     filter_fixations_by_attribute,
     filter_stimuli_by_attribute,
-    filter_scanpaths_by_lengths
+    filter_scanpaths_by_length
 )
 
 from schema import Schema, Optional
@@ -49,7 +49,7 @@ def apply_dataset_filter_config(stimuli, fixations, filter_config):
         'filter_scanpaths_by_attribute': add_stimuli_argument(filter_scanpaths_by_attribute),
         'filter_fixations_by_attribute': add_stimuli_argument(filter_fixations_by_attribute),
         'filter_stimuli_by_attribute': filter_stimuli_by_attribute,
-        'filter_scanpaths_by_lengths': add_stimuli_argument(filter_scanpaths_by_lengths)
+        'filter_scanpaths_by_length': add_stimuli_argument(filter_scanpaths_by_length)
     }
 
     if filter_config['type'] not in filter_dict:
