@@ -274,7 +274,7 @@ def filter_stimuli_by_attribute(stimuli: Stimuli, fixations: Fixations, attribut
     return create_subset(stimuli, fixations, indices)
 
 
-def filter_scanpaths_by_lengths(scanpaths: FixationTrains, intervals: list):
+def filter_scanpaths_by_length(scanpaths: FixationTrains, intervals: list):
     """Filter Scanpaths by number of fixations"""
 
     intervals = _check_intervals(intervals, type=int)

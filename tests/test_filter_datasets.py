@@ -6,7 +6,7 @@ from imageio import imwrite
 
 import pysaliency
 import pysaliency.filter_datasets as filter_datasets
-from pysaliency.filter_datasets import filter_fixations_by_attribute, filter_stimuli_by_attribute, filter_scanpaths_by_attribute, filter_scanpaths_by_lengths, create_subset
+from pysaliency.filter_datasets import filter_fixations_by_attribute, filter_stimuli_by_attribute, filter_scanpaths_by_attribute, filter_scanpaths_by_length, create_subset
 from test_datasets import compare_fixations, compare_scanpaths
 
 
@@ -434,9 +434,9 @@ def test_filter_scanpaths_by_attribute_multi_dim_attribute_invert_match(fixation
 
 
 @pytest.mark.parametrize('intervals', [([(1, 2), (2, 3)]), ([(2, 3), (3, 4)]), ([(2)]), ([(3)])])
-def test_filter_scanpaths_by_lengths(fixation_trains, intervals):
+def test_filter_scanpaths_by_length(fixation_trains, intervals):
     scanpaths = fixation_trains
-    filtered_scanpaths = filter_scanpaths_by_lengths(scanpaths, intervals)
+    filtered_scanpaths = filter_scanpaths_by_length(scanpaths, intervals)
     if intervals == [(1, 2), (2, 3)]:
         inds = [1]
         expected_scanpaths = scanpaths.filter_fixation_trains(inds)
