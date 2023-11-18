@@ -369,8 +369,6 @@ class CrossvalMultipleRegularizations(object):
             verbose=False
         )
 
-        mean_area = np.mean([x[2]*x[3] for x in X_areas])
-        self.mean_area = mean_area
 
         self.X = fixations_to_scikit_learn(
             self.fixations,
@@ -378,8 +376,11 @@ class CrossvalMultipleRegularizations(object):
             keep_aspect=True, add_shape=False, add_fixation_number=True, verbose=False
         )
 
-        real_areas = [self.stimuli.sizes[n][0]*self.stimuli.sizes[n][1] for n in self.fixations.n]
-        areas_gold = [x[2]*x[3] for x in X_areas]
+        stimuli_sizes = np.array(self.stimuli.sizes)
+        real_areas = stimuli_sizes[self.fixations.n, 0] * stimuli_sizes[self.fixations.n, 1]
+        areas_gold = X_areas[:, 2] * X_areas[:, 3]
+        self.mean_area = np.mean(areas_gold)
+
         correction = np.log(areas_gold) - np.log(real_areas)
         self.regularization_log_likelihoods = []
 
