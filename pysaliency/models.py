@@ -407,10 +407,13 @@ class UniformModel(Model):
         return np.zeros((stimulus.shape[0], stimulus.shape[1])) - np.log(stimulus.shape[0]) - np.log(stimulus.shape[1])
 
     def log_likelihoods(self, stimuli, fixations, verbose=False):
-        lls = []
-        for n in fixations.n:
-            lls.append(-np.log(stimuli.shapes[n][0]) - np.log(stimuli.shapes[n][1]))
-        return np.array(lls)
+        stimulus_shapes = np.zeros((len(stimuli), 2), dtype=int)
+        stimulus_indices = sorted(np.unique(fixations.n))
+        for stimulus_index in stimulus_indices:
+            stimulus_shapes[stimulus_index] = stimuli.stimulus_objects[stimulus_index].size
+
+        stimulus_log_likelihoods = -np.log(stimulus_shapes).sum(axis=1)
+        return stimulus_log_likelihoods[fixations.n]
 
 
 class MixtureModel(Model):
