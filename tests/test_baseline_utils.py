@@ -157,3 +157,4 @@ def test_crossval_multiple_regularizations(stimuli, fixation_trains):
 
     score = estimator.score(log_bandwidth, *log_regularizations)
     assert isinstance(score, float)
+    np.testing.assert_allclose(score, -1.4673831679692528e-10)
