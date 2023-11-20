@@ -412,7 +412,7 @@ class CrossvalMultipleRegularizations(object):
             bandwidth=10**log_bandwidth,
             regularizations=10**log_regularizations,
             regularizing_log_likelihoods=self.regularization_log_likelihoods),
-            self.X, cv=self.cv, verbose=self.verbose).sum() / len(self.X) / np.log(2)
+            self.X, cv=self.cv, verbose=self.verbose, n_jobs=self.n_jobs).sum() / len(self.X) / np.log(2)
         val += np.log2(self.mean_area)
         return val
 
