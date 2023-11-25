@@ -417,16 +417,6 @@ class CrossvalMultipleRegularizations(object):
         return val
 
 
-class CrossvalGoldMultipleRegularizations(CrossvalMultipleRegularizations):
-    def __init__(self, stimuli, fixations, regularization_models, n_jobs=None, verbose=False):
-        if fixations.subject_count > 1:
-            crossvalidation_factory = ScikitLearnImageSubjectCrossValidationGenerator
-        else:
-            crossvalidation_factory = ScikitLearnWithinImageCrossValidationGenerator
-
-        super().__init__(stimuli, fixations, regularization_models, crossvalidation_factory=crossvalidation_factory, n_jobs=n_jobs, verbose=verbose)
-
-
 # baseline models
 
 class GoldModel(Model):
