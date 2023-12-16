@@ -6,7 +6,7 @@ from imageio import imwrite
 
 import pysaliency
 import pysaliency.filter_datasets as filter_datasets
-from pysaliency.filter_datasets import filter_fixations_by_attribute, filter_stimuli_by_attribute, filter_scanpaths_by_attribute, filter_scanpaths_by_length, create_subset
+from pysaliency.filter_datasets import filter_fixations_by_attribute, filter_stimuli_by_attribute, filter_scanpaths_by_attribute, filter_scanpaths_by_length, create_subset, remove_stimuli_without_fixations
 from test_datasets import compare_fixations, compare_scanpaths
 
 
@@ -453,3 +453,12 @@ def test_filter_scanpaths_by_length(fixation_trains, intervals):
         inds = [0, 2]
         expected_scanpaths = scanpaths.filter_fixation_trains(inds)
         compare_scanpaths(filtered_scanpaths, expected_scanpaths)
+
+
+def test_remove_stimuli_without_fixations(file_stimuli_with_attributes, fixation_trains):
+    fixations = fixation_trains[:]
+    filtered_stimuli, filtered_fixations = remove_stimuli_without_fixations(file_stimuli_with_attributes, fixations)
+    inds = [0, 1]
+    expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
+    compare_fixations(filtered_fixations, expected_fixations)
+    assert_stimuli_equal(filtered_stimuli, expected_stimuli)

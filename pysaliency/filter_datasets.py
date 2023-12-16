@@ -288,3 +288,10 @@ def filter_scanpaths_by_length(scanpaths: FixationTrains, intervals: list):
     scanpaths = scanpaths.filter_fixation_trains(indices)
 
     return scanpaths
+
+
+def remove_stimuli_without_fixations(stimuli: Stimuli, fixations: Fixations):
+    """Remove stimuli with no fixations"""
+
+    stimuli_indices_with_fixations = list(set(fixations.n))
+    return create_subset(stimuli, fixations, stimuli_indices_with_fixations)
