@@ -6,7 +6,7 @@ from imageio import imwrite
 
 import pysaliency
 import pysaliency.filter_datasets as filter_datasets
-from pysaliency.filter_datasets import filter_fixations_by_attribute, filter_stimuli_by_attribute, filter_scanpaths_by_attribute, filter_scanpaths_by_length, create_subset
+from pysaliency.filter_datasets import filter_fixations_by_attribute, filter_stimuli_by_attribute, filter_scanpaths_by_attribute, filter_scanpaths_by_length, create_subset, remove_stimuli_without_fixations
 from test_datasets import compare_fixations, compare_scanpaths
 
 
