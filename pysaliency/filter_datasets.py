@@ -260,10 +260,16 @@ def filter_fixations_by_attribute(fixations: Fixations, attribute_name, attribut
     return fixations[mask]
 
 
-def filter_stimuli_by_attribute(stimuli: Stimuli, fixations: Fixations, attribute_name, attribute_value, invert_match=False):
-    """Filter stimuli by values of attribute (stimuli.attributes)"""
+def filter_stimuli_by_attribute(stimuli: Stimuli, fixations: Fixations, attribute_name, attribute_value=None, attribute_values=None, invert_match=False):
+    """Filter stimuli by values of attribute (stimuli.attributes)
 
-    mask = np.asarray(stimuli.attributes[attribute_name]) == attribute_value
+    use `attribute_value` to filter for a single value, or `attribute_values` to filter for multiple allowed values
+    """
+
+    if attribute_values is not None:
+        mask = np.isin(np.asarray(stimuli.attributes[attribute_name]), attribute_values)
+    else:
+        mask = np.asarray(stimuli.attributes[attribute_name]) == attribute_value
     if mask.ndim > 1:
         mask = np.all(mask, axis=1)
 
