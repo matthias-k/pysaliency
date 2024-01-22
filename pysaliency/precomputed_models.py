@@ -183,6 +183,29 @@ class ModelFromDirectory(Model):
         return smap
 
 
+def get_keys_recursive(group, prefix=''):
+        import h5py
+
+        keys = []
+
+        for subgroup_name, subgroup in group.items():
+            if isinstance(subgroup, h5py.Group):
+                subprefix = f"{prefix}{subgroup_name}/"
+                keys.extend(get_keys_recursive(subgroup, prefix=subprefix))
+            else:
+                keys.append(f"{prefix}{subgroup_name}")
+
+        return keys
+
+def get_stimulus_key(stimulus_name, all_keys):
+    matching_keys = [key for key in all_keys if key.endswith(stimulus_name)]
+    if len(matching_keys) == 0:
+        raise ValueError(f"Stimulus {stimulus_name} not found in hdf5 file!")
+    elif len(matching_keys) > 1:
+        raise ValueError(f"Stimulus {stimulus_name} not unique in hdf5 file!")
+    return matching_keys[0]
+
+
 class HDF5SaliencyMapModel(SaliencyMapModel):
     """ exposes a HDF5 file with saliency maps as pysaliency model
 
@@ -203,15 +226,17 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
 
         import h5py
         self.hdf5_file = h5py.File(self.filename, 'r')
+        self.all_keys = get_keys_recursive(self.hdf5_file)
 
     def _saliency_map(self, stimulus):
         stimulus_id = get_image_hash(stimulus)
         stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
         stimulus_filename = self.names[stimulus_index]
-        smap = self.hdf5_file[stimulus_filename][:]
+        stimulus_key = get_stimulus_key(stimulus_filename, self.all_keys)
+        smap = self.hdf5_file[stimulus_key][:]
         if not smap.shape == (stimulus.shape[0], stimulus.shape[1]):
             if self.check_shape:
-                warnings.warn('Wrong shape for stimulus {}'.format(stimulus_filename))
+                warnings.warn('Wrong shape for stimulus {}'.format(stimulus_key))
         return smap
 
 
