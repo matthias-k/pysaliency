@@ -17,6 +17,7 @@ from pysaliency import export_model_to_hdf5
 def file_stimuli(tmpdir):
     filenames = []
     for i in range(3):
+        # TODO: change back to stimulus_... once this is supported again
         filename = tmpdir.join('_stimulus_{:04d}.png'.format(i))
         imsave(str(filename), np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
         filenames.append(str(filename))
