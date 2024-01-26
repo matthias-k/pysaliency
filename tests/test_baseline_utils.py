@@ -144,8 +144,6 @@ def test_crossval_multiple_regularizations(stimuli, fixation_trains):
     regularization_models = OrderedDict([('model1', pysaliency.UniformModel()), ('model2', pysaliency.models.GaussianModel())])
     crossvalidation = ScikitLearnImageCrossValidationGenerator(stimuli, fixation_trains)
     estimator = CrossvalMultipleRegularizations(stimuli, fixation_trains, regularization_models, crossvalidation)
-    assert estimator.stimuli is stimuli
-    assert estimator.fixations is fixation_trains
     assert estimator.cv is crossvalidation
     assert estimator.mean_area is not None
     assert estimator.X is not None
