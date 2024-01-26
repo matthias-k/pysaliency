@@ -142,6 +142,13 @@ class ScikitLearnImageSubjectCrossValidationGenerator(object):
                 if test_inds.sum() == 0 or train_inds.sum() == 0:
                     #print("Skipping")
                     continue
+
+                # scikit at some point loads all indices from all crossvalidation folds into memory
+                # if we use the binary masks, this will use a lot of memory, hence
+                # we convert to indices here
+                train_inds = np.nonzero(train_inds)[0]
+                test_inds = np.nonzero(test_inds)[0]
+
                 yield train_inds, test_inds
 
     def __len__(self):
@@ -168,6 +175,13 @@ class ScikitLearnWithinImageCrossValidationGenerator(object):
                 test_inds[chunk] = 1
                 test_inds = test_inds > 0.5
                 train_inds = image_inds & ~test_inds
+
+                # scikit at some point loads all indices from all crossvalidation folds into memory
+                # if we use the binary masks, this will use a lot of memory, hence
+                # we convert to indices here
+                train_inds = np.nonzero(train_inds)[0]
+                test_inds = np.nonzero(test_inds)[0]
+
                 yield train_inds, test_inds
 
     def __len__(self):
@@ -361,15 +375,12 @@ class CrossvalMultipleRegularizations(object):
     verbose: verbosity level for cross_val_score
     """
     def __init__(self, stimuli, fixations, regularization_models: OrderedDict, crossvalidation, n_jobs=None, verbose=False):
-        self.stimuli = stimuli
-        self.fixations = fixations
-
         self.cv = crossvalidation
         self.n_jobs = n_jobs
         self.verbose = verbose
 
         X_areas = fixations_to_scikit_learn(
-            self.fixations, normalize=stimuli,
+            fixations, normalize=stimuli,
             keep_aspect=True,
             add_shape=True,
             verbose=False
@@ -377,13 +388,13 @@ class CrossvalMultipleRegularizations(object):
 
 
         self.X = fixations_to_scikit_learn(
-            self.fixations,
-            normalize=self.stimuli,
+            fixations,
+            normalize=stimuli,
             keep_aspect=True, add_shape=False, add_fixation_number=True, verbose=False
         )
 
-        stimuli_sizes = np.array(self.stimuli.sizes)
-        real_areas = stimuli_sizes[self.fixations.n, 0] * stimuli_sizes[self.fixations.n, 1]
+        stimuli_sizes = np.array(stimuli.sizes)
+        real_areas = stimuli_sizes[fixations.n, 0] * stimuli_sizes[fixations.n, 1]
         areas_gold = X_areas[:, 2] * X_areas[:, 3]
         self.mean_area = np.mean(areas_gold)
 
@@ -393,7 +404,7 @@ class CrossvalMultipleRegularizations(object):
         self.regularization_models = []
         self.params = ['log_bandwidth']
         for model_name, model in regularization_models.items():
-            model_lls = model.log_likelihoods(self.stimuli, self.fixations, verbose=True)
+            model_lls = model.log_likelihoods(stimuli, fixations, verbose=True)
             self.regularization_log_likelihoods.append(model_lls - correction)
             self.params.append('log_{}'.format(model_name))
 
