@@ -640,8 +640,10 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
     def NSSs(self, stimuli, fixations, verbose=False):
         values = np.empty(len(fixations.x))
         for n, s in enumerate(tqdm(stimuli, disable=not verbose)):
-            smap = self.saliency_map(s).copy()
             inds = fixations.n == n
+            if not inds.sum():
+                continue
+            smap = self.saliency_map(s).copy()
             values[inds] = NSS(smap, fixations.x_int[inds], fixations.y_int[inds])
 
         return values
