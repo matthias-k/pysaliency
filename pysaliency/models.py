@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from .saliency_map_models import (SaliencyMapModel, ScanpathSaliencyMapModel, handle_stimulus,
                                   SubjectDependentSaliencyMapModel,
-                                  ExpSaliencyMapModel,
+                                  DensitySaliencyMapModel,
                                   DisjointUnionMixin,
                                   GaussianSaliencyMapModel,
                                   )
@@ -578,7 +578,7 @@ class SubjectDependentModel(DisjointUnionModel):
 
     def get_saliency_map_model_for_NSS(self):
         return SubjectDependentSaliencyMapModel({
-            s: ExpSaliencyMapModel(self.subject_models[s])
+            s: DensitySaliencyMapModel(self.subject_models[s])
             for s in self.subject_models})
 
 
