@@ -13,7 +13,7 @@ from .filter_datasets import (
     remove_stimuli_without_fixations
 )
 
-from schema import Schema, Optional
+from schema import Schema, Optional, Or
 
 
 dataset_config_schema = Schema({
@@ -23,6 +23,7 @@ dataset_config_schema = Schema({
         'type': str,
         Optional('parameters', default={}): dict,
     }],
+    Optional('lmdb_path', default=None): Or(str, None),
 })
 
 
