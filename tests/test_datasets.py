@@ -561,6 +561,11 @@ def test_stimuli_attributes(stimuli_with_attributes, tmp_path):
     assert stimuli_with_attributes.attributes['dva'][:5] == partial_stimuli.attributes['dva']
     assert stimuli_with_attributes.attributes['some_strings'][:5] == partial_stimuli.attributes['some_strings']
 
+    partial_stimuli = stimuli_with_attributes[[1, 2, 6]]
+    assert stimuli_with_attributes.attributes.keys() == partial_stimuli.attributes.keys()
+    assert list(np.array(stimuli_with_attributes.attributes['dva'])[[1, 2, 6]]) == partial_stimuli.attributes['dva']
+    assert list(np.array(stimuli_with_attributes.attributes['some_strings'])[[1, 2, 6]]) == partial_stimuli.attributes['some_strings']
+
 
 @pytest.fixture
 def file_stimuli_with_attributes(tmpdir):
@@ -600,6 +605,11 @@ def test_file_stimuli_attributes(file_stimuli_with_attributes, tmp_path):
     assert file_stimuli_with_attributes.attributes.keys() == partial_stimuli.attributes.keys()
     assert file_stimuli_with_attributes.attributes['dva'][:5] == partial_stimuli.attributes['dva']
     assert file_stimuli_with_attributes.attributes['some_strings'][:5] == partial_stimuli.attributes['some_strings']
+
+    partial_stimuli = file_stimuli_with_attributes[[1, 2, 6]]
+    assert file_stimuli_with_attributes.attributes.keys() == partial_stimuli.attributes.keys()
+    assert list(np.array(file_stimuli_with_attributes.attributes['dva'])[[1, 2, 6]]) == partial_stimuli.attributes['dva']
+    assert list(np.array(file_stimuli_with_attributes.attributes['some_strings'])[[1, 2, 6]]) == partial_stimuli.attributes['some_strings']
 
 
 def test_concatenate_stimuli_with_attributes(stimuli_with_attributes, file_stimuli_with_attributes):

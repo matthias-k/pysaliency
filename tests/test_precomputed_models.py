@@ -1,24 +1,28 @@
-from __future__ import division, print_function, absolute_import, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
 import pathlib
 import zipfile
 
-import pytest
-
-from imageio import imsave
 import numpy as np
+import pytest
+from imageio import imsave
 
 import pysaliency
 from pysaliency import export_model_to_hdf5
+
+
+class TestSaliencyMapModel(pysaliency.SaliencyMapModel):
+    def _saliency_map(self, stimulus):
+        stimulus_data = pysaliency.datasets.as_stimulus(stimulus).stimulus_data
+        return np.array(stimulus_data, dtype=float)
 
 
 @pytest.fixture
 def file_stimuli(tmpdir):
     filenames = []
     for i in range(3):
-        # TODO: change back to stimulus_... once this is supported again
-        filename = tmpdir.join('_stimulus_{:04d}.png'.format(i))
+        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
         imsave(str(filename), np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
         filenames.append(str(filename))
 
@@ -37,8 +41,7 @@ def stimuli_with_filenames(tmpdir):
     filenames = []
     stimuli = []
     for i in range(3):
-        # TODO: change back to stimulus_... once this is supported again
-        filename = tmpdir.join('_stimulus_{:04d}.png'.format(i))
+        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
         stimuli.append(np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
         filenames.append(str(filename))
 
@@ -62,6 +65,14 @@ def stimuli(file_stimuli, stimuli_with_filenames, request):
 
 
 @pytest.fixture
+def sub_stimuli(stimuli):
+    unique_filenames = pysaliency.utils.get_minimal_unique_filenames(
+        pysaliency.precomputed_models.get_stimuli_filenames(stimuli)
+    )
+    return stimuli[[i for i, f in enumerate(unique_filenames) if f.startswith('sub_directory_0001')]]
+
+
+@pytest.fixture
 def saliency_maps_in_directory(file_stimuli, tmpdir):
     stimuli_files = pysaliency.utils.get_minimal_unique_filenames(file_stimuli.filenames)
 
@@ -80,12 +91,22 @@ def saliency_maps_in_directory(file_stimuli, tmpdir):
 
 
 def test_export_model_to_hdf5(stimuli, tmpdir):
-    model = pysaliency.UniformModel()
+    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
     filename = str(tmpdir.join('model.hdf5'))
     export_model_to_hdf5(model, stimuli, filename)
 
     model2 = pysaliency.HDF5Model(stimuli, filename)
     for s in stimuli:
+        np.testing.assert_allclose(model.log_density(s), model2.log_density(s))
+
+
+def test_hdf5_model_sub_stimuli(stimuli, sub_stimuli, tmpdir):
+    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, stimuli, filename)
+
+    model2 = pysaliency.HDF5Model(sub_stimuli, filename)
+    for s in sub_stimuli:
         np.testing.assert_allclose(model.log_density(s), model2.log_density(s))
 
 
@@ -124,35 +145,71 @@ def test_export_model_no_overwrite(file_stimuli, tmpdir):
             np.testing.assert_allclose(model2.saliency_map(s), model3.saliency_map(s))
 
 
-def test_saliency_map_model_from_directory(file_stimuli, saliency_maps_in_directory):
+def test_saliency_map_model_from_directory(stimuli, saliency_maps_in_directory):
     directory, predictions = saliency_maps_in_directory
-    model = pysaliency.SaliencyMapModelFromDirectory(file_stimuli, directory)
+    model = pysaliency.SaliencyMapModelFromDirectory(stimuli, directory)
 
-    for stimulus_index, stimulus in enumerate(file_stimuli):
+    for stimulus_index, stimulus in enumerate(stimuli):
         expected = predictions[stimulus_index]
         actual = model.saliency_map(stimulus)
         np.testing.assert_equal(actual, expected)
 
-@pytest.mark.skip("currently archivemodels can't handle same stimuli names in directory and subdirectory")
-def test_saliency_map_model_from_archive(file_stimuli, saliency_maps_in_directory, tmpdir):
+
+def test_saliency_map_model_from_directory_sub_stimuli(stimuli, sub_stimuli, saliency_maps_in_directory):
+    directory, predictions = saliency_maps_in_directory
+    full_model = pysaliency.SaliencyMapModelFromDirectory(stimuli, directory)
+    sub_model = pysaliency.SaliencyMapModelFromDirectory(sub_stimuli, directory)
+
+    for stimulus in sub_stimuli:
+        expected = full_model.saliency_map(stimulus)
+        actual = sub_model.saliency_map(stimulus)
+        np.testing.assert_equal(actual, expected)
+
+
+def test_saliency_map_model_from_archive(stimuli, saliency_maps_in_directory, tmpdir):
     directory, predictions = saliency_maps_in_directory
 
     archive = tmpdir / 'predictions.zip'
 
     # from https://stackoverflow.com/a/1855118
     def zipdir(path, ziph):
-        for root, dirs, files in os.walk(path):
+        for root, _, files in os.walk(path):
             for file in files:
-                ziph.write(os.path.join(root, file), 
-                           os.path.relpath(os.path.join(root, file), 
+                ziph.write(os.path.join(root, file),
+                           os.path.relpath(os.path.join(root, file),
                                            os.path.join(path, '..')))
-          
+
     with zipfile.ZipFile(str(archive), 'w', zipfile.ZIP_DEFLATED) as zipf:
         zipdir(str(directory), zipf)
 
-    model = pysaliency.precomputed_models.SaliencyMapModelFromArchive(file_stimuli, str(archive))
+    model = pysaliency.precomputed_models.SaliencyMapModelFromArchive(stimuli, str(archive))
 
-    for stimulus_index, stimulus in enumerate(file_stimuli):
+    for stimulus_index, stimulus in enumerate(stimuli):
         expected = predictions[stimulus_index]
         actual = model.saliency_map(stimulus)
+        np.testing.assert_equal(actual, expected)
+
+
+def test_saliency_map_model_from_archive_sub_stimuli(stimuli, sub_stimuli, saliency_maps_in_directory, tmpdir):
+    directory, predictions = saliency_maps_in_directory
+
+    archive = tmpdir / 'predictions.zip'
+
+    # from https://stackoverflow.com/a/1855118
+    def zipdir(path, ziph):
+        for root, _, files in os.walk(path):
+            for file in files:
+                ziph.write(os.path.join(root, file),
+                           os.path.relpath(os.path.join(root, file),
+                                           os.path.join(path, '..')))
+
+    with zipfile.ZipFile(str(archive), 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipdir(str(directory), zipf)
+
+    full_model = pysaliency.precomputed_models.SaliencyMapModelFromArchive(stimuli, str(archive))
+    sub_model = pysaliency.precomputed_models.SaliencyMapModelFromArchive(sub_stimuli, str(archive))
+
+    for stimulus in sub_stimuli:
+        expected = full_model.saliency_map(stimulus)
+        actual = sub_model.saliency_map(stimulus)
         np.testing.assert_equal(actual, expected)
