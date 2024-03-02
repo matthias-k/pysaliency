@@ -1156,12 +1156,22 @@ class Stimuli(Sequence):
     def __len__(self):
         return len(self.stimuli)
 
+    def _get_attribute_for_stimulus_subset(self, index):
+        sub_attributes = {}
+        for attribute_name, attribute_value in self.attributes.items():
+            if isinstance(index, (list, np.ndarray)) and not isinstance(attribute_value, np.ndarray):
+                sub_attributes[attribute_name] = [attribute_value[i] for i in index]
+            else:
+                sub_attributes[attribute_name] = attribute_value[index]
+
+        return sub_attributes
+
     def __getitem__(self, index):
         if isinstance(index, slice):
-            attributes = {key: value[index] for key, value in self.attributes.items()}
+            attributes = self._get_attribute_for_stimulus_subset(index)
             return ObjectStimuli([self.stimulus_objects[i] for i in range(len(self))[index]], attributes=attributes)
         elif isinstance(index, list):
-            attributes = {key: value[index] for key, value in self.attributes.items()}
+            attributes = self._get_attribute_for_stimulus_subset(index)
             return ObjectStimuli([self.stimulus_objects[i] for i in index], attributes=attributes)
         else:
             return self.stimulus_objects[index]
@@ -1337,7 +1347,7 @@ class FileStimuli(Stimuli):
         if isinstance(index, (list, np.ndarray)):
             filenames = [self.filenames[i] for i in index]
             shapes = [self.shapes[i] for i in index]
-            attributes = {key: [value[i] for i in index] for key, value in self.attributes.items()}
+            attributes = self._get_attribute_for_stimulus_subset(index)
             return type(self)(filenames=filenames, shapes=shapes, attributes=attributes, cached=self.cached)
         else:
             return self.stimulus_objects[index]
