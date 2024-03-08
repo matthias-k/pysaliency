@@ -14,7 +14,7 @@ def pytest_addoption(parser):
     parser.addoption("--nomatlab", action="store_true", default=False, help="don't run matlab tests")
     parser.addoption("--nooctave", action="store_true", default=False, help="don't run octave tests")
     parser.addoption("--notheano", action="store_true", default=False, help="don't run slow theano tests")
-    parser.addoption("--nodownload", action="store_true", default=False, help="don't download external data)
+    parser.addoption("--nodownload", action="store_true", default=False, help="don't download external data")
 
 
 def pytest_collection_modifyitems(config, items):
