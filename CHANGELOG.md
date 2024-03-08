@@ -1,6 +1,7 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Feature: `StimulusDependentSaliencyMapModel`
   * Bugfix: The NUSEF dataset scaled some fixations not correctly to image coordinates. Also, we now account for some typos in the
     dataset source data.
   * Feature: CrossvalMultipleRegularizations and GeneralMixtureKernelDensityEstimator in baseline utils (names might change!)

@@ -493,3 +493,36 @@ def test_conditional_saliency_maps(stimuli, fixation_trains):
     saliency_maps_2 = [model.conditional_saliency_map_for_fixation(stimuli, fixation_trains, i) for i in range(len(fixation_trains))]
 
     np.testing.assert_allclose(saliency_maps_1, saliency_maps_2)
+
+
+def test_stimulus_dependent_saliency_map_model(stimuli, fixation_trains):
+    # Create stimulus models
+    stimulus_model_1 = ConstantSaliencyMapModel(value=0.5)
+    stimulus_model_2 = GaussianSaliencyMapModel()
+
+    # Create the stimulus-dependent saliency map model
+    stimuli_models = {stimuli[[0]]: stimulus_model_1, stimuli[[1]]: stimulus_model_2}
+    fallback_model = ConstantSaliencyMapModel(value=0.2)
+    sdsmm = pysaliency.saliency_map_models.StimulusDependentSaliencyMapModel(stimuli_models, fallback_model=fallback_model)
+
+    # Test saliency map for stimulus 1
+    saliency_map_1 = sdsmm.saliency_map(stimuli[0])
+    np.testing.assert_allclose(saliency_map_1, np.ones((40, 40)) * 0.5)
+
+    # Test saliency map for stimulus 2
+    saliency_map_2 = sdsmm.saliency_map(stimuli[1])
+    height = stimuli[1].shape[0]
+    width = stimuli[1].shape[1]
+    expected_saliency_map_2 = np.exp(-0.5 * ((np.mgrid[:height, :width][1] - 0.5 * width) ** 2 +
+                                             (np.mgrid[:height, :width][0] - 0.5 * height) ** 2) /
+                                     np.sqrt(width ** 2 + height ** 2))
+    np.testing.assert_allclose(saliency_map_2, expected_saliency_map_2)
+
+    # Test fallback model
+    fallback_saliency_map = fallback_model.saliency_map(np.random.randn(50, 50, 3))
+    np.testing.assert_allclose(fallback_saliency_map, np.ones((50, 50)) * 0.2)
+
+    # Test saliency map for stimulus not provided by the models if there is no fallback model
+    sdsmm.fallback_model = None
+    with pytest.raises(ValueError):
+        sdsmm.saliency_map(np.random.randn(50, 50, 3))
