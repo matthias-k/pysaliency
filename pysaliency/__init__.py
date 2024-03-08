@@ -28,6 +28,7 @@ from .saliency_map_models import (
     ExpSaliencyMapModel,
     DisjointUnionSaliencyMapModel,
     SubjectDependentSaliencyMapModel,
+    StimulusDependentSaliencyMapModel,
     ResizingSaliencyMapModel,
     BluringSaliencyMapModel,
     DigitizeMapModel,
