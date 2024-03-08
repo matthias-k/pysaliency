@@ -1170,7 +1170,13 @@ class Stimuli(Sequence):
         if isinstance(index, slice):
             attributes = self._get_attribute_for_stimulus_subset(index)
             return ObjectStimuli([self.stimulus_objects[i] for i in range(len(self))[index]], attributes=attributes)
-        elif isinstance(index, list):
+        elif isinstance(index, (list, np.ndarray)):
+            index = np.asarray(index)
+            if index.dtype == bool:
+                if not len(index) == len(self.stimuli):
+                    raise ValueError(f"Boolean index has to have the same length as the stimuli list but got {len(index)} and {len(self.stimuli)}")
+                index = np.nonzero(index)[0]
+
             attributes = self._get_attribute_for_stimulus_subset(index)
             return ObjectStimuli([self.stimulus_objects[i] for i in index], attributes=attributes)
         else:
@@ -1345,6 +1351,12 @@ class FileStimuli(Stimuli):
             index = list(range(len(self)))[index]
 
         if isinstance(index, (list, np.ndarray)):
+            index = np.asarray(index)
+            if index.dtype == bool:
+                if not len(index) == len(self.stimuli):
+                    raise ValueError(f"Boolean index has to have the same length as the stimuli list but got {len(index)} and {len(self.stimuli)}")
+                index = np.nonzero(index)[0]
+
             filenames = [self.filenames[i] for i in index]
             shapes = [self.shapes[i] for i in index]
             attributes = self._get_attribute_for_stimulus_subset(index)

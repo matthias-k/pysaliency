@@ -33,6 +33,7 @@ def fixations():
     )
 
 
+@pytest.mark.download
 def test_deepgaze1(stimuli, fixations):
     model = DeepGazeI(centerbias_model=pysaliency.UniformModel(), device='cpu')
 
@@ -40,7 +41,7 @@ def test_deepgaze1(stimuli, fixations):
 
     np.testing.assert_allclose(ig, 0.9455161648442227, rtol=5e-6)
 
-
+@pytest.mark.download
 def test_deepgaze2e(stimuli, fixations):
     model = DeepGazeIIE(centerbias_model=pysaliency.UniformModel(), device='cpu')
 
