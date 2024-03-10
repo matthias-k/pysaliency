@@ -476,8 +476,8 @@ class FixationTrains(Fixations):
 
         if attributes is None:
             attributes = {}
-        else:
-            warnings.warn("don't use attributes for FixationTrains, use scanpath_attributes or scanpath_fixation_attributes instead!")
+        elif attributes:
+            warnings.warn("don't use attributes for FixationTrains, use scanpath_attributes or scanpath_fixation_attributes instead!", stacklevel=2)
 
         self.auto_attributes = []
 
