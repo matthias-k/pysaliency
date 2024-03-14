@@ -36,7 +36,15 @@ def get_keys_from_filenames(filenames, keys):
         if remaining_filename in keys:
             break
     else:
-        raise ValueError('No common prefix found from {}'.format(filenames[0]))
+        print("No common prefix found!")
+        print(f"  filename: {filenames[0]}")
+        print("  keys:")
+        for key in keys[:5]:
+            print(f"    {key}")
+        for key in keys[-5:]:
+            print(f"    {key}")
+
+        raise ValueError('No common prefix found!')
 
     filename_keys = []
     for filename in filenames:
