@@ -178,7 +178,9 @@ def _get_cat2000_train(name, location):
             # Stimuli
             print('Creating stimuli')
             f = zipfile.ZipFile(os.path.join(temp_dir, 'trainSet.zip'))
-            f.extractall(temp_dir)
+            namelist = f.namelist()
+            namelist = filter_files(namelist, ['Output'])
+            f.extractall(temp_dir, namelist)
 
             stimuli_src_location = os.path.join(temp_dir, 'trainSet', 'Stimuli')
             stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
@@ -304,7 +306,9 @@ def _get_cat2000_train_v1_1(name, location):
             # Stimuli
             print('Creating stimuli')
             f = zipfile.ZipFile(os.path.join(temp_dir, 'trainSet.zip'))
-            f.extractall(temp_dir)
+            namelist = f.namelist()
+            namelist = filter_files(namelist, ['Output'])
+            f.extractall(temp_dir, namelist)
 
             stimuli_src_location = os.path.join(temp_dir, 'trainSet', 'Stimuli')
             stimuli_target_location = os.path.join(location, 'Stimuli') if location else None
