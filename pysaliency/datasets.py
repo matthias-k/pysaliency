@@ -8,6 +8,7 @@ from hashlib import sha1
 import json
 import os
 import pathlib
+from typing import Union
 import warnings
 from weakref import WeakValueDictionary
 
@@ -1045,13 +1046,6 @@ def get_image_hash(img):
     return sha1(np.ascontiguousarray(img)).hexdigest()
 
 
-def as_stimulus(img_or_stimulus):
-    if isinstance(img_or_stimulus, Stimulus):
-        return img_or_stimulus
-
-    return Stimulus(img_or_stimulus)
-
-
 class Stimulus(object):
     """
     Manages a stimulus.
@@ -1085,6 +1079,13 @@ class Stimulus(object):
         if self._size is None:
             self._size = self.stimulus_data.shape[0], self.stimulus_data.shape[1]
         return self._size
+
+
+def as_stimulus(img_or_stimulus: Union[np.ndarray, Stimulus]) -> Stimulus:
+    if isinstance(img_or_stimulus, Stimulus):
+        return img_or_stimulus
+
+    return Stimulus(img_or_stimulus)
 
 
 class StimuliStimulus(Stimulus):
@@ -1776,3 +1777,10 @@ def _load_attribute_dict_from_hdf5(attribute_group):
 
     attributes = {attribute: attribute_group[attribute][...] for attribute in __attributes__}
     return attributes
+
+
+def check_prediction_shape(prediction: np.ndarray, stimulus: Union[np.ndarray, Stimulus]):
+    stimulus = as_stimulus(stimulus)
+
+    if prediction.shape != stimulus.size:
+        raise ValueError(f"Prediction shape {prediction.shape} does not match stimulus shape {stimulus.size}")
