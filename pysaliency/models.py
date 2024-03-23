@@ -16,7 +16,7 @@ from .saliency_map_models import (SaliencyMapModel, ScanpathSaliencyMapModel, ha
                                   DisjointUnionMixin,
                                   GaussianSaliencyMapModel,
                                   )
-from .datasets import FixationTrains, get_image_hash, as_stimulus
+from .datasets import FixationTrains, check_prediction_shape, get_image_hash, as_stimulus
 from .metrics import probabilistic_image_based_kl_divergence, convert_saliency_map_to_density
 from .sampling_models import SamplingModelMixin
 from .utils import Cache, average_values, deprecated_class, remove_trailing_nans, iterator_chunks
@@ -155,6 +155,7 @@ class ScanpathModel(SamplingModelMixin, object, metaclass=ABCMeta):
         log_likelihoods = np.empty(len(fixations.x))
         for i in tqdm(range(len(fixations.x)), disable=not verbose):
             conditional_log_density = self.conditional_log_density_for_fixation(stimuli, fixations, i)
+            check_prediction_shape(conditional_log_density, stimuli[fixations.n[i]])
             log_likelihoods[i] = conditional_log_density[fixations.y_int[i], fixations.x_int[i]]
 
         return log_likelihoods
@@ -331,7 +332,8 @@ class Model(ScanpathModel):
             inds = fixations.n == n
             if not inds.sum():
                 continue
-            log_density = self.log_density(stimuli.stimulus_objects[n])
+            log_density = self.log_density(stimuli[n])
+            check_prediction_shape(log_density, stimuli[n])
             this_log_likelihoods = log_density[fixations.y_int[inds], fixations.x_int[inds]]
             log_likelihoods[inds] = this_log_likelihoods
 
@@ -372,6 +374,8 @@ class Model(ScanpathModel):
         for s in tqdm(stimuli, disable=not verbose):
             logp_model = self.log_density(s)
             logp_gold = gold_standard.log_density(s)
+            check_prediction_shape(logp_model, s)
+            check_prediction_shape(logp_gold, s)
             kl_divs.append(
                 probabilistic_image_based_kl_divergence(logp_model, logp_gold, log_regularization=log_regularization, quotient_regularization=quotient_regularization)
             )
@@ -380,9 +384,9 @@ class Model(ScanpathModel):
 
     def set_params(self, **kwargs):
         """
-	        Set model parameters, if the model has parameters
+            Set model parameters, if the model has parameters
 
-	        This method has to reset caches etc., if the depend on the parameters
+            This method has to reset caches etc., if the depend on the parameters
         """
         if kwargs:
             raise ValueError('Unkown parameters!', kwargs)

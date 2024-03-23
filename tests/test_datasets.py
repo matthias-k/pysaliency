@@ -1,19 +1,19 @@
-from __future__ import absolute_import, print_function, division
+from __future__ import absolute_import, division, print_function
 
-import unittest
 import os.path
-import dill
 import pickle
-import pytest
+import unittest
 
+import dill
 import numpy as np
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 from imageio import imwrite
-
-from hypothesis import given, strategies as st
+from test_helpers import TestWithData
 
 import pysaliency
-from pysaliency.datasets import FixationTrains, Fixations, scanpaths_from_fixations
-from test_helpers import TestWithData
+from pysaliency.datasets import Fixations, FixationTrains, Stimulus, check_prediction_shape, scanpaths_from_fixations
 
 
 def compare_fixations_subset(f1, f2, f2_inds):
@@ -779,6 +779,41 @@ def test_scanpaths_from_fixations(fixation_indices):
 
     compare_fixations(sub_fixations, new_sub_fixations, crop_length=True)
 
+
+def test_check_prediction_shape():
+    # Test with matching shapes
+    prediction = np.random.rand(10, 10)
+    stimulus = np.random.rand(10, 10)
+    check_prediction_shape(prediction, stimulus)  # Should not raise any exception
+
+    # Test with matching shapes, colorimage
+    prediction = np.random.rand(10, 10)
+    stimulus = np.random.rand(10, 10, 3)
+    check_prediction_shape(prediction, stimulus)  # Should not raise any exception
+
+    # Test with mismatching shapes
+    prediction = np.random.rand(10, 10)
+    stimulus = np.random.rand(10, 11)
+    with pytest.raises(ValueError) as excinfo:
+        check_prediction_shape(prediction, stimulus)
+    assert str(excinfo.value) == "Prediction shape (10, 10) does not match stimulus shape (10, 11)"
+
+    # Test with Stimulus object
+    prediction = np.random.rand(10, 10)
+    stimulus = Stimulus(np.random.rand(10, 10))
+    check_prediction_shape(prediction, stimulus)  # Should not raise any exception
+
+    # Test with Stimulus object
+    prediction = np.random.rand(10, 10)
+    stimulus = Stimulus(np.random.rand(10, 10, 3))
+    check_prediction_shape(prediction, stimulus)  # Should not raise any exception
+
+    # Test with mismatching shapes and Stimulus object
+    prediction = np.random.rand(10, 10)
+    stimulus = Stimulus(np.random.rand(10, 11))
+    with pytest.raises(ValueError) as excinfo:
+        check_prediction_shape(prediction, stimulus)
+    assert str(excinfo.value) == "Prediction shape (10, 10) does not match stimulus shape (10, 11)"
 
 if __name__ == '__main__':
     unittest.main()
