@@ -410,13 +410,13 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
             nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
 
         for n in tqdm(range(len(stimuli)), disable=not verbose):
-            out = self.saliency_map(stimuli.stimulus_objects[n])
-            check_prediction_shape(out, stimuli[n])
             inds = fixations.n == n
-
             if not inds.sum():
                 rocs_per_image.append(np.nan)
                 continue
+
+            out = self.saliency_map(stimuli.stimulus_objects[n])
+            check_prediction_shape(out, stimuli[n])
 
             positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
             if nonfixations == 'uniform':
