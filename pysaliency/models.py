@@ -416,7 +416,9 @@ class UniformModel(Model):
         for stimulus_index in stimulus_indices:
             stimulus_shapes[stimulus_index] = stimuli.stimulus_objects[stimulus_index].size
 
-        stimulus_log_likelihoods = -np.log(stimulus_shapes).sum(axis=1)
+        with np.errstate(divide='ignore'):  # ignore log(0) warnings, we won't use them anyway
+            stimulus_log_likelihoods = -np.log(stimulus_shapes).sum(axis=1)
+
         return stimulus_log_likelihoods[fixations.n]
 
 
