@@ -1,5 +1,5 @@
 function [ ] = extract_fixations(filename, datafolder, outname)
-	fprintf('Loading %s %s\n', datafolder, filename);
+	% fprintf('Loading %s %s\n', datafolder, filename);
 	addpath('DatabaseCode')
 	datafile = strcat(filename(1:end-4), 'mat');
 	load(fullfile(datafolder, datafile));
