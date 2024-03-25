@@ -113,7 +113,7 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                     subject_path = os.path.join('DATA', subject)
                     outfile = '{0}_{1}.mat'.format(stimulus, subject)
                     outfile = os.path.join(out_path, outfile)
-                    cmds.append("fprintf('%d/%d\\n', {}, {});".format(n * len(subjects) + subject_id, total_cmd_count))
+                    cmds.append("fprintf('%d/%d\\r', {}, {});".format(n * len(subjects) + subject_id, total_cmd_count))
                     cmds.append("extract_fixations('{0}', '{1}', '{2}');".format(stimulus, subject_path, outfile))
 
             print('Running original code to extract fixations. This can take some minutes.')
