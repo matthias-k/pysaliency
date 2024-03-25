@@ -413,6 +413,11 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
             out = self.saliency_map(stimuli.stimulus_objects[n])
             check_prediction_shape(out, stimuli[n])
             inds = fixations.n == n
+
+            if not inds.sum():
+                rocs_per_image.append(np.nan)
+                continue
+
             positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
@@ -482,6 +487,14 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
 
             return np.average(aucs, weights=weights)
         elif average == 'image':
+            stimulus_indices = set(fixations.n)
+            nan_value_indices = np.nonzero(np.isnan(aucs))[0]
+
+            if stimulus_indices.intersection(nan_value_indices):
+                raise ValueError("Some images with fixations returned AUC of nan, which should not happen")
+
+            aucs = aucs[~np.isnan(aucs)]
+
             return np.mean(aucs)
         else:
             raise ValueError(average)
