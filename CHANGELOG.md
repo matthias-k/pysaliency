@@ -1,6 +1,8 @@
 # Changelog
 
 * 0.2.22 (dev):
+  * Enhancement: New [Tutorial](notebooks/Tutorial.ipynb).
+  * Bugfix: `SaliencyMapModel.AUC` failed if some images didn't have any fixations.
   * Feature: `StimulusDependentSaliencyMapModel`
   * Bugfix: The NUSEF dataset scaled some fixations not correctly to image coordinates. Also, we now account for some typos in the
     dataset source data.
