@@ -184,6 +184,31 @@ def test_auc_gauss(stimuli, fixation_trains):
     np.testing.assert_allclose(aucs_single, aucs_combined)
 
 
+def test_auc_per_image(stimuli, fixation_trains):
+    gsmm = GaussianSaliencyMapModel()
+
+    aucs = gsmm.AUC_per_image(stimuli, fixation_trains)
+    np.testing.assert_allclose(aucs,
+                               [0.196625, 0.313125],
+                               rtol=1e-6)
+
+
+def test_auc_per_image_images_without_fixations(stimuli, fixation_trains):
+    gsmm = GaussianSaliencyMapModel()
+
+    aucs = gsmm.AUC_per_image(stimuli, fixation_trains[:5],)
+    np.testing.assert_allclose(aucs,
+                               [0.196625, np.nan],
+                               rtol=1e-6)
+
+
+def test_auc_image_average_with_images_without_fixations(stimuli, fixation_trains):
+    gsmm = GaussianSaliencyMapModel()
+
+    auc = gsmm.AUC(stimuli, fixation_trains[:5], average='image')
+    np.testing.assert_allclose(auc, 0.196625, rtol=1e-6)
+
+
 def test_nss_gauss(stimuli, fixation_trains):
     gsmm = GaussianSaliencyMapModel()
 

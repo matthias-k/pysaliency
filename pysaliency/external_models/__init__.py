@@ -11,4 +11,9 @@ from .matlab_models import (
     CovSal,
 )
 
+from .deepgaze import (
+    DeepGazeI,
+    DeepGazeIIE,
+)
+
 from .utils import ExternalModelMixin
