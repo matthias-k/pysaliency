@@ -1,19 +1,18 @@
-# vim: set expandtab :
-#kate: space-indent on; indent-width 4; backspace-indents on;
-from __future__ import absolute_import, print_function, division, unicode_literals
-
-from collections.abc import Sequence
-from functools import wraps
-from hashlib import sha1
 import json
 import os
 import pathlib
-from typing import Union
 import warnings
+from collections.abc import Sequence
+from functools import wraps
+from hashlib import sha1
+from typing import Dict, Optional, Union
 from weakref import WeakValueDictionary
 
-from boltons.cacheutils import cached
 import numpy as np
+from boltons.cacheutils import cached
+
+from .utils.variable_length_array import VariableLengthArray
+
 try:
     from imageio.v3 import imread
 except ImportError:
@@ -21,7 +20,7 @@ except ImportError:
 from PIL import Image
 from tqdm import tqdm
 
-from .utils import LazyList, build_padded_2d_array, remove_trailing_nans
+from .utils import LazyList, remove_trailing_nans
 
 
 def hdf5_wrapper(mode=None):
@@ -76,6 +75,8 @@ def read_hdf5(source):
         return Fixations.read_hdf5(source)
     elif data_type == 'FixationTrains':
         return FixationTrains.read_hdf5(source)
+    elif data_type == 'Scanpaths':
+        return Scanpaths.read_hdf5(source)
     elif data_type == 'Stimuli':
         return Stimuli.read_hdf5(source)
     elif data_type == 'FileStimuli':
@@ -784,65 +785,6 @@ class FixationTrains(Fixations):
                                                                train_subjects_eval)
         return fixations_training, fixations_evaluation
 
-#    def generate_nonfixations(self, seed=42):
-#        """Generate nonfixational distribution from this
-#        fixation object by shuffling the images of the
-#        fixation trains. The individual fixation trains
-#        will be left intact"""
-#        train_xs = self.train_xs.copy()
-#        train_ys = self.train_ys.copy()
-#        train_ts = self.train_ts.copy()
-#        train_ns = self.train_ns.copy()
-#        train_subjects = self.train_subjects.copy()
-#        max_n = train_ns.max()
-#        rs = np.random.RandomState(seed)
-#        for i in range(len(train_ns)):
-#            old_n = train_ns[i]
-#            new_ns = range(0, old_n)+range(old_n+1, max_n+1)
-#            new_n = rs.choice(new_ns)
-#            train_ns[i] = new_n
-#        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
-#
-#    def generate_more_nonfixations(self, count=1, seed=42):
-#        """Generate nonfixational distribution from this
-#        fixation object by assining each fixation
-#        train to $count other images.
-#
-#        with count=0, each train will be assigned to all
-#        other images"""
-#        train_xs = []
-#        train_ys = []
-#        train_ts = []
-#        train_ns = []
-#        train_subjects = []
-#        max_n = self.train_ns.max()
-#        if count == 0:
-#            count = max_n-1
-#        rs = np.random.RandomState(seed)
-#        for i in range(len(self.train_ns)):
-#            old_n = self.train_ns[i]
-#            new_ns = range(0, old_n)+range(old_n+1, max_n+1)
-#            new_ns = rs.choice(new_ns, size=count, replace=False)
-#            for new_n in new_ns:
-#                train_xs.append(self.train_xs[i])
-#                train_ys.append(self.train_ys[i])
-#                train_ts.append(self.train_ts[i])
-#                train_ns.append(new_n)
-#                train_subjects.append(self.train_subjects[i])
-#        train_xs = np.vstack(train_xs)
-#        train_ys = np.vstack(train_ys)
-#        train_ts = np.vstack(train_ts)
-#        train_ns = np.hstack(train_ns)
-#        train_subjects = np.hstack(train_subjects)
-#        # reorder
-#        inds = np.argsort(train_ns)
-#        train_xs = train_xs[inds]
-#        train_ys = train_ys[inds]
-#        train_ts = train_ts[inds]
-#        train_ns = train_ns[inds]
-#        train_subjects = train_subjects[inds]
-#        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects)
-
     def shuffle_fixations(self, stimuli=None):
         new_indices = []
         new_ns = []
@@ -1033,6 +975,166 @@ class FixationTrains(Fixations):
         fixations = cls(**data)
 
         return fixations
+
+
+class Scanpaths(object):
+    """
+    Represents a collection of scanpaths.
+
+    Attributes:
+        xs (VariableLengthArray): The x-coordinates of the scanpaths.
+        ys (VariableLengthArray): The y-coordinates of the scanpaths.
+        ns (np.ndarray): The number of fixations in each scanpath.
+        lengths (np.ndarray): The lengths of each scanpath.
+        scanpath_attributes (dict): Additional attributes associated with the scanpaths.
+        fixation_attributes (dict): Additional attributes associated with the fixations in the scanpaths.
+        attribute_mapping (dict): Mapping of attribute names to their corresponding values, will be used when creating `Fixations` instances from the `Scanpaths` instance.
+             for example {'durations': 'duration'}
+    """
+
+    xs: VariableLengthArray
+    ys: VariableLengthArray
+    ns: np.ndarray
+
+    def __init__(self,
+                 xs: Union[np.ndarray, VariableLengthArray],
+                 ys: Union[np.ndarray, VariableLengthArray],
+                 ns: np.ndarray,
+                 lengths=None,
+                 scanpath_attributes: Optional[Dict[str, np.ndarray]] = None,
+                 fixation_attributes: Optional[Dict[str, Union[np.ndarray, VariableLengthArray]]]=None,
+                 attribute_mapping=Dict[str, str]):
+
+        self.ns = np.asarray(ns)
+
+        if not isinstance(xs, VariableLengthArray):
+            self.xs = VariableLengthArray(xs, lengths)
+        else:
+            self.xs = xs
+
+        if lengths is not None:
+            if not np.all(self.xs.lengths == lengths):
+                raise ValueError("Lengths of xs and lengths do not match")
+
+        self.lengths = self.xs.lengths.copy()
+
+        self.ys = self._as_variable_length_array(ys)
+
+        if not len(self.xs) == len(self.ys) == len(self.ns):
+            raise ValueError("Length of xs, ys, ts and ns has to match")
+
+        # setting scanpath attributes
+
+        scanpath_attributes = scanpath_attributes or {}
+        self.scanpath_attributes = {key: np.array(value) for key, value in scanpath_attributes.items()}
+
+        for key, value in self.scanpath_attributes.items():
+            if not len(value) == len(self.xs):
+                raise ValueError(f"Length of scanpath attribute {key} has to match number of scanpaths, but got {len(value)} != {len(self.xs)}")
+
+        # setting fixation attributes
+
+        fixation_attributes = fixation_attributes or {}
+
+        self.fixation_attributes = {key: self._as_variable_length_array(value) for key, value in fixation_attributes.items()}
+
+        self.attribute_mapping = attribute_mapping or {}
+
+    def _check_lengths(self, other: VariableLengthArray):
+        if not len(self) == len(other):
+            raise ValueError("Length of scanpaths has to match")
+        if not np.all(self.lengths == other.lengths):
+            raise ValueError("Lengths of scanpaths have to match")
+
+    def _as_variable_length_array(self, data: Union[np.ndarray, VariableLengthArray]) -> VariableLengthArray:
+        if not isinstance(data, VariableLengthArray):
+            data = VariableLengthArray(data, self.lengths)
+
+        self._check_lengths(data)
+
+        return data
+
+    def __len__(self):
+        return len(self.xs)
+
+    @hdf5_wrapper(mode='w')
+    def to_hdf5(self, target):
+        """ Write scanpaths to hdf5 file or hdf5 group
+        """
+        target.attrs['type'] = np.string_('Scanpaths')
+        target.attrs['version'] = np.string_('1.0')
+
+        target.create_dataset('xs', data=self.xs._data)
+        target.create_dataset('ys', data=self.ys._data)
+        target.create_dataset('ns', data=self.ns)
+        target.create_dataset('lengths', data=self.lengths)
+
+        scanpath_attributes_group = target.create_group('scanpath_attributes')
+        for attribute_name, attribute_value in self.scanpath_attributes.items():
+            create_hdf5_dataset(scanpath_attributes_group, attribute_name, attribute_value)
+        scanpath_attributes_group.attrs['__attributes__'] = np.string_(json.dumps(sorted(self.scanpath_attributes.keys())))
+
+        fixation_attributes_group = target.create_group('fixation_attributes')
+        for attribute_name, attribute_value in self.fixation_attributes.items():
+            fixation_attributes_group.create_dataset(attribute_name, data=attribute_value._data)
+        fixation_attributes_group.attrs['__attributes__'] = np.string_(json.dumps(sorted(self.fixation_attributes.keys())))
+
+        target.attrs['attribute_mapping'] = np.string_(json.dumps(self.attribute_mapping))
+
+
+    @classmethod
+    @hdf5_wrapper(mode='r')
+    def read_hdf5(cls, source):
+        data_type = decode_string(source.attrs['type'])
+        data_version = decode_string(source.attrs['version'])
+
+        if data_type != 'Scanpaths':
+            raise ValueError("Invalid type! Expected 'Scanpaths', got", data_type)
+
+        valid_versions = ['1.0']
+        if data_version not in valid_versions:
+            raise ValueError("Invalid version! Expected one of {}, got {}".format(', '.join(valid_versions), data_version))
+
+        lengths = source['lengths'][...]
+        xs = VariableLengthArray(source['xs'][...], lengths)
+        ys = VariableLengthArray(source['ys'][...], lengths)
+        ns = source['ns'][...]
+
+        scanpath_attributes = _load_attribute_dict_from_hdf5(source['scanpath_attributes'])
+
+        fixation_attributes_group = source['fixation_attributes']
+        json_attributes = fixation_attributes_group.attrs['__attributes__']
+        if not isinstance(json_attributes, str):
+            json_attributes = json_attributes.decode('utf8')
+        __attributes__ = json.loads(json_attributes)
+
+        fixation_attributes = {attribute: VariableLengthArray(fixation_attributes_group[attribute][...], lengths) for attribute in __attributes__}
+
+        return cls(
+            xs=xs,
+            ys=ys,
+            ns=ns,
+            lengths=lengths,
+            scanpath_attributes=scanpath_attributes,
+            fixation_attributes=fixation_attributes,
+            attribute_mapping=json.loads(decode_string(source.attrs['attribute_mapping']))
+        )
+
+    def __getitem__(self, index):
+        # TODO
+        # - integer to return single scanpath
+        # - 2d index to return single Fixation (for now via index of scanpath and index of fixation in scanpath)
+        # - 2d index array to return Fixations instance (for now via index of scanpath and index of fixation in scanpath)
+
+        if isinstance(index, tuple):
+            raise NotImplementedError("Not implemented yet")
+        elif isinstance(index, int):
+            raise NotImplementedError("Not implemented yet")
+        else:
+            return type(self)(self.xs[index], self.ys[index], self.ns[index], self.lengths[index],
+                              scanpath_attributes={key: value[index] for key, value in self.scanpath_attributes.items()},
+                              fixation_attributes={key: value[index] for key, value in self.fixation_attributes.items()},
+                              attribute_mapping=self.attribute_mapping)
 
 
 def get_image_hash(img):

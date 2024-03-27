@@ -5,7 +5,7 @@ import os
 import numpy as np
 import pytest
 from imageio import imwrite
-from test_datasets import compare_fixations, compare_scanpaths
+from test_datasets import compare_fixations, compare_fixation_trains
 from test_filter_datasets import assert_stimuli_equal
 
 import pysaliency
@@ -129,7 +129,7 @@ def test_apply_dataset_filter_config_filter_scanpaths_by_attribute_task(stimuli,
     filtered_stimuli, filtered_scanpaths = dc.apply_dataset_filter_config(stimuli, scanpaths, filter_config)
     inds = [0, 2]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_scanpaths(filtered_scanpaths, expected_scanpaths)
+    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
     assert_stimuli_equal(filtered_stimuli, stimuli)
 
 
@@ -146,7 +146,7 @@ def test_apply_dataset_filter_config_filter_scanpaths_by_attribute_multi_dim_att
     filtered_stimuli, filtered_scanpaths = dc.apply_dataset_filter_config(stimuli, scanpaths, filter_config)
     inds = [1, 2]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_scanpaths(filtered_scanpaths, expected_scanpaths)
+    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
     assert_stimuli_equal(filtered_stimuli, stimuli)
 
 
@@ -195,7 +195,7 @@ def test_apply_dataset_filter_config_filter_scanpaths_by_length_multiple_inputs(
     filtered_stimuli, filtered_scanpaths = dc.apply_dataset_filter_config(stimuli, scanpaths, filter_config)
     inds = [1]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_scanpaths(filtered_scanpaths, expected_scanpaths)
+    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
     assert_stimuli_equal(filtered_stimuli, stimuli)
 
 
@@ -210,5 +210,5 @@ def test_apply_dataset_filter_config_filter_scanpaths_by_length_single_input(sti
     filtered_stimuli, filtered_scanpaths = dc.apply_dataset_filter_config(stimuli, scanpaths, filter_config)
     inds = [0, 2]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_scanpaths(filtered_scanpaths, expected_scanpaths)
+    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
     assert_stimuli_equal(filtered_stimuli, stimuli)

@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+from copy import deepcopy
 import os.path
 import pickle
 import unittest
@@ -13,7 +14,7 @@ from imageio import imwrite
 from test_helpers import TestWithData
 
 import pysaliency
-from pysaliency.datasets import Fixations, FixationTrains, Stimulus, check_prediction_shape, scanpaths_from_fixations
+from pysaliency.datasets import Fixations, FixationTrains, Scanpaths, Stimulus, check_prediction_shape, scanpaths_from_fixations
 
 
 def compare_fixations_subset(f1, f2, f2_inds):
@@ -56,7 +57,7 @@ def compare_fixations(f1, f2, crop_length=False):
         np.testing.assert_array_equal(attribute1, attribute2, err_msg=f'attributes not equal: {attribute}')
 
 
-def compare_scanpaths(scanpaths1, scanpaths2):
+def compare_fixation_trains(scanpaths1, scanpaths2):
     np.testing.assert_array_equal(scanpaths1.train_xs, scanpaths2.train_xs)
     np.testing.assert_array_equal(scanpaths1.train_ys, scanpaths2.train_ys)
     np.testing.assert_array_equal(scanpaths1.train_xs, scanpaths2.train_xs)
@@ -75,7 +76,6 @@ def compare_scanpaths(scanpaths1, scanpaths2):
         np.testing.assert_array_equal(scanpaths1.scanpath_fixation_attributes[attribute_name], scanpaths2.scanpath_fixation_attributes[attribute_name])
 
     compare_fixations(scanpaths1, scanpaths2)
-
 
 
 class TestFixations(TestWithData):
@@ -403,7 +403,7 @@ def fixation_trains():
 
 def test_copy_scanpaths(fixation_trains):
     copied_fixation_trains = fixation_trains.copy()
-    compare_scanpaths(copied_fixation_trains, fixation_trains)
+    compare_fixation_trains(copied_fixation_trains, fixation_trains)
 
 
 def test_copy_fixations(fixation_trains):
@@ -420,7 +420,7 @@ def test_write_read_scanpaths_pathlib(tmp_path, fixation_trains):
 
     # make sure there is no sophisticated caching...
     assert fixation_trains is not new_fixation_trains
-    compare_scanpaths(fixation_trains, new_fixation_trains)
+    compare_fixation_trains(fixation_trains, new_fixation_trains)
 
 
 def test_write_read_scanpaths(tmp_path, fixation_trains):
@@ -431,7 +431,7 @@ def test_write_read_scanpaths(tmp_path, fixation_trains):
 
     # make sure there is no sophisticated caching...
     assert fixation_trains is not new_fixation_trains
-    compare_scanpaths(fixation_trains, new_fixation_trains)
+    compare_fixation_trains(fixation_trains, new_fixation_trains)
 
 
 def test_scanpath_lengths(fixation_trains):
@@ -814,6 +814,8 @@ def test_check_prediction_shape():
     with pytest.raises(ValueError) as excinfo:
         check_prediction_shape(prediction, stimulus)
     assert str(excinfo.value) == "Prediction shape (10, 10) does not match stimulus shape (10, 11)"
+
+
 
 if __name__ == '__main__':
     unittest.main()
