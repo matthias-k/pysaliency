@@ -1,35 +1,39 @@
-from __future__ import print_function, absolute_import, division
-from collections.abc import Sequence, MutableMapping
-from itertools import chain
-from glob import iglob
-from contextlib import contextmanager, ExitStack
-import warnings as _warnings
-import os as _os
-import sys as _sys
-import os
+from __future__ import absolute_import, division, print_function
+
 import hashlib
-from functools import partial
-import warnings
+import os
+import os as _os
 import shutil
-from itertools import count, filterfalse, groupby
 import subprocess as sp
+import sys as _sys
+import warnings
+import warnings as _warnings
+from collections.abc import MutableMapping, Sequence
+from contextlib import ExitStack, contextmanager
+from functools import partial
+from glob import iglob
+from itertools import chain, count, filterfalse, groupby
 from tempfile import mkdtemp
 
-import numpy as np
-from scipy.interpolate import griddata
-
-from boltons.cacheutils import LRU
 import deprecation
-from tqdm import tqdm
+import numpy as np
 import requests
+from boltons.cacheutils import LRU
+from scipy.interpolate import griddata
+from tqdm import tqdm
 
 
 def build_padded_2d_array(arrays, max_length=None, padding_value=np.nan):
     if max_length is None:
         max_length = np.max([len(a) for a in arrays])
 
-    output = np.ones((len(arrays), max_length), dtype=np.asarray(arrays[0]).dtype)
-    output *= padding_value
+    #output = np.ones((len(arrays), max_length), dtype=np.asarray(arrays[0]).dtype)
+    dtype = np.asarray(arrays[0]).dtype
+
+    if np.issubdtype(dtype, np.integer) and padding_value is np.nan:
+        dtype = np.float64
+
+    output = np.full((len(arrays), max_length), fill_value=padding_value, dtype=dtype)
     for i, array in enumerate(arrays):
         output[i, :len(array)] = array
 
