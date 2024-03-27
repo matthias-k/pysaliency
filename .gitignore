@@ -10,3 +10,4 @@
 *.c
 *.so
 *.egg-info
+.vscode
