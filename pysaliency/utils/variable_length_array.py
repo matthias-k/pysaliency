@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 import numpy as np
 
@@ -28,8 +28,8 @@ class VariableLengthArray:
         __getitem__(index): Returns the value(s) at the specified index(es) in the array.
     """
 
-    def __init__(self, data: Union[np.ndarray, list[list]], lengths: Optional[np.ndarray] = None):
-        """
+    def __init__(self, data: Union[np.ndarray, List[list]], lengths: Optional[np.ndarray] = None):
+        """List
         Initialize the VariableLengthArray object.
 
         Args:
