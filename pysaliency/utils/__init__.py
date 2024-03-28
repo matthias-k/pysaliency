@@ -28,7 +28,7 @@ def build_padded_2d_array(arrays, max_length=None, padding_value=np.nan):
         max_length = np.max([len(a) for a in arrays])
 
     #output = np.ones((len(arrays), max_length), dtype=np.asarray(arrays[0]).dtype)
-    dtype = np.asarray(arrays[0]).dtype
+    dtype = np.asarray(arrays[0]).dtype if arrays else np.float64
 
     if np.issubdtype(dtype, np.integer) and padding_value is np.nan:
         dtype = np.float64

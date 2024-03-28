@@ -175,3 +175,25 @@ def test_variable_length_array_concatenate():
 
     np.testing.assert_array_equal(concatenated_array._data, expected._data)
     np.testing.assert_array_equal(concatenated_array.lengths, expected.lengths)
+
+
+def test_variable_length_array_zero_length_from_2d_array():
+    data = np.empty((0, 0))
+    lengths = np.array([])
+    array = VariableLengthArray(data, lengths)
+
+    assert len(array) == 0
+
+    assert np.array_equal(array._data, np.empty((0, 0)))
+    assert np.array_equal(array.lengths, np.array([]))
+
+
+def test_variable_length_array_zero_length_from_list():
+    data = []
+    lengths = np.array([])
+    array = VariableLengthArray(data, lengths)
+
+    assert len(array) == 0
+
+    assert np.array_equal(array._data, np.empty((0, 0)))
+    assert np.array_equal(array.lengths, np.array([]))
