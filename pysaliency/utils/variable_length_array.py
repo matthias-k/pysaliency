@@ -98,3 +98,30 @@ class VariableLengthArray:
 
     def copy(self):
         return VariableLengthArray(self._data.copy(), self.lengths.copy())
+
+
+def concatenate_variable_length_arrays(arrays: List[VariableLengthArray]):
+    """
+    Concatenate a list of VariableLengthArray objects along the first axis.
+
+    Args:
+        arrays (List[VariableLengthArray]): List of VariableLengthArray objects to concatenate.
+
+    Returns:
+        VariableLengthArray: The concatenated VariableLengthArray object.
+    """
+    lengths = np.concatenate([array.lengths for array in arrays])
+
+    datas = [array._data for array in arrays]
+    max_cols = max(a.shape[1] for a in datas)
+    padded_datas = []
+    for a in datas:
+        if a.shape[1] < max_cols:
+            padding = np.empty((a.shape[0], max_cols-a.shape[1]), dtype=a.dtype)
+            padding[:] = np.nan
+            padded_datas.append(np.hstack((a, padding)))
+        else:
+            padded_datas.append(a)
+    data = np.vstack(padded_datas)
+
+    return VariableLengthArray(data, lengths)
