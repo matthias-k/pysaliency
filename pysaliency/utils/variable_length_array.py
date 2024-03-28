@@ -99,6 +99,20 @@ class VariableLengthArray:
     def copy(self) -> 'VariableLengthArray':
         return VariableLengthArray(self._data.copy(), self.lengths.copy())
 
+    def __repr__(self):
+        representation = "VariableLengthArray(\n"
+        if len(self) < 10:
+            for i in range(len(self)):
+                representation += f"  {self[i]}\n"
+        else:
+            for i in range(5):
+                representation += f"  {self[i]}\n"
+            representation += "  ...\n"
+            for i in range(len(self)-5, len(self)):
+                representation += f"  {self[i]}\n"
+        representation += ")"
+        return representation
+
 
 def concatenate_variable_length_arrays(arrays: List[VariableLengthArray]) -> VariableLengthArray:
     """
