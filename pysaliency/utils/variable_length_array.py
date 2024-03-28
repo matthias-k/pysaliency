@@ -95,3 +95,6 @@ class VariableLengthArray:
             # max_length = np.max(new_lengths)
             # new_data = self._data[index, :max_length]
             # return VariableLengthArray(new_data, new_lengths)
+
+    def copy(self):
+        return VariableLengthArray(self._data.copy(), self.lengths.copy())

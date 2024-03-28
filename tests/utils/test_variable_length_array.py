@@ -14,8 +14,8 @@ def test_variable_length_array_from_padded_array_basics():
     assert len(array) == 2
 
     rows = list(array)
-    assert np.array_equal(rows[0], np.array([1, 2, 3]))
-    assert np.array_equal(rows[1], np.array([4, 5]))
+    np.testing.assert_array_equal(rows[0], np.array([1, 2, 3]))
+    np.testing.assert_array_equal(rows[1], np.array([4, 5]))
 
 def test_variable_length_array_from_padded_array():
     # Test case 1
@@ -24,21 +24,21 @@ def test_variable_length_array_from_padded_array():
     array = VariableLengthArray(data, lengths)
 
     # test accessing rows
-    assert np.array_equal(array[0], np.array([1, 2, 3]))
-    assert np.array_equal(array[1], np.array([4, 5]))
+    np.testing.assert_array_equal(array[0], np.array([1, 2, 3]))
+    np.testing.assert_array_equal(array[1], np.array([4, 5]))
 
     # test accessing elements
-    assert np.array_equal(array[0, 1], 2)
+    np.testing.assert_array_equal(array[0, 1], 2)
 
     # acessing elements outside the length of the row should raise an IndexError
     with pytest.raises(IndexError):
         array[1, 2]
 
     # test slicing
-    assert np.array_equal(array[:, 0], [1, 4])
+    np.testing.assert_array_equal(array[:, 0], [1, 4])
 
     # test slicing with negative indices
-    assert np.array_equal(array[:, -1], [3, 5])
+    np.testing.assert_array_equal(array[:, -1], [3, 5])
 
 
 
@@ -48,22 +48,22 @@ def test_variable_length_array_from_padded_array():
     array = VariableLengthArray(data, lengths)
 
     # test accessing rows
-    assert np.array_equal(array[0], np.array([1, 2]))
-    assert np.array_equal(array[1], np.array([3, 4, 5]))
+    np.testing.assert_array_equal(array[0], np.array([1, 2]))
+    np.testing.assert_array_equal(array[1], np.array([3, 4, 5]))
 
     # test accessing elements
-    assert np.array_equal(array[0, 1], 2)
-    assert np.array_equal(array[1, 2], 5)
+    np.testing.assert_array_equal(array[0, 1], 2)
+    np.testing.assert_array_equal(array[1, 2], 5)
 
     # acessing elements outside the length of the row should raise an IndexError
     with pytest.raises(IndexError):
         array[1, 3]
 
     # test slicing
-    assert np.array_equal(array[:, 0], [1, 3])
+    np.testing.assert_array_equal(array[:, 0], [1, 3])
 
     # test slicing with negative indices
-    assert np.array_equal(array[:, -1], [2, 5])
+    np.testing.assert_array_equal(array[:, -1], [2, 5])
 
 
 def test_variable_length_array_slicing_with_slices():
@@ -143,3 +143,19 @@ def test_variable_length_array_inconsistent_lengths():
 
     with pytest.raises(ValueError):
         VariableLengthArray(data, lengths)
+
+def test_variable_length_arry_copy():
+    data = build_padded_2d_array([[1.0, 2, 3], [4, 5]])
+    lengths = np.array([3, 2])
+    array = VariableLengthArray(data, lengths)
+
+    copy = array.copy()
+
+    np.testing.assert_array_equal(array._data, copy._data)
+    np.testing.assert_array_equal(array.lengths, copy.lengths)
+
+    copy._data[0, 0] = 0
+    assert not np.array_equal(array._data, copy._data, equal_nan=True)
+
+    copy.lengths[0] = 0
+    assert not np.array_equal(array.lengths, copy.lengths, equal_nan=True)
