@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from pysaliency.utils import build_padded_2d_array
-from pysaliency.utils.variable_length_array import VariableLengthArray
+from pysaliency.utils.variable_length_array import VariableLengthArray, concatenate_variable_length_arrays
 
 
 def test_variable_length_array_from_padded_array_basics():
@@ -144,7 +144,7 @@ def test_variable_length_array_inconsistent_lengths():
     with pytest.raises(ValueError):
         VariableLengthArray(data, lengths)
 
-def test_variable_length_arry_copy():
+def test_variable_length_array_copy():
     data = build_padded_2d_array([[1.0, 2, 3], [4, 5]])
     lengths = np.array([3, 2])
     array = VariableLengthArray(data, lengths)
@@ -159,3 +159,19 @@ def test_variable_length_arry_copy():
 
     copy.lengths[0] = 0
     assert not np.array_equal(array.lengths, copy.lengths, equal_nan=True)
+
+
+def test_variable_length_array_concatenate():
+    data1 = [[1, 2, 3], [4, 5]]
+    data2 = [[6, 7], [8, 9, 10], [11, 12, 13, 14]]
+
+    array1 = VariableLengthArray(data1)
+    array2 = VariableLengthArray(data2)
+
+    concatenated_array = concatenate_variable_length_arrays([array1, array2])
+
+    concatenated_data = data1 + data2
+    expected = VariableLengthArray(concatenated_data)
+
+    np.testing.assert_array_equal(concatenated_array._data, expected._data)
+    np.testing.assert_array_equal(concatenated_array.lengths, expected.lengths)
