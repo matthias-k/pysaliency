@@ -52,7 +52,7 @@ class VariableLengthArray:
             else:
                 if not data.ndim >= 2:
                     raise ValueError("If data is a numpy array, it has to be at least 2-dimensional")
-                if lengths and np.max(lengths) > data.shape[1]:
+                if len(lengths) and np.max(lengths) > data.shape[1]:
                     raise ValueError("The specified lengths are larger than the number of columns in the data array")
 
         else:
@@ -63,7 +63,7 @@ class VariableLengthArray:
         if isinstance(data, np.ndarray):
             self._data = data
         else:
-            self._data = build_padded_2d_array(data, max_length=np.max(lengths) if lengths else 0)
+            self._data = build_padded_2d_array(data, max_length=np.max(lengths) if len(lengths) else 0)
 
         # max_len = np.max(lengths)
         # self._data = np.full((len(data), max_len), np.nan)
