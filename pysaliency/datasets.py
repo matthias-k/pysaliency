@@ -480,35 +480,42 @@ class FixationTrains(Fixations):
     def __init__(self, train_xs, train_ys, train_ts, train_ns, train_subjects, scanpath_attributes=None, scanpath_fixation_attributes=None, attributes=None, scanpath_attribute_mapping=None):
         self.__attributes__ = list(self.__attributes__)
         self.__attributes__.append('scanpath_index')
-        self.train_xs = train_xs
-        self.train_ys = train_ys
-        self.train_ts = train_ts
+
+        if not isinstance(train_xs, VariableLengthArray):
+            self.train_lengths = np.array([len(remove_trailing_nans(train_x)) for train_x in train_xs])
+        else:
+            self.train_lengths = train_xs.lengths.copy()
+
+        self.train_xs = self._as_variable_length_scanpath_array(train_xs)
+        self.train_ys = self._as_variable_length_scanpath_array(train_ys)
+        self.train_ts = self._as_variable_length_scanpath_array(train_ts)
         self.train_ns = train_ns
         self.train_subjects = train_subjects
-        N_trains = self.train_xs.shape[0] * self.train_xs.shape[1] - np.isnan(self.train_xs).sum()
-        max_length_trains = self.train_xs.shape[1]
+        N_fixations = self.train_lengths.sum()
+        max_length_trains = self.train_lengths.max() if len(self.train_lengths) else 0
+        max_history_length = max(max_length_trains - 1, 0)
 
 
         # Create conditional fixations
-        self.x = np.empty(N_trains)
-        self.y = np.empty(N_trains)
-        self.t = np.empty(N_trains)
-        self.x_hist = np.empty((N_trains, max_length_trains - 1))
-        self.y_hist = np.empty((N_trains, max_length_trains - 1))
-        self.t_hist = np.empty((N_trains, max_length_trains - 1))
+        self.x = np.empty(N_fixations)
+        self.y = np.empty(N_fixations)
+        self.t = np.empty(N_fixations)
+        self.x_hist = np.empty((N_fixations, max_length_trains))
+        self.y_hist = np.empty((N_fixations, max_length_trains))
+        self.t_hist = np.empty((N_fixations, max_length_trains))
         self.x_hist[:] = np.nan
         self.y_hist[:] = np.nan
         self.t_hist[:] = np.nan
-        self.n = np.empty(N_trains, dtype=int)
-        self.lengths = np.empty(N_trains, dtype=int)
+        self.n = np.empty(N_fixations, dtype=int)
+        self.lengths = np.empty(N_fixations, dtype=int)
         self.train_lengths = np.empty(len(self.train_xs), dtype=int)
-        self.subjects = np.empty(N_trains, dtype=int)
-        self.scanpath_index = np.empty(N_trains, dtype=int)
+        self.subjects = np.empty(N_fixations, dtype=int)
+        self.scanpath_index = np.empty(N_fixations, dtype=int)
 
         out_index = 0
         # TODO: maybe implement in numba?
         # probably best: have function fill_fixation_data(scanpath_data, fixation_data, hist_data=None)
-        for train_index in range(self.train_xs.shape[0]):
+        for train_index in range(len(self.train_xs)):
             fix_length = len(remove_trailing_nans(self.train_xs[train_index]))
             self.train_lengths[train_index] = fix_length
             for fix_index in range(fix_length):
@@ -560,11 +567,11 @@ class FixationTrains(Fixations):
             if new_attribute_name in attributes:
                 raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
             attribute_shape = [] if not value.any() else np.asarray(value[0]).shape
-            attributes[new_attribute_name] = np.empty([N_trains] + list(attribute_shape), dtype=value.dtype)
+            attributes[new_attribute_name] = np.empty([N_fixations] + list(attribute_shape), dtype=value.dtype)
             self.auto_attributes.append(new_attribute_name)
 
             out_index = 0
-            for train_index in range(self.train_xs.shape[0]):
+            for train_index in range(len(self.train_xs)):
                 fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
                 for fix_index in range(fix_length):
                     attributes[new_attribute_name][out_index] = self.scanpath_attributes[attribute_name][train_index]
@@ -575,7 +582,7 @@ class FixationTrains(Fixations):
             new_attribute_name = self.scanpath_attribute_mapping.get(attribute_name, attribute_name)
             if new_attribute_name in attributes:
                 raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
-            attributes[new_attribute_name] = np.empty(N_trains)
+            attributes[new_attribute_name] = np.empty(N_fixations)
             self.auto_attributes.append(new_attribute_name)
 
             hist_attribute_name = new_attribute_name + '_hist'
@@ -585,7 +592,7 @@ class FixationTrains(Fixations):
             self.auto_attributes.append(hist_attribute_name)
 
             out_index = 0
-            for train_index in range(self.train_xs.shape[0]):
+            for train_index in range(len(self.train_xs)):
                 fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
                 for fix_index in range(fix_length):
                     attributes[new_attribute_name][out_index] = self.scanpath_fixation_attributes[attribute_name][train_index, fix_index]
@@ -608,7 +615,7 @@ class FixationTrains(Fixations):
         self.full_nonfixations = None
 
     def _check_train_lengths(self, other: VariableLengthArray):
-        if not len(self.train_xs) == len(other):
+        if not len(self.train_lengths) == len(other):
             raise ValueError("Length of scanpaths has to match")
         if not np.all(self.train_lengths == other.lengths):
             raise ValueError("Lengths of scanpaths have to match")
@@ -694,7 +701,7 @@ class FixationTrains(Fixations):
             self.auto_attributes.append(new_attribute_name)
 
         out_index = 0
-        for train_index in range(self.train_xs.shape[0]):
+        for train_index in range(len(self.train_xs)):
             fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
             for _ in range(fix_length):
                 self.attributes[new_attribute_name][out_index] = self.scanpath_attributes[name][train_index]
@@ -758,7 +765,7 @@ class FixationTrains(Fixations):
         """Yield for every fixation train of the dataset:
              xs, ys, ts, n, subject
         """
-        for i in range(self.train_xs.shape[0]):
+        for i in range(len(self.train_xs)):
             length = (1 - np.isnan(self.train_xs[i])).sum()
             xs = self.train_xs[i][:length]
             ys = self.train_ys[i][:length]

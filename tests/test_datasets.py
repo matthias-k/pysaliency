@@ -71,9 +71,10 @@ def assert_fixations_equal(f1, f2, crop_length=False):
 
 
 def assert_fixation_trains_equal(scanpaths1, scanpaths2):
-    np.testing.assert_array_equal(scanpaths1.train_xs, scanpaths2.train_xs)
-    np.testing.assert_array_equal(scanpaths1.train_ys, scanpaths2.train_ys)
-    np.testing.assert_array_equal(scanpaths1.train_xs, scanpaths2.train_xs)
+    assert_variable_length_array_equal(scanpaths1.train_xs, scanpaths2.train_xs)
+    assert_variable_length_array_equal(scanpaths1.train_ys, scanpaths2.train_ys)
+    assert_variable_length_array_equal(scanpaths1.train_ts, scanpaths2.train_ts)
+
     np.testing.assert_array_equal(scanpaths1.train_ns, scanpaths2.train_ns)
     np.testing.assert_array_equal(scanpaths1.train_subjects, scanpaths2.train_subjects)
     np.testing.assert_array_equal(scanpaths1.train_lengths, scanpaths2.train_lengths)
@@ -121,11 +122,13 @@ class TestFixations(TestWithData):
         )
 
         # Test fixation trains
-        np.testing.assert_allclose(f.train_xs, [[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
-        np.testing.assert_allclose(f.train_ys, [[10, 11, 12], [12, 12, np.nan], [21, 25, 33]])
-        np.testing.assert_allclose(f.train_ts, [[0, 200, 600], [100, 400, np.nan], [50, 500, 900]])
-        np.testing.assert_allclose(f.train_ns, [0, 0, 1])
-        np.testing.assert_allclose(f.train_subjects, [0, 1, 1])
+
+        assert_variable_length_array_equal(f.train_xs, VariableLengthArray(xs_trains))
+        assert_variable_length_array_equal(f.train_ys, VariableLengthArray(ys_trains))
+        assert_variable_length_array_equal(f.train_ts, VariableLengthArray(ts_trains))
+
+        np.testing.assert_allclose(f.train_ns, ns)
+        np.testing.assert_allclose(f.train_subjects, subjects)
 
         # Test conditional fixations
         np.testing.assert_allclose(f.x, [0, 1, 2, 2, 2, 1, 5, 3])
@@ -134,14 +137,20 @@ class TestFixations(TestWithData):
         np.testing.assert_allclose(f.n, [0, 0, 0, 0, 0, 1, 1, 1])
         np.testing.assert_allclose(f.subjects, [0, 0, 0, 1, 1, 1, 1, 1])
         np.testing.assert_allclose(f.lengths, [0, 1, 2, 0, 1, 0, 1, 2])
-        np.testing.assert_allclose(f.x_hist._data, [[np.nan, np.nan],
-                                              [0, np.nan],
-                                              [0, 1],
-                                              [np.nan, np.nan],
-                                              [2, np.nan],
-                                              [np.nan, np.nan],
-                                              [1, np.nan],
-                                              [1, 5]])
+
+        assert_variable_length_array_equal(
+            f.x_hist,
+            VariableLengthArray([
+                [],
+                [0],
+                [0, 1],
+                [],
+                [2],
+                [],
+                [1],
+                [1, 5]
+            ])
+        )
 
     def test_filter(self):
         xs_trains = []
@@ -226,9 +235,11 @@ class TestFixations(TestWithData):
         with open(filename, 'rb') as in_file:
             f = pickle.load(in_file)
         # Test fixation trains
-        np.testing.assert_allclose(f.train_xs, [[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
-        np.testing.assert_allclose(f.train_ys, [[10, 11, 12], [12, 12, np.nan], [21, 25, 33]])
-        np.testing.assert_allclose(f.train_ts, [[0, 200, 600], [100, 400, np.nan], [50, 500, 900]])
+
+        assert_variable_length_array_equal(f.train_xs, VariableLengthArray(xs_trains))
+        assert_variable_length_array_equal(f.train_ys, VariableLengthArray(ys_trains))
+        assert_variable_length_array_equal(f.train_ts, VariableLengthArray(ts_trains))
+
         np.testing.assert_allclose(f.train_ns, [0, 0, 1])
         np.testing.assert_allclose(f.train_subjects, [0, 1, 1])
 
@@ -499,26 +510,31 @@ def test_scanpath_fixation_attributes(fixation_trains):
 def test_filter_fixation_trains(fixation_trains, scanpath_indices, fixation_indices):
     sub_fixations = fixation_trains.filter_fixation_trains(scanpath_indices)
 
-    np.testing.assert_array_equal(
+    assert_variable_length_array_equal(
         sub_fixations.train_xs,
         fixation_trains.train_xs[scanpath_indices]
     )
-    np.testing.assert_array_equal(
+
+    assert_variable_length_array_equal(
         sub_fixations.train_ys,
         fixation_trains.train_ys[scanpath_indices]
     )
-    np.testing.assert_array_equal(
+
+    assert_variable_length_array_equal(
         sub_fixations.train_ts,
         fixation_trains.train_ts[scanpath_indices]
     )
+
     np.testing.assert_array_equal(
         sub_fixations.train_ns,
         fixation_trains.train_ns[scanpath_indices]
     )
+
     np.testing.assert_array_equal(
         sub_fixations.some_attribute,
         fixation_trains.some_attribute[fixation_indices]
     )
+
     np.testing.assert_array_equal(
         sub_fixations.scanpath_attributes['task'],
         fixation_trains.scanpath_attributes['task'][scanpath_indices]
