@@ -7,7 +7,7 @@ from imageio import imwrite
 import pysaliency
 import pysaliency.filter_datasets as filter_datasets
 from pysaliency.filter_datasets import filter_fixations_by_attribute, filter_stimuli_by_attribute, filter_scanpaths_by_attribute, filter_scanpaths_by_length, create_subset, remove_stimuli_without_fixations
-from test_datasets import compare_fixations, compare_fixation_trains
+from test_datasets import assert_fixations_equal, assert_fixation_trains_equal
 
 
 @pytest.fixture
@@ -350,7 +350,7 @@ def test_filter_stimuli_by_attribute_dva(file_stimuli_with_attributes, fixation_
     filtered_stimuli, filtered_fixations = filter_stimuli_by_attribute(file_stimuli_with_attributes, fixations, attribute_name, attribute_value)
     inds = [1]
     expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
-    compare_fixations(filtered_fixations, expected_fixations)
+    assert_fixations_equal(filtered_fixations, expected_fixations)
     assert_stimuli_equal(filtered_stimuli, expected_stimuli)
 
 
@@ -361,7 +361,7 @@ def test_filter_stimuli_by_attribute_multiple_values(file_stimuli_with_attribute
     filtered_stimuli, filtered_fixations = filter_stimuli_by_attribute(file_stimuli_with_attributes, fixations, attribute_name, attribute_values=attribute_values)
     inds = [1, 2]
     expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
-    compare_fixations(filtered_fixations, expected_fixations)
+    assert_fixations_equal(filtered_fixations, expected_fixations)
     assert_stimuli_equal(filtered_stimuli, expected_stimuli)
 
 
@@ -373,7 +373,7 @@ def test_filter_stimuli_by_attribute_some_strings_invert_match(file_stimuli_with
     filtered_stimuli, filtered_fixations = filter_stimuli_by_attribute(file_stimuli_with_attributes, fixations, attribute_name, attribute_value, invert_match=invert_match)
     inds = list(range(0, 13)) + list(range(14, 18))
     expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
-    compare_fixations(filtered_fixations, expected_fixations)
+    assert_fixations_equal(filtered_fixations, expected_fixations)
     assert_stimuli_equal(filtered_stimuli, expected_stimuli)
 
 
@@ -385,7 +385,7 @@ def test_filter_fixations_by_attribute_subject_invert_match(fixation_trains):
     filtered_fixations = filter_fixations_by_attribute(fixations, attribute_name, attribute_value, invert_match)
     inds = [3, 4, 5, 6, 7]
     expected_fixations = fixations[inds]
-    compare_fixations(filtered_fixations, expected_fixations)
+    assert_fixations_equal(filtered_fixations, expected_fixations)
 
 
 def test_filter_fixations_by_attribute_some_attribute(fixation_trains):
@@ -396,7 +396,7 @@ def test_filter_fixations_by_attribute_some_attribute(fixation_trains):
     filtered_fixations = filter_fixations_by_attribute(fixations, attribute_name, attribute_value, invert_match)
     inds = [2]
     expected_fixations = fixations[inds]
-    compare_fixations(filtered_fixations, expected_fixations)
+    assert_fixations_equal(filtered_fixations, expected_fixations)
 
 
 def test_filter_fixations_by_attribute_some_attribute_invert_match(fixation_trains):
@@ -407,7 +407,7 @@ def test_filter_fixations_by_attribute_some_attribute_invert_match(fixation_trai
     filtered_fixations = filter_fixations_by_attribute(fixations, attribute_name, attribute_value, invert_match)
     inds = list(range(0, 3)) + list(range(4, 8))
     expected_fixations = fixations[inds]
-    compare_fixations(filtered_fixations, expected_fixations)
+    assert_fixations_equal(filtered_fixations, expected_fixations)
 
 
 def test_filter_scanpaths_by_attribute_task(fixation_trains):
@@ -418,7 +418,7 @@ def test_filter_scanpaths_by_attribute_task(fixation_trains):
     filtered_scanpaths = filter_scanpaths_by_attribute(scanpaths, attribute_name, attribute_value, invert_match)
     inds = [0, 2]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+    assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
 
 
 def test_filter_scanpaths_by_attribute_multi_dim_attribute(fixation_trains):
@@ -429,7 +429,7 @@ def test_filter_scanpaths_by_attribute_multi_dim_attribute(fixation_trains):
     filtered_scanpaths = filter_scanpaths_by_attribute(scanpaths, attribute_name, attribute_value, invert_match)
     inds = [1]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+    assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
 
 
 def test_filter_scanpaths_by_attribute_multi_dim_attribute_invert_match(fixation_trains):
@@ -440,7 +440,7 @@ def test_filter_scanpaths_by_attribute_multi_dim_attribute_invert_match(fixation
     filtered_scanpaths = filter_scanpaths_by_attribute(scanpaths, attribute_name, attribute_value, invert_match)
     inds = [1, 2]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+    assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
 
 
 @pytest.mark.parametrize('intervals', [([(1, 2), (2, 3)]), ([(2, 3), (3, 4)]), ([(2)]), ([(3)])])
@@ -450,19 +450,19 @@ def test_filter_scanpaths_by_length(fixation_trains, intervals):
     if intervals == [(1, 2), (2, 3)]:
         inds = [1]
         expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-        compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+        assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
     if intervals == [(2, 3), (3, 4)]:
         inds = [0, 1, 2]
         expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-        compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+        assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
     if intervals == [(2)]:
         inds = [1]
         expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-        compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+        assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
     if intervals == [(3)]:
         inds = [0, 2]
         expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-        compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+        assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
 
 
 def test_remove_stimuli_without_fixations(file_stimuli_with_attributes, fixation_trains):
@@ -470,5 +470,5 @@ def test_remove_stimuli_without_fixations(file_stimuli_with_attributes, fixation
     filtered_stimuli, filtered_fixations = remove_stimuli_without_fixations(file_stimuli_with_attributes, fixations)
     inds = [0, 1]
     expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
-    compare_fixations(filtered_fixations, expected_fixations)
+    assert_fixations_equal(filtered_fixations, expected_fixations)
     assert_stimuli_equal(filtered_stimuli, expected_stimuli)

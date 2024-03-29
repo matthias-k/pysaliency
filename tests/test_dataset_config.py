@@ -5,7 +5,7 @@ import os
 import numpy as np
 import pytest
 from imageio import imwrite
-from test_datasets import compare_fixations, compare_fixation_trains
+from test_datasets import assert_fixations_equal, assert_fixation_trains_equal
 from test_filter_datasets import assert_stimuli_equal
 
 import pysaliency
@@ -129,7 +129,7 @@ def test_apply_dataset_filter_config_filter_scanpaths_by_attribute_task(stimuli,
     filtered_stimuli, filtered_scanpaths = dc.apply_dataset_filter_config(stimuli, scanpaths, filter_config)
     inds = [0, 2]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+    assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
     assert_stimuli_equal(filtered_stimuli, stimuli)
 
 
@@ -146,7 +146,7 @@ def test_apply_dataset_filter_config_filter_scanpaths_by_attribute_multi_dim_att
     filtered_stimuli, filtered_scanpaths = dc.apply_dataset_filter_config(stimuli, scanpaths, filter_config)
     inds = [1, 2]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+    assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
     assert_stimuli_equal(filtered_stimuli, stimuli)
 
 
@@ -163,7 +163,7 @@ def test_apply_dataset_filter_config_filter_fixations_by_attribute_subject_inver
     filtered_stimuli, filtered_fixations = dc.apply_dataset_filter_config(stimuli, fixations, filter_config)
     inds = [3, 4, 5, 6, 7]
     expected_fixations = fixations[inds]
-    compare_fixations(filtered_fixations, expected_fixations)
+    assert_fixations_equal(filtered_fixations, expected_fixations)
     assert_stimuli_equal(filtered_stimuli, stimuli)
 
 
@@ -180,7 +180,7 @@ def test_apply_dataset_filter_config_filter_stimuli_by_attribute_dva(file_stimul
     filtered_stimuli, filtered_fixations = dc.apply_dataset_filter_config(file_stimuli_with_attributes, fixations, filter_config)
     inds = [1]
     expected_stimuli, expected_fixations = create_subset(file_stimuli_with_attributes, fixations, inds)
-    compare_fixations(filtered_fixations, expected_fixations)
+    assert_fixations_equal(filtered_fixations, expected_fixations)
     assert_stimuli_equal(filtered_stimuli, expected_stimuli)
 
 
@@ -195,7 +195,7 @@ def test_apply_dataset_filter_config_filter_scanpaths_by_length_multiple_inputs(
     filtered_stimuli, filtered_scanpaths = dc.apply_dataset_filter_config(stimuli, scanpaths, filter_config)
     inds = [1]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+    assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
     assert_stimuli_equal(filtered_stimuli, stimuli)
 
 
@@ -210,5 +210,5 @@ def test_apply_dataset_filter_config_filter_scanpaths_by_length_single_input(sti
     filtered_stimuli, filtered_scanpaths = dc.apply_dataset_filter_config(stimuli, scanpaths, filter_config)
     inds = [0, 2]
     expected_scanpaths = scanpaths.filter_fixation_trains(inds)
-    compare_fixation_trains(filtered_scanpaths, expected_scanpaths)
+    assert_fixation_trains_equal(filtered_scanpaths, expected_scanpaths)
     assert_stimuli_equal(filtered_stimuli, stimuli)
