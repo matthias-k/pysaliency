@@ -500,9 +500,9 @@ class FixationTrains(Fixations):
         self.x = np.empty(N_fixations)
         self.y = np.empty(N_fixations)
         self.t = np.empty(N_fixations)
-        self.x_hist = np.empty((N_fixations, max_length_trains))
-        self.y_hist = np.empty((N_fixations, max_length_trains))
-        self.t_hist = np.empty((N_fixations, max_length_trains))
+        self.x_hist = np.empty((N_fixations, max_history_length))
+        self.y_hist = np.empty((N_fixations, max_history_length))
+        self.t_hist = np.empty((N_fixations, max_history_length))
         self.x_hist[:] = np.nan
         self.y_hist[:] = np.nan
         self.t_hist[:] = np.nan
