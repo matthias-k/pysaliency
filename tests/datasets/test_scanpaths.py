@@ -40,17 +40,17 @@ def assert_scanpaths_equal(scanpaths1: Scanpaths, scanpaths2: Scanpaths, scanpat
 def test_scanpaths():
     xs = np.array([[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
     ys = np.array([[10, 11, 12], [12, 12, np.nan], [21, 25, 33]])
-    ns = np.array([0, 0, 1])
+    n = np.array([0, 0, 1])
     lengths = np.array([3, 2, 3])
     scanpath_attributes = {'task': np.array([0, 1, 0])}
     fixation_attributes = {'attribute1': np.array([[1, 1, 2], [2, 2, np.nan], [0, 1, 3]]), 'attribute2': np.array([[3, 1.3, 5], [1, 42, np.nan], [0, -1, -3]])}
     attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
 
-    scanpaths = Scanpaths(xs, ys, ns, lengths, scanpath_attributes, fixation_attributes, attribute_mapping)
+    scanpaths = Scanpaths(xs, ys, n, lengths, scanpath_attributes, fixation_attributes, attribute_mapping)
 
     assert isinstance(scanpaths.xs, VariableLengthArray)
     assert isinstance(scanpaths.ys, VariableLengthArray)
-    assert isinstance(scanpaths.ns, np.ndarray)
+    assert isinstance(scanpaths.n, np.ndarray)
     assert isinstance(scanpaths.lengths, np.ndarray)
     assert isinstance(scanpaths.scanpath_attributes, dict)
     assert isinstance(scanpaths.scanpath_attributes['task'], np.ndarray)
@@ -61,7 +61,7 @@ def test_scanpaths():
 
     np.testing.assert_array_equal(scanpaths.xs._data, xs)
     np.testing.assert_array_equal(scanpaths.ys._data, ys)
-    np.testing.assert_array_equal(scanpaths.ns, ns)
+    np.testing.assert_array_equal(scanpaths.n, n)
     np.testing.assert_array_equal(scanpaths.lengths, lengths)
     np.testing.assert_array_equal(scanpaths.scanpath_attributes['task'], np.array([0, 1, 0]))
     np.testing.assert_array_equal(scanpaths.fixation_attributes['attribute1']._data, np.array([[1, 1, 2], [2, 2, np.nan], [0, 1, 3]]))
@@ -72,17 +72,17 @@ def test_scanpaths():
 def test_scanpaths_from_lists():
     xs = [[0, 1, 2], [2, 2], [1, 5, 3]]
     ys = [[10, 11, 12], [12, 12], [21, 25, 33]]
-    ns = [0, 0, 1]
+    n = [0, 0, 1]
     expected_lengths = np.array([3, 2, 3])
     scanpath_attributes = {'task': [0, 1, 0]}
     fixation_attributes = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
     attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
 
-    scanpaths = Scanpaths(xs, ys, ns, lengths=None, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=attribute_mapping)
+    scanpaths = Scanpaths(xs, ys, n, lengths=None, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=attribute_mapping)
 
     np.testing.assert_array_equal(scanpaths.xs._data, np.array([[0, 1, 2], [2, 2, np.nan], [1, 5, 3]]))
     np.testing.assert_array_equal(scanpaths.ys._data, np.array([[10, 11, 12], [12, 12, np.nan], [21, 25, 33]]))
-    np.testing.assert_array_equal(scanpaths.ns, ns)
+    np.testing.assert_array_equal(scanpaths.n, n)
     np.testing.assert_array_equal(scanpaths.lengths, expected_lengths)
     np.testing.assert_array_equal(scanpaths.scanpath_attributes['task'], np.array([0, 1, 0]))
     np.testing.assert_array_equal(scanpaths.fixation_attributes['attribute1']._data, np.array([[1, 1, 2], [2, 2, np.nan], [0, 1, 3]]))
@@ -93,57 +93,57 @@ def test_scanpaths_from_lists():
 def test_scanpaths_init_inconsistent_lengths():
     xs = np.array([[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
     ys = np.array([[10, 11, 12], [12, 12, np.nan]])  # too short, should fail
-    ns = np.array([0, 0, 1])
+    n = np.array([0, 0, 1])
     lengths = np.array([3, 2, 3])
     scanpath_attributes = {'task': np.array([0, 1, 0])}
     fixation_attributes = {'attribute1': np.array([[1, 1, 2], [2, 2, np.nan], [0, 1, 3]]), 'attribute2': np.array([[3, 1.3, 5], [1, 42, np.nan], [0, -1, -3]])}
     attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
 
     with pytest.raises(ValueError):
-        Scanpaths(xs, ys, ns, lengths, scanpath_attributes, fixation_attributes, attribute_mapping)
+        Scanpaths(xs, ys, n, lengths, scanpath_attributes, fixation_attributes, attribute_mapping)
 
 def test_scanpaths_init_invalid_scanpath_attributes():
     xs = np.array([[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
     ys = np.array([[10, 11, 12], [12, 12, np.nan], [21, 25, 33]])
-    ns = np.array([0, 0, 1])
+    n = np.array([0, 0, 1])
     lengths = np.array([3, 2, 3])
     scanpath_attributes = {'invalid_attribute': np.array([1, 2]), 'attribute2': np.array([4, 5, 6])}  # Invalid attribute length
     scanpath_fixation_attributes = {'fixation_attribute1': np.array([[1, 2], [3, 4], [5, 6]]), 'fixation_attribute2': np.array([[7, 8], [9, 10], [11, 12]])}
     scanpath_attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
 
     with pytest.raises(ValueError):
-        Scanpaths(xs, ys, ns, lengths, scanpath_attributes, scanpath_fixation_attributes, scanpath_attribute_mapping)
+        Scanpaths(xs, ys, n, lengths, scanpath_attributes, scanpath_fixation_attributes, scanpath_attribute_mapping)
 
 def test_scanpaths_init_invalid_scanpath_fixation_attributes():
     xs = np.array([[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
     ys = np.array([[10, 11, 12], [12, 12, np.nan], [21, 25, 33]])
-    ns = np.array([0, 0, 1])
+    n = np.array([0, 0, 1])
     lengths = np.array([3, 2, 3])
     scanpath_attributes = {'attribute1': np.array([1, 2, 3]), 'attribute2': np.array([4, 5, 6])}
     scanpath_fixation_attributes = {'valid_fixation_attribute': np.array([[1, 2], [3, 4], [5, 6]]), 'invalid_fixation_attribute': np.array([[7, 8], [9, 10]])}  # Invalid fixation attribute length
     scanpath_attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
 
     with pytest.raises(ValueError):
-        Scanpaths(xs, ys, ns, lengths, scanpath_attributes, scanpath_fixation_attributes, scanpath_attribute_mapping)
+        Scanpaths(xs, ys, n, lengths, scanpath_attributes, scanpath_fixation_attributes, scanpath_attribute_mapping)
 
 def test_scanpaths_init_invalid_scanpath_fixation_attributes_dimensions():
     xs = np.array([[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
     ys = np.array([[10, 11, 12], [12, 12, np.nan], [21, 25, 33]])
-    ns = np.array([0, 0, 1])
+    n = np.array([0, 0, 1])
     lengths = np.array([3, 2, 3])
     scanpath_attributes = {'attribute1': np.array([1, 2, 3]), 'attribute2': np.array([4, 5, 6])}
     scanpath_fixation_attributes = {'fixation_attribute1': np.array([1, 2, 3]), 'fixation_attribute2': np.array([[7, 8], [9, 10], [11, 12]])}  # Invalid fixation attribute dimensions
     scanpath_attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
 
     with pytest.raises(ValueError):
-        Scanpaths(xs, ys, ns, lengths, scanpath_attributes, scanpath_fixation_attributes, scanpath_attribute_mapping)
+        Scanpaths(xs, ys, n, lengths, scanpath_attributes, scanpath_fixation_attributes, scanpath_attribute_mapping)
 
 def test_scanpaths_init_invalid_scanpath_lengths():
 
     data = {
         'xs': [[0, 1, 2], [2, 2], [1, 5, 3]],
         'ys': [[10, 11, 12], [12, 12], [21, 25, 33]],
-        'ns': [0, 0, 1],
+        'n': [0, 0, 1],
         'scanpath_attributes': {'task': [0, 1, 0]},
         'fixation_attributes': {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]},
         'attribute_mapping': {'attribute1': 'attr1', 'attribute2': 'attr2'},
@@ -179,12 +179,12 @@ def test_scanpaths_init_invalid_scanpath_lengths():
 def test_scanpaths_slicing(inds):
     xs = [[0, 1, 2], [2, 2], [1, 5, 3]]
     ys = [[10, 11, 12], [12, 12], [21, 25, 33]]
-    ns = [0, 0, 1]
+    n = [0, 0, 1]
     scanpath_attributes = {'task': [0, 1, 0]}
     fixation_attributes = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
     attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
 
-    scanpaths = Scanpaths(xs, ys, ns, lengths=None, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=attribute_mapping)
+    scanpaths = Scanpaths(xs, ys, n, lengths=None, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=attribute_mapping)
 
     sliced_scanpaths = scanpaths[inds]
     assert_scanpaths_equal(sliced_scanpaths, scanpaths, inds)
@@ -195,12 +195,12 @@ def test_write_read_scanpaths_pathlib(tmp_path):
 
     xs = [[0, 1, 2], [2, 2], [1, 5, 3]]
     ys = [[10, 11, 12], [12, 12], [21, 25, 33]]
-    ns = [0, 0, 1]
+    n = [0, 0, 1]
     scanpath_attributes = {'task': [0, 1, 0]}
     fixation_attributes = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
     attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
 
-    scanpaths = Scanpaths(xs, ys, ns, lengths=None, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=attribute_mapping)
+    scanpaths = Scanpaths(xs, ys, n, lengths=None, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=attribute_mapping)
 
     scanpaths.to_hdf5(filename)
 

@@ -55,6 +55,8 @@ class VariableLengthArray:
                 if len(lengths) and np.max(lengths) > data.shape[1]:
                     raise ValueError("The specified lengths are larger than the number of columns in the data array")
 
+            lengths = np.array(lengths, dtype=int)
+
         else:
             if isinstance(data, np.ndarray):
                 raise ValueError("If data is a numpy array, lengths must be provided")

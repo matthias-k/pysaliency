@@ -1095,7 +1095,7 @@ class Scanpaths(object):
     Attributes:
         xs (VariableLengthArray): The x-coordinates of the scanpaths.
         ys (VariableLengthArray): The y-coordinates of the scanpaths.
-        ns (np.ndarray): The number of fixations in each scanpath.
+        n (np.ndarray): The image index
         lengths (np.ndarray): The lengths of each scanpath.
         scanpath_attributes (dict): Additional attributes associated with the scanpaths.
         fixation_attributes (dict): Additional attributes associated with the fixations in the scanpaths.
@@ -1105,18 +1105,18 @@ class Scanpaths(object):
 
     xs: VariableLengthArray
     ys: VariableLengthArray
-    ns: np.ndarray
+    n: np.ndarray
 
     def __init__(self,
                  xs: Union[np.ndarray, VariableLengthArray],
                  ys: Union[np.ndarray, VariableLengthArray],
-                 ns: np.ndarray,
+                 n: np.ndarray,
                  lengths=None,
                  scanpath_attributes: Optional[Dict[str, np.ndarray]] = None,
                  fixation_attributes: Optional[Dict[str, Union[np.ndarray, VariableLengthArray]]]=None,
                  attribute_mapping=Dict[str, str]):
 
-        self.ns = np.asarray(ns)
+        self.n = np.asarray(n)
 
         if not isinstance(xs, VariableLengthArray):
             self.xs = VariableLengthArray(xs, lengths)
@@ -1131,8 +1131,8 @@ class Scanpaths(object):
 
         self.ys = self._as_variable_length_array(ys)
 
-        if not len(self.xs) == len(self.ys) == len(self.ns):
-            raise ValueError("Length of xs, ys, ts and ns has to match")
+        if not len(self.xs) == len(self.ys) == len(self.n):
+            raise ValueError("Length of xs, ys, ts and n has to match")
 
         # setting scanpath attributes
 
@@ -1168,6 +1168,15 @@ class Scanpaths(object):
     def __len__(self):
         return len(self.xs)
 
+    @property
+    def ts(self) -> VariableLengthArray:
+        return self.fixation_attributes['ts']
+
+    @property
+    def subject(self) -> VariableLengthArray:
+        return self.scanpath_attributes['subject']
+
+
     @hdf5_wrapper(mode='w')
     def to_hdf5(self, target):
         """ Write scanpaths to hdf5 file or hdf5 group
@@ -1177,7 +1186,7 @@ class Scanpaths(object):
 
         target.create_dataset('xs', data=self.xs._data)
         target.create_dataset('ys', data=self.ys._data)
-        target.create_dataset('ns', data=self.ns)
+        target.create_dataset('n', data=self.n)
         target.create_dataset('lengths', data=self.lengths)
 
         scanpath_attributes_group = target.create_group('scanpath_attributes')
@@ -1209,7 +1218,7 @@ class Scanpaths(object):
         lengths = source['lengths'][...]
         xs = VariableLengthArray(source['xs'][...], lengths)
         ys = VariableLengthArray(source['ys'][...], lengths)
-        ns = source['ns'][...]
+        n = source['n'][...]
 
         scanpath_attributes = _load_attribute_dict_from_hdf5(source['scanpath_attributes'])
 
@@ -1224,7 +1233,7 @@ class Scanpaths(object):
         return cls(
             xs=xs,
             ys=ys,
-            ns=ns,
+            n=n,
             lengths=lengths,
             scanpath_attributes=scanpath_attributes,
             fixation_attributes=fixation_attributes,
@@ -1242,7 +1251,7 @@ class Scanpaths(object):
         elif isinstance(index, int):
             raise NotImplementedError("Not implemented yet")
         else:
-            return type(self)(self.xs[index], self.ys[index], self.ns[index], self.lengths[index],
+            return type(self)(self.xs[index], self.ys[index], self.n[index], self.lengths[index],
                               scanpath_attributes={key: value[index] for key, value in self.scanpath_attributes.items()},
                               fixation_attributes={key: value[index] for key, value in self.fixation_attributes.items()},
                               attribute_mapping=self.attribute_mapping)
