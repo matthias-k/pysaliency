@@ -5,12 +5,12 @@ import os
 import numpy as np
 import pytest
 from imageio import imwrite
-from test_datasets import assert_fixations_equal, assert_fixation_trains_equal
 from test_filter_datasets import assert_stimuli_equal
 
 import pysaliency
 import pysaliency.dataset_config as dc
 from pysaliency.filter_datasets import create_subset
+from tests.datasets.test_fixations import assert_fixation_trains_equal, assert_fixations_equal
 
 
 @pytest.fixture
