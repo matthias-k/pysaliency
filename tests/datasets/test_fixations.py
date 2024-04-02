@@ -88,26 +88,26 @@ def assert_fixations_equal(f1, f2, crop_length=False):
         np.testing.assert_array_equal(attribute1, attribute2, err_msg=f'attributes not equal: {attribute}')
 
 
-def assert_fixation_trains_equal(scanpaths1, scanpaths2):
-    assert_variable_length_array_equal(scanpaths1.train_xs, scanpaths2.train_xs)
-    assert_variable_length_array_equal(scanpaths1.train_ys, scanpaths2.train_ys)
-    assert_variable_length_array_equal(scanpaths1.train_ts, scanpaths2.train_ts)
+def assert_fixation_trains_equal(fixation_trains1, fixation_trains2):
+    assert_variable_length_array_equal(fixation_trains1.train_xs, fixation_trains2.train_xs)
+    assert_variable_length_array_equal(fixation_trains1.train_ys, fixation_trains2.train_ys)
+    assert_variable_length_array_equal(fixation_trains1.train_ts, fixation_trains2.train_ts)
 
-    np.testing.assert_array_equal(scanpaths1.train_ns, scanpaths2.train_ns)
-    np.testing.assert_array_equal(scanpaths1.train_subjects, scanpaths2.train_subjects)
-    np.testing.assert_array_equal(scanpaths1.train_lengths, scanpaths2.train_lengths)
+    np.testing.assert_array_equal(fixation_trains1.train_ns, fixation_trains2.train_ns)
+    np.testing.assert_array_equal(fixation_trains1.train_subjects, fixation_trains2.train_subjects)
+    np.testing.assert_array_equal(fixation_trains1.train_lengths, fixation_trains2.train_lengths)
 
-    assert scanpaths1.scanpath_attribute_mapping == scanpaths2.scanpath_attribute_mapping
+    assert fixation_trains1.scanpath_attribute_mapping == fixation_trains2.scanpath_attribute_mapping
 
-    assert scanpaths1.scanpath_attributes.keys() == scanpaths2.scanpath_attributes.keys()
-    for attribute_name in scanpaths1.scanpath_attributes.keys():
-        np.testing.assert_array_equal(scanpaths1.scanpath_attributes[attribute_name], scanpaths2.scanpath_attributes[attribute_name])
+    assert fixation_trains1.scanpath_attributes.keys() == fixation_trains2.scanpath_attributes.keys()
+    for attribute_name in fixation_trains1.scanpath_attributes.keys():
+        np.testing.assert_array_equal(fixation_trains1.scanpath_attributes[attribute_name], fixation_trains2.scanpath_attributes[attribute_name])
 
-    assert scanpaths1.scanpath_fixation_attributes.keys() == scanpaths2.scanpath_fixation_attributes.keys()
-    for attribute_name in scanpaths1.scanpath_fixation_attributes.keys():
-        assert_variable_length_array_equal(scanpaths1.scanpath_fixation_attributes[attribute_name], scanpaths2.scanpath_fixation_attributes[attribute_name])
+    assert fixation_trains1.scanpath_fixation_attributes.keys() == fixation_trains2.scanpath_fixation_attributes.keys()
+    for attribute_name in fixation_trains1.scanpath_fixation_attributes.keys():
+        assert_variable_length_array_equal(fixation_trains1.scanpath_fixation_attributes[attribute_name], fixation_trains2.scanpath_fixation_attributes[attribute_name])
 
-    assert_fixations_equal(scanpaths1, scanpaths2)
+    assert_fixations_equal(fixation_trains1, fixation_trains2)
 
 
 class TestFixations(TestWithData):
@@ -319,7 +319,7 @@ def fixation_trains():
     )
 
 
-def test_copy_scanpaths(fixation_trains):
+def test_copy_fixation_trains(fixation_trains):
     copied_fixation_trains = fixation_trains.copy()
     assert_fixation_trains_equal(copied_fixation_trains, fixation_trains)
 
@@ -330,8 +330,8 @@ def test_copy_fixations(fixation_trains):
     assert_fixations_equal(copied_fixations, fixations)
 
 
-def test_write_read_scanpaths_pathlib(tmp_path, fixation_trains):
-    filename = tmp_path / 'scanpaths.hdf5'
+def test_write_read_fixation_trains_pathlib(tmp_path, fixation_trains):
+    filename = tmp_path / 'fixation_trains.hdf5'
     fixation_trains.to_hdf5(filename)
 
     new_fixation_trains = pysaliency.read_hdf5(filename)
@@ -341,8 +341,8 @@ def test_write_read_scanpaths_pathlib(tmp_path, fixation_trains):
     assert_fixation_trains_equal(fixation_trains, new_fixation_trains)
 
 
-def test_write_read_scanpaths(tmp_path, fixation_trains):
-    filename = tmp_path / 'scanpaths.hdf5'
+def test_write_read_fixation_trains(tmp_path, fixation_trains):
+    filename = tmp_path / 'fixation_trains.hdf5'
     fixation_trains.to_hdf5(str(filename))
 
     new_fixation_trains = pysaliency.read_hdf5(str(filename))
@@ -521,7 +521,7 @@ def test_concatenate_fixation_trains(fixation_trains):
         np.concatenate((fixation_trains.some_attribute, fixation_trains.some_attribute))
     )
 
-def test_concatenate_scanpaths(fixation_trains):
+def test_concatenate_fixation_trains_partial_attributes(fixation_trains):
     fixation_trains2 = fixation_trains.copy()
 
     del fixation_trains2.scanpaths.scanpath_attributes['task']
@@ -529,28 +529,28 @@ def test_concatenate_scanpaths(fixation_trains):
     fixation_trains2.auto_attributes.remove('task')
     fixation_trains2.__attributes__.remove('task')
 
-    new_scanpaths = pysaliency.FixationTrains.concatenate((fixation_trains, fixation_trains2))
-    assert isinstance(new_scanpaths, pysaliency.Fixations)
+    new_fixation_trains = pysaliency.FixationTrains.concatenate((fixation_trains, fixation_trains2))
+    assert isinstance(new_fixation_trains, pysaliency.Fixations)
     np.testing.assert_allclose(
-        new_scanpaths.x,
+        new_fixation_trains.x,
         np.concatenate((fixation_trains.x, fixation_trains2.x))
     )
 
     np.testing.assert_allclose(
-        new_scanpaths.n,
+        new_fixation_trains.n,
         np.concatenate((fixation_trains.n, fixation_trains2.n))
     )
 
-    assert set(new_scanpaths.__attributes__) == {'subjects', 'duration', 'duration_hist', 'multi_dim_attribute', 'scanpath_index', 'some_attribute'}
+    assert set(new_fixation_trains.__attributes__) == {'subjects', 'duration', 'duration_hist', 'multi_dim_attribute', 'scanpath_index', 'some_attribute'}
 
     np.testing.assert_allclose(
-        new_scanpaths.some_attribute,
+        new_fixation_trains.some_attribute,
         np.concatenate((fixation_trains.some_attribute, fixation_trains2.some_attribute))
     )
 
 
 @given(st.lists(elements=st.integers(min_value=0, max_value=7), min_size=1))
-def test_scanpaths_from_fixations(fixation_indices):
+def test_fixation_trains_from_fixations(fixation_indices):
     xs_trains = [
         [0, 1, 2],
         [2, 2],
@@ -583,7 +583,7 @@ def test_scanpaths_from_fixations(fixation_indices):
     )
 
     sub_fixations = fixation_trains[fixation_indices]
-    new_scanpaths, new_indices = scanpaths_from_fixations(sub_fixations)
-    new_sub_fixations = new_scanpaths[new_indices]
+    new_fixation_trains, new_indices = scanpaths_from_fixations(sub_fixations)
+    new_sub_fixations = new_fixation_trains[new_indices]
 
     assert_fixations_equal(sub_fixations, new_sub_fixations, crop_length=True)
