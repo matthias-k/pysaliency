@@ -1,38 +1,17 @@
 import json
-import os
 import pathlib
 import warnings
-from collections.abc import Sequence
-from functools import wraps
-from hashlib import sha1
 from typing import Dict, List, Optional, Union
 from weakref import WeakValueDictionary
 
 import numpy as np
 from boltons.cacheutils import cached
-
-from ..utils.variable_length_array import VariableLengthArray, concatenate_variable_length_arrays
-
-try:
-    from imageio.v3 import imread
-except ImportError:
-    from imageio import imread
-from PIL import Image
 from tqdm import tqdm
 
-from ..utils import LazyList, remove_trailing_nans
-
-
-from .utils import hdf5_wrapper, decode_string
-from .stimuli import (
-    Stimulus,
-    Stimuli,
-    FileStimuli,
-    ObjectStimuli,
-    StimuliStimulus,
-    get_image_hash,
-    as_stimulus,
-)
+from ..utils import remove_trailing_nans
+from ..utils.variable_length_array import VariableLengthArray, concatenate_variable_length_arrays
+from .stimuli import FileStimuli, ObjectStimuli, Stimuli, StimuliStimulus, Stimulus, as_stimulus, check_prediction_shape, get_image_hash
+from .utils import decode_string, hdf5_wrapper, create_hdf5_dataset
 
 
 def _split_crossval(fixations, part, partcount):
@@ -1648,10 +1627,3 @@ def _load_attribute_dict_from_hdf5(attribute_group):
 
     attributes = {attribute: attribute_group[attribute][...] for attribute in __attributes__}
     return attributes
-
-
-def check_prediction_shape(prediction: np.ndarray, stimulus: Union[np.ndarray, Stimulus]):
-    stimulus = as_stimulus(stimulus)
-
-    if prediction.shape != stimulus.size:
-        raise ValueError(f"Prediction shape {prediction.shape} does not match stimulus shape {stimulus.size}")

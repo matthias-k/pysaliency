@@ -415,3 +415,10 @@ class FileStimuli(Stimuli):
         stimuli = cls(filenames=filenames, cached=cached, shapes=shapes, attributes=attributes)
 
         return stimuli
+
+
+def check_prediction_shape(prediction: np.ndarray, stimulus: Union[np.ndarray, Stimulus]):
+    stimulus = as_stimulus(stimulus)
+
+    if prediction.shape != stimulus.size:
+        raise ValueError(f"Prediction shape {prediction.shape} does not match stimulus shape {stimulus.size}")
