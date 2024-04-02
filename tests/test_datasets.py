@@ -746,7 +746,7 @@ def test_concatenate_fixation_trains(fixation_trains):
 def test_concatenate_scanpaths(fixation_trains):
     fixation_trains2 = fixation_trains.copy()
 
-    del fixation_trains2.scanpath_attributes['task']
+    del fixation_trains2.scanpaths.scanpath_attributes['task']
     delattr(fixation_trains2, 'task')
     fixation_trains2.auto_attributes.remove('task')
     fixation_trains2.__attributes__.remove('task')
