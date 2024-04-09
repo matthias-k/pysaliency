@@ -1,6 +1,6 @@
 import json
 import warnings
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -1104,14 +1104,14 @@ def _scanpath_from_fixation_index(fixations, fixation_index, scanpath_attribute_
     return xs, ys, ts, n, subject, scanpath_attributes, scanpath_fixation_attributes
 
 
-def scanpaths_from_fixations(fixations, verbose=False):
-    """ reconstructs scanpaths (FixationTrains) from fixation which originally came from scanpaths.
+def scanpaths_from_fixations(fixations: Fixations, verbose=False) -> Tuple[ScanpathFixations, np.ndarray]:
+    """ reconstructs scanpaths as ScanpathFixations from fixations which originally came from scanpaths.
 
     when called as in
 
-        scanpaths, indices = scanpaths_from_fixations(fixations)
+        scanpath_fixations, indices = scanpaths_from_fixations(fixations)
 
-    you will get scanpathhs[indices] == fixations.
+    you will have scanpath_fixations[indices] == fixations.
 
     :note
         only works if the original scanpaths only used scanpath_attributes and scanpath_fixation_attribute,
@@ -1125,18 +1125,27 @@ def scanpaths_from_fixations(fixations, verbose=False):
     scanpath_ts = []
     scanpath_ns = []
     scanpath_subjects = []
-    __attributes__ = [attribute for attribute in fixations.__attributes__ if attribute != 'subjects' and attribute != 'scanpath_index' and not attribute.endswith('_hist')]
-    __scanpath_attributes__ = [attribute for attribute in __attributes__ if '{attribute}_hist'.format(attribute=attribute) not in fixations.__attributes__]
-    __scanpath_fixation_attributes__ = [attribute for attribute in __attributes__ if attribute not in __scanpath_attributes__]
+    __attributes__ = [
+        attribute for attribute in fixations.__attributes__
+        if attribute != 'subjects' and attribute != 'scanpath_index' and not attribute.endswith('_hist')
+    ]
+
+    __scanpath_attributes__ = [
+        attribute for attribute in __attributes__
+        if '{attribute}_hist'.format(attribute=attribute) not in fixations.__attributes__
+    ]
+    __scanpath_fixation_attributes__ = [
+        attribute for attribute in __attributes__ if attribute not in __scanpath_attributes__
+    ]
 
     scanpath_fixation_attributes = {attribute: [] for attribute in __scanpath_fixation_attributes__}
     scanpath_attributes = {attribute: [] for attribute in __scanpath_attributes__}
 
-    attribute_shapes = {
-        attribute: getattr(fixations, attribute)[0].shape for attribute in __attributes__
-    }
+    # attribute_shapes = {
+    #     attribute: getattr(fixations, attribute)[0].shape for attribute in __attributes__
+    # }
 
-    __all_attributes__ = __attributes__ + ['{attribute}_hist'.format(attribute=attribute) for attribute in __scanpath_fixation_attributes__]
+    # __all_attributes__ = __attributes__ + ['{attribute}_hist'.format(attribute=attribute) for attribute in __scanpath_fixation_attributes__]
 
     indices = np.ones(len(fixations), dtype=int) * -1
     fixation_counter = 0
@@ -1157,6 +1166,13 @@ def scanpaths_from_fixations(fixations, verbose=False):
             __scanpath_attributes__,
             __scanpath_fixation_attributes__
         )
+
+        for key, value in this_scanpath_attributes.items():
+            other_values = getattr(fixations, key)[scanpath_indices]
+            if not np.all(other_values == value):
+                raise ValueError("attribute {key} not consistent in scanpath {scanpath_index}, found {other_values}".format(
+                    key=key, scanpath_index=scanpath_index, other_values=other_values,
+                ))
 
         scanpath_xs.append(xs)
         scanpath_ys.append(ys)
@@ -1186,12 +1202,17 @@ def scanpaths_from_fixations(fixations, verbose=False):
         attribute: np.array(value) for attribute, value in scanpath_attributes.items()
     }
 
-    return FixationTrains.from_fixation_trains(
+    attribute_mapping = {}
+
+    scanpaths = Scanpaths(
         xs=scanpath_xs,
         ys=scanpath_ys,
         ts=scanpath_ts,
-        ns=scanpath_ns,
-        subjects=scanpath_subjects,
+        n=scanpath_ns,
+        subject=scanpath_subjects,
         scanpath_attributes=scanpath_attributes,
-        scanpath_fixation_attributes=scanpath_fixation_attributes
-    ), indices
+        fixation_attributes=scanpath_fixation_attributes,
+        attribute_mapping=attribute_mapping
+    )
+
+    return ScanpathFixations(scanpaths=scanpaths), indices

@@ -695,7 +695,7 @@ def test_concatenate_fixation_trains_partial_attributes(fixation_trains):
 
 
 @given(st.lists(elements=st.integers(min_value=0, max_value=7), min_size=1))
-def test_fixation_trains_from_fixations(fixation_indices):
+def test_scanpaths_from_fixations(fixation_indices):
     xs_trains = [
         [0, 1, 2],
         [2, 2],
@@ -711,24 +711,28 @@ def test_fixation_trains_from_fixations(fixation_indices):
     ns = [0, 0, 1]
     subjects = [0, 1, 1]
     tasks = [0, 1, 0]
-    #some_attribute = np.arange(len(sum(xs_trains, [])))
     some_attribute = [
         [0, 1, 3],
         [6, 10],
         [15, 21, 28]
     ]
-    fixation_trains = pysaliency.FixationTrains.from_fixation_trains(
-        xs_trains,
-        ys_trains,
-        ts_trains,
-        ns,
-        subjects,
-        scanpath_fixation_attributes={'some_attribute': some_attribute},
-        scanpath_attributes={'task': tasks},
+
+    scanpaths = Scanpaths(
+        xs=xs_trains,
+        ys=ys_trains,
+        n=ns,
+        scanpath_attributes={
+            'task': tasks,
+            'subject': subjects,
+        },
+        fixation_attributes={'some_attribute': some_attribute, 'ts': ts_trains},
+        attribute_mapping={'ts': 't'},
     )
 
-    sub_fixations = fixation_trains[fixation_indices]
-    new_fixation_trains, new_indices = scanpaths_from_fixations(sub_fixations)
-    new_sub_fixations = new_fixation_trains[new_indices]
+    scanpath_fixations = ScanpathFixations(scanpaths=scanpaths)
+
+    sub_fixations = scanpath_fixations[fixation_indices]
+    new_scanpath_fixations, new_indices = scanpaths_from_fixations(sub_fixations)
+    new_sub_fixations = new_scanpath_fixations[new_indices]
 
     assert_fixations_equal(sub_fixations, new_sub_fixations, crop_length=True)

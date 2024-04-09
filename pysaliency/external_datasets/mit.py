@@ -228,9 +228,11 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
             #    # train_durations contains the fixation durations for each scanpath
             #    'train_durations': build_padded_2d_array(train_durations),
             #}
+
             scanpath_fixation_attributes = {
                 'durations': train_durations,
             }
+
             fixations = FixationTrains.from_fixation_trains(
                 xs,
                 ys,
