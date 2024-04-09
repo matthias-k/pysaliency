@@ -2,10 +2,9 @@ import json
 from typing import Dict, List, Optional, Union
 
 import numpy as np
-from boltons.cacheutils import cached
 
 from ..utils.variable_length_array import VariableLengthArray, concatenate_variable_length_arrays
-from .utils import create_hdf5_dataset, decode_string, get_merged_attribute_list, hdf5_wrapper, _load_attribute_dict_from_hdf5
+from .utils import _load_attribute_dict_from_hdf5, create_hdf5_dataset, decode_string, get_merged_attribute_list, hdf5_wrapper
 
 
 class Scanpaths(object):
@@ -34,7 +33,8 @@ class Scanpaths(object):
                  lengths=None,
                  scanpath_attributes: Optional[Dict[str, np.ndarray]] = None,
                  fixation_attributes: Optional[Dict[str, Union[np.ndarray, VariableLengthArray]]]=None,
-                 attribute_mapping=Dict[str, str]):
+                 attribute_mapping=Dict[str, str],
+                 **kwargs):
 
         self.n = np.asarray(n)
 
@@ -54,9 +54,27 @@ class Scanpaths(object):
         if not len(self.xs) == len(self.ys) == len(self.n):
             raise ValueError("Length of xs, ys, ts and n has to match")
 
+        scanpath_attributes = scanpath_attributes or {}
+        fixation_attributes = fixation_attributes or {}
+        self.attribute_mapping = attribute_mapping or {}
+
+
+        for key, value in kwargs.items():
+            if not len(value) == len(self.xs):
+                raise ValueError(f"Length of attribute {key} has to match number of scanpaths, but got {len(value)} != {len(self.xs)}")
+            if isinstance(value, VariableLengthArray) or isinstance(value[0], (list, np.ndarray)):
+                if key in fixation_attributes:
+                    raise ValueError(f"Attribute {key} already exists in fixation_attributes")
+                fixation_attributes[key] = self._as_variable_length_array(value)
+                if key not in self.attribute_mapping and key[-1] == 's':
+                    self.attribute_mapping[key] = key[:-1]
+            else:
+                if key in scanpath_attributes:
+                    raise ValueError(f"Attribute {key} already exists in scanpath_attributes")
+                scanpath_attributes[key] = np.array(value)
+
         # setting scanpath attributes
 
-        scanpath_attributes = scanpath_attributes or {}
         self.scanpath_attributes = {key: np.array(value) for key, value in scanpath_attributes.items()}
 
         for key, value in self.scanpath_attributes.items():
@@ -65,11 +83,7 @@ class Scanpaths(object):
 
         # setting fixation attributes
 
-        fixation_attributes = fixation_attributes or {}
-
         self.fixation_attributes = {key: self._as_variable_length_array(value) for key, value in fixation_attributes.items()}
-
-        self.attribute_mapping = attribute_mapping or {}
 
     def _check_lengths(self, other: VariableLengthArray):
         if not len(self) == len(other):

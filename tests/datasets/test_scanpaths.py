@@ -90,6 +90,38 @@ def test_scanpaths_from_lists():
     assert scanpaths.attribute_mapping == {'attribute1': 'attr1', 'attribute2': 'attr2'}
 
 
+def test_scanpaths_from_lists_with_keyword_arguments():
+    xs = [[0, 1, 2], [2, 2], [1, 5, 3]]
+    ys = [[10, 11, 12], [12, 12], [21, 25, 33]]
+    ts = [[1, 2.5, 4], [2, 3], [3, 4, 6]]
+    subject = [0, 1, 2]
+    n = [0, 0, 1]
+    expected_lengths = np.array([3, 2, 3])
+    scanpath_attributes = {'task': [0, 1, 0]}
+    fixation_attributes = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
+    attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
+
+    scanpaths = Scanpaths(
+        xs,
+        ys,
+        n,
+        lengths=None, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=attribute_mapping,
+        ts=ts,
+        subject=subject,
+    )
+
+    np.testing.assert_array_equal(scanpaths.xs._data, np.array([[0, 1, 2], [2, 2, np.nan], [1, 5, 3]]))
+    np.testing.assert_array_equal(scanpaths.ys._data, np.array([[10, 11, 12], [12, 12, np.nan], [21, 25, 33]]))
+    np.testing.assert_array_equal(scanpaths.n, n)
+    np.testing.assert_array_equal(scanpaths.lengths, expected_lengths)
+    np.testing.assert_array_equal(scanpaths.scanpath_attributes['task'], np.array([0, 1, 0]))
+    np.testing.assert_array_equal(scanpaths.scanpath_attributes['subject'], np.array([0, 1, 2]))
+    np.testing.assert_array_equal(scanpaths.fixation_attributes['attribute1']._data, np.array([[1, 1, 2], [2, 2, np.nan], [0, 1, 3]]))
+    np.testing.assert_array_equal(scanpaths.fixation_attributes['attribute2']._data, np.array([[3, 1.3, 5], [1, 42, np.nan], [0, -1, -3]]))
+    np.testing.assert_array_equal(scanpaths.fixation_attributes['ts']._data, np.array([[1, 2.5, 4], [2, 3, np.nan], [3, 4, 6]]))
+    assert scanpaths.attribute_mapping == {'attribute1': 'attr1', 'attribute2': 'attr2', 'ts': 't'}
+
+
 def test_scanpaths_init_inconsistent_lengths():
     xs = np.array([[0, 1, 2], [2, 2, np.nan], [1, 5, 3]])
     ys = np.array([[10, 11, 12], [12, 12, np.nan]])  # too short, should fail
