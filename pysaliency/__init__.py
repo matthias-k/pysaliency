@@ -10,6 +10,7 @@ from . import utils
 from .datasets import (
     Fixations,
     FixationTrains,
+    ScanpathFixations,
     Stimuli,
     FileStimuli,
     create_nonfixations,

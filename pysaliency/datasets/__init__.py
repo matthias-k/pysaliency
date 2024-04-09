@@ -5,10 +5,10 @@ from weakref import WeakValueDictionary
 import numpy as np
 from boltons.cacheutils import cached
 
-from .fixations import Fixations, FixationTrains, scanpaths_from_fixations
-from .scanpaths import Scanpaths
+from .fixations import Fixations, FixationTrains, ScanpathFixations, scanpaths_from_fixations
+from .scanpaths import Scanpaths, concatenate_scanpaths
 from .stimuli import FileStimuli, ObjectStimuli, Stimuli, StimuliStimulus, Stimulus, as_stimulus, check_prediction_shape, get_image_hash
-from .utils import _load_attribute_dict_from_hdf5, concatenate_attributes, create_hdf5_dataset, decode_string, get_merged_attribute_list, hdf5_wrapper
+from .utils import concatenate_attributes, decode_string, get_merged_attribute_list
 
 
 @cached(WeakValueDictionary())
@@ -26,6 +26,8 @@ def read_hdf5(source):
 
     if data_type == 'Fixations':
         return Fixations.read_hdf5(source)
+    elif data_type == 'ScanpathFixations':
+        return ScanpathFixations.read_hdf5(source)
     elif data_type == 'FixationTrains':
         return FixationTrains.read_hdf5(source)
     elif data_type == 'Scanpaths':
