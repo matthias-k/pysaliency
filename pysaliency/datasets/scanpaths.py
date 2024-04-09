@@ -5,7 +5,7 @@ import numpy as np
 from boltons.cacheutils import cached
 
 from ..utils.variable_length_array import VariableLengthArray, concatenate_variable_length_arrays
-from .utils import create_hdf5_dataset, decode_string, hdf5_wrapper, _load_attribute_dict_from_hdf5
+from .utils import create_hdf5_dataset, decode_string, get_merged_attribute_list, hdf5_wrapper, _load_attribute_dict_from_hdf5
 
 
 class Scanpaths(object):
@@ -175,3 +175,36 @@ class Scanpaths(object):
                               scanpath_attributes={key: value[index] for key, value in self.scanpath_attributes.items()},
                               fixation_attributes={key: value[index] for key, value in self.fixation_attributes.items()},
                               attribute_mapping=self.attribute_mapping)
+
+    def copy(self) -> 'Scanpaths':
+        return type(self)(self.xs.copy(), self.ys.copy(), self.n.copy(), self.lengths.copy(),
+                          scanpath_attributes={key: value.copy() for key, value in self.scanpath_attributes.items()},
+                          fixation_attributes={key: value.copy() for key, value in self.fixation_attributes.items()},
+                          attribute_mapping=self.attribute_mapping.copy())
+
+    @classmethod
+    def concatenate(cls, scanpaths_list: List['Scanpaths']) -> 'Scanpaths':
+        return concatenate_scanpaths(scanpaths_list)
+
+
+def concatenate_scanpaths(scanpaths_list: List[Scanpaths]) -> Scanpaths:
+    xs = concatenate_variable_length_arrays([scanpaths.xs for scanpaths in scanpaths_list])
+    ys = concatenate_variable_length_arrays([scanpaths.ys for scanpaths in scanpaths_list])
+    n = np.concatenate([scanpaths.n for scanpaths in scanpaths_list])
+    lengths = np.concatenate([scanpaths.lengths for scanpaths in scanpaths_list])
+
+    merged_scanpath_attributes = get_merged_attribute_list([scanpaths.scanpath_attributes.keys() for scanpaths in scanpaths_list])
+    scanpath_attributes = {key: np.concatenate([scanpaths.scanpath_attributes[key] for scanpaths in scanpaths_list]) for key in merged_scanpath_attributes}
+
+    merged_fixation_attributes = get_merged_attribute_list([scanpaths.fixation_attributes.keys() for scanpaths in scanpaths_list])
+    fixation_attributes = {key: concatenate_variable_length_arrays([scanpaths.fixation_attributes[key] for scanpaths in scanpaths_list]) for key in merged_fixation_attributes}
+
+    merged_attribute_mapping = {}
+    for key in merged_fixation_attributes:
+        mappings = {scanpaths.attribute_mapping.get(key) for scanpaths in scanpaths_list}
+        if len(mappings) > 1:
+            raise ValueError(f"Multiple mappings for attribute {key} found: {mappings}")
+        elif len(mappings) == 1:
+            merged_attribute_mapping[key] = mappings.pop()
+
+    return Scanpaths(xs, ys, n, lengths, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=merged_attribute_mapping)

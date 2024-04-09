@@ -86,21 +86,6 @@ def _load_attribute_dict_from_hdf5(attribute_group):
     return attributes
 
 
-def get_merged_attribute_list(attributes):
-    all_attributes = set(attributes[0])
-    common_attributes = set(attributes[0])
-
-    for _attributes in attributes[1:]:
-        all_attributes = all_attributes.union(_attributes)
-        common_attributes = common_attributes.intersection(_attributes)
-
-    if common_attributes != all_attributes:
-        lost_attributes = all_attributes.difference(common_attributes)
-        warnings.warn(f"Discarding attributes which are not present everywhere: {lost_attributes}", stacklevel=4)
-
-    return sorted(common_attributes)
-
-
 def concatenate_attributes(attributes):
     attributes = list(attributes)
 

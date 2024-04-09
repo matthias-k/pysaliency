@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import pysaliency
-from pysaliency.datasets import Scanpaths
+from pysaliency.datasets import Scanpaths, concatenate_scanpaths
 from pysaliency.utils.variable_length_array import VariableLengthArray
 
 
@@ -217,3 +217,111 @@ def test_write_read_scanpaths_pathlib(tmp_path):
 
     assert scanpaths is not new_scanpaths # make sure there is no sophisticated caching...
     assert_scanpaths_equal(scanpaths, new_scanpaths)
+
+
+def test_scanpaths_copy():
+    xs = [[0, 1, 2], [2, 2], [1, 5, 3]]
+    ys = [[10, 11, 12], [12, 12], [21, 25, 33]]
+    n = [0, 0, 1]
+    scanpath_attributes = {'task': [0, 1, 0]}
+    fixation_attributes = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
+    attribute_mapping = {'attribute1': 'attr1', 'attribute2': 'attr2'}
+
+    scanpaths = Scanpaths(xs, ys, n, lengths=None, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=attribute_mapping)
+
+    new_scanpaths = scanpaths.copy()
+
+    assert_scanpaths_equal(scanpaths, new_scanpaths)
+    assert scanpaths is not new_scanpaths
+
+
+def test_concatenate_scanpaths():
+    xs1 = [[0, 1, 2], [2, 2], [1, 5, 3]]
+    ys1 = [[10, 11, 12], [12, 11], [21, 25, 33]]
+    n1 = [0, 0, 1]
+    scanpath_attributes1 = {'task': [0, 1, 0]}
+    fixation_attributes1 = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
+    attribute_mapping1 = {'attribute1': 'attr1', 'attribute2': 'attr2'}
+
+    scanpaths1 = Scanpaths(xs1, ys1, n1, lengths=None, scanpath_attributes=scanpath_attributes1, fixation_attributes=fixation_attributes1, attribute_mapping=attribute_mapping1)
+
+    xs2 = [[0, 1, 2], [2, 2], [1, 5, 4]]
+    ys2 = [[10, 11, 12], [12, 12], [21, 25, 33]]
+    n2 = [0, 1, 1]
+    scanpath_attributes2 = {'task': [0, 1, 0]}
+    fixation_attributes2 = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
+    attribute_mapping2 = {'attribute1': 'attr1', 'attribute2': 'attr2'}
+
+    scanpaths2 = Scanpaths(xs2, ys2, n2, lengths=None, scanpath_attributes=scanpath_attributes2, fixation_attributes=fixation_attributes2, attribute_mapping=attribute_mapping2)
+
+    concatenated_scanpaths = concatenate_scanpaths([scanpaths1, scanpaths2])
+
+    assert_variable_length_array_equal(concatenated_scanpaths.xs, VariableLengthArray(xs1 + xs2))
+    assert_variable_length_array_equal(concatenated_scanpaths.ys, VariableLengthArray(ys1 + ys2))
+    np.testing.assert_array_equal(concatenated_scanpaths.n, np.array(n1 + n2))
+    assert concatenated_scanpaths.scanpath_attributes.keys() == {'task'}
+    np.testing.assert_array_equal(concatenated_scanpaths.scanpath_attributes['task'], np.array([0, 1, 0, 0, 1, 0]))
+    assert concatenated_scanpaths.fixation_attributes.keys() == {'attribute1', 'attribute2'}
+    assert_variable_length_array_equal(concatenated_scanpaths.fixation_attributes['attribute1'], VariableLengthArray([[1, 1, 2], [2, 2], [0, 1, 3], [1, 1, 2], [2, 2], [0, 1, 3]]))
+    assert_variable_length_array_equal(concatenated_scanpaths.fixation_attributes['attribute2'], VariableLengthArray([[3, 1.3, 5], [1, 42], [0, -1, -3], [3, 1.3, 5], [1, 42], [0, -1, -3]]))
+    assert concatenated_scanpaths.attribute_mapping == {'attribute1': 'attr1', 'attribute2': 'attr2'}
+
+
+def test_concatenate_scanpaths_missing_fixation_attribute():
+    xs1 = [[0, 1, 2], [2, 2], [1, 5, 3]]
+    ys1 = [[10, 11, 12], [12, 11], [21, 25, 33]]
+    n1 = [0, 0, 1]
+    scanpath_attributes1 = {'task': [0, 1, 0]}
+    fixation_attributes1 = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
+    attribute_mapping1 = {'attribute1': 'attr1', 'attribute2': 'attr2'}
+
+    scanpaths1 = Scanpaths(xs1, ys1, n1, lengths=None, scanpath_attributes=scanpath_attributes1, fixation_attributes=fixation_attributes1, attribute_mapping=attribute_mapping1)
+
+    xs2 = [[0, 1, 2], [2, 2], [1, 5, 4]]
+    ys2 = [[10, 11, 12], [12, 12], [21, 25, 33]]
+    n2 = [0, 1, 1]
+    scanpath_attributes2 = {'task': [0, 1, 0]}
+    fixation_attributes2 = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]]}
+    attribute_mapping2 = {'attribute1': 'attr1'}
+
+    scanpaths2 = Scanpaths(xs2, ys2, n2, lengths=None, scanpath_attributes=scanpath_attributes2, fixation_attributes=fixation_attributes2, attribute_mapping=attribute_mapping2)
+
+    concatenated_scanpaths = concatenate_scanpaths([scanpaths1, scanpaths2])
+
+    assert_variable_length_array_equal(concatenated_scanpaths.xs, VariableLengthArray(xs1 + xs2))
+    assert_variable_length_array_equal(concatenated_scanpaths.ys, VariableLengthArray(ys1 + ys2))
+    np.testing.assert_array_equal(concatenated_scanpaths.n, np.array(n1 + n2))
+    assert concatenated_scanpaths.scanpath_attributes.keys() == {'task'}
+    np.testing.assert_array_equal(concatenated_scanpaths.scanpath_attributes['task'], np.array([0, 1, 0, 0, 1, 0]))
+    assert concatenated_scanpaths.fixation_attributes.keys() == {'attribute1'}
+    assert_variable_length_array_equal(concatenated_scanpaths.fixation_attributes['attribute1'], VariableLengthArray([[1, 1, 2], [2, 2], [0, 1, 3], [1, 1, 2], [2, 2], [0, 1, 3]]))
+    assert concatenated_scanpaths.attribute_mapping == {'attribute1': 'attr1'}
+
+
+def test_concatenate_scanpaths_inconsistent_attribute_mappings():
+    xs1 = [[0, 1, 2], [2, 2], [1, 5, 3]]
+    ys1 = [[10, 11, 12], [12, 11], [21, 25, 33]]
+    n1 = [0, 0, 1]
+    scanpath_attributes1 = {'task': [0, 1, 0]}
+    fixation_attributes1 = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
+    attribute_mapping1 = {'attribute1': 'attr1', 'attribute2': 'attr2'}
+
+    scanpaths1 = Scanpaths(xs1, ys1, n1, lengths=None, scanpath_attributes=scanpath_attributes1, fixation_attributes=fixation_attributes1, attribute_mapping=attribute_mapping1)
+
+    xs2 = [[0, 1, 2], [2, 2], [1, 5, 4]]
+    ys2 = [[10, 11, 12], [12, 12], [21, 25, 33]]
+    n2 = [0, 1, 1]
+    scanpath_attributes2 = {'task': [0, 1, 0]}
+    fixation_attributes2 = {'attribute1': [[1, 1, 2], [2, 2], [0, 1, 3]], 'attribute2': [[3, 1.3, 5], [1, 42], [0, -1, -3]]}
+    attribute_mapping2 = {'attribute1': 'attr1', 'attribute2': 'attr2'}
+
+    scanpaths2_clean = Scanpaths(xs2, ys2, n2, lengths=None, scanpath_attributes=scanpath_attributes2, fixation_attributes=fixation_attributes2, attribute_mapping=attribute_mapping2)
+
+    # make sure that everyuthing else wearks
+    concatenate_scanpaths([scanpaths1, scanpaths2_clean])
+
+    attribute_mapping2 = {'attribute1': 'attr1', 'attribute2': 'attr3'}
+    scanpaths2_inconsistent = Scanpaths(xs2, ys2, n2, lengths=None, scanpath_attributes=scanpath_attributes2, fixation_attributes=fixation_attributes2, attribute_mapping=attribute_mapping2)
+
+    with pytest.raises(ValueError):
+        concatenate_scanpaths([scanpaths1, scanpaths2_inconsistent])
