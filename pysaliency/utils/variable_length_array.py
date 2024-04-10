@@ -89,7 +89,7 @@ class VariableLengthArray:
                     return self._data[row_idx, :self.lengths[row_idx]][col_idx]
             else:
                 return self._data[row_idx, :self.lengths[row_idx]][col_idx]
-        elif isinstance(index, int):
+        elif isinstance(index, (int, np.integer)):
             return self._data[index, :self.lengths[index]]
         else:
             return VariableLengthArray(self._data[index], self.lengths[index])

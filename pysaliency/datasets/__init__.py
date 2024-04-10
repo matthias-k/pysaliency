@@ -51,29 +51,36 @@ def create_subset(stimuli, fixations, stimuli_indices):
 
     new_stimuli = stimuli[stimuli_indices]
     if isinstance(fixations, FixationTrains):
-        fix_inds = np.in1d(fixations.scanpaths.n, stimuli_indices)
+        scanpath_inds = np.in1d(fixations.scanpaths.n, stimuli_indices)
 
         index_list = list(stimuli_indices)
         new_pos = {i: index_list.index(i) for i in index_list}
 
-        new_image_indices = [new_pos[i] for i in fixations.scanpaths.n[fix_inds]]
+        new_image_indices = [new_pos[i] for i in fixations.scanpaths.n[scanpath_inds]]
 
-        new_scanpaths = fixations.scanpaths[fix_inds]
+        new_fixations = fixations.filter_fixation_trains(scanpath_inds)
+        new_fixations.scanpaths.n = np.array(new_image_indices)
 
-        new_fixations = FixationTrains(
-            train_xs=new_scanpaths.xs,
-            train_ys=new_scanpaths.ys,
-            train_ts=None, # new_scanpaths.fixation_attributes['ts'],
-            train_ns=np.array(new_image_indices),
-            train_subjects=None, #  new_scanpaths.scanpath_attributes['subject'],
-            scanpath_attributes=new_scanpaths.scanpath_attributes,
-            scanpath_fixation_attributes=new_scanpaths.fixation_attributes,
-            scanpath_attribute_mapping=new_scanpaths.attribute_mapping
+        new_fixation_ns = [new_pos[i] for i in new_fixations.n]
+        new_fixations.n = np.array(new_fixation_ns)
+
+    elif isinstance(fixations, ScanpathFixations):
+        scanpath_inds = np.in1d(fixations.scanpaths.n, stimuli_indices)
+
+        index_list = list(stimuli_indices)
+        new_pos = {i: index_list.index(i) for i in index_list}
+
+        new_image_indices = [new_pos[i] for i in fixations.scanpaths.n[scanpath_inds]]
+
+        new_scanpaths = fixations.scanpaths[scanpath_inds]
+
+        new_fixations = ScanpathFixations(
+            scanpaths=new_scanpaths,
         )
 
     else:
-        fix_inds = np.in1d(fixations.n, stimuli_indices)
-        new_fixations = fixations[fix_inds]
+        scanpath_inds = np.in1d(fixations.n, stimuli_indices)
+        new_fixations = fixations[scanpath_inds]
 
         index_list = list(stimuli_indices)
         new_pos = {i: index_list.index(i) for i in index_list}
@@ -94,14 +101,11 @@ def concatenate_stimuli(stimuli):
         return ObjectStimuli(sum([s.stimulus_objects for s in stimuli], []), attributes=attributes)
 
 
-#np.testing.assert_allclose(concatenate_attributes([[0], [1, 2, 3]]), [0,1,2,3])
-#np.testing.assert_allclose(concatenate_attributes([[[0]], [[1],[2], [3]]]), [[0],[1],[2],[3]])
-#np.testing.assert_allclose(concatenate_attributes([[[0.,1.]], [[1.],[2.], [3.]]]), [[0, 1],[1,np.nan],[2,np.nan],[3,np.nan]])
-
-
 def concatenate_fixations(fixations):
     if all(isinstance(f, FixationTrains) for f in fixations):
         return FixationTrains.concatenate(fixations)
+    elif all(isinstance(f, ScanpathFixations) for f in fixations):
+        return ScanpathFixations.concatenate(fixations)
     else:
         return Fixations.concatenate(fixations)
 

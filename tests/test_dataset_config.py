@@ -10,7 +10,8 @@ from test_filter_datasets import assert_stimuli_equal
 import pysaliency
 import pysaliency.dataset_config as dc
 from pysaliency.filter_datasets import create_subset
-from tests.datasets.test_fixations import assert_fixation_trains_equal, assert_fixations_equal
+from tests.datasets.utils import assert_fixation_trains_equal
+from tests.datasets.utils import assert_fixations_equal
 
 
 @pytest.fixture
@@ -113,7 +114,7 @@ def test_load_dataset_with_filter(hdf5_dataset, stimuli, fixation_trains):
 
     assert len(loaded_stimuli) == len(stimuli)
     assert len(loaded_fixations.x) == 6
-    assert np.all(loaded_fixations.lengths < 2)
+    assert np.all(loaded_fixations.scanpath_history_length < 2)
 
 
 def test_apply_dataset_filter_config_filter_scanpaths_by_attribute_task(stimuli, fixation_trains):

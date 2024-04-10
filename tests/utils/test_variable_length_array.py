@@ -40,8 +40,6 @@ def test_variable_length_array_from_padded_array():
     # test slicing with negative indices
     np.testing.assert_array_equal(array[:, -1], [3, 5])
 
-
-
     # Test case 2
     data = build_padded_2d_array([[1.0, 2], [3, 4, 5]])
     lengths = np.array([2, 3])
@@ -50,6 +48,11 @@ def test_variable_length_array_from_padded_array():
     # test accessing rows
     np.testing.assert_array_equal(array[0], np.array([1, 2]))
     np.testing.assert_array_equal(array[1], np.array([3, 4, 5]))
+
+    # test accessing rows with np ints
+    for int_type in [np.int16, np.int32, np.int64, np.int8]:
+        np.testing.assert_array_equal(array[int_type(0)], np.array([1, 2]))
+        np.testing.assert_array_equal(array[int_type(1)], np.array([3, 4, 5]))
 
     # test accessing elements
     np.testing.assert_array_equal(array[0, 1], 2)

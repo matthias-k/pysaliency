@@ -176,7 +176,7 @@ def filter_fixations_by_number(fixations, intervals):
     inds = np.zeros_like(fixations.x, dtype=bool)
 
     for n1, n2 in intervals:
-        _inds = np.logical_and(fixations.lengths >= n1, fixations.lengths < n2)
+        _inds = np.logical_and(fixations.scanpath_history_length >= n1, fixations.scanpath_history_length < n2)
         inds = np.logical_or(inds, _inds)
 
     return fixations[inds]

@@ -15,7 +15,7 @@ class Scanpaths(object):
         xs (VariableLengthArray): The x-coordinates of the scanpaths.
         ys (VariableLengthArray): The y-coordinates of the scanpaths.
         n (np.ndarray): The image index
-        lengths (np.ndarray): The lengths of each scanpath.
+        length (np.ndarray): The length of each scanpath.
         scanpath_attributes (dict): Additional attributes associated with the scanpaths.
         fixation_attributes (dict): Additional attributes associated with the fixations in the scanpaths.
         attribute_mapping (dict): Mapping of attribute names to their corresponding values, will be used when creating `Fixations` instances from the `Scanpaths` instance.
@@ -30,7 +30,7 @@ class Scanpaths(object):
                  xs: Union[np.ndarray, VariableLengthArray],
                  ys: Union[np.ndarray, VariableLengthArray],
                  n: np.ndarray,
-                 lengths=None,
+                 length=None,
                  scanpath_attributes: Optional[Dict[str, np.ndarray]] = None,
                  fixation_attributes: Optional[Dict[str, Union[np.ndarray, VariableLengthArray]]]=None,
                  attribute_mapping=Dict[str, str],
@@ -39,15 +39,15 @@ class Scanpaths(object):
         self.n = np.asarray(n)
 
         if not isinstance(xs, VariableLengthArray):
-            self.xs = VariableLengthArray(xs, lengths)
+            self.xs = VariableLengthArray(xs, length)
         else:
             self.xs = xs
 
-        if lengths is not None:
-            if not np.all(self.xs.lengths == lengths):
+        if length is not None:
+            if not np.all(self.xs.lengths == length):
                 raise ValueError("Lengths of xs and lengths do not match")
 
-        self.lengths = self.xs.lengths.copy()
+        self.length = self.xs.lengths.copy()
 
         self.ys = self._as_variable_length_array(ys)
 
@@ -60,6 +60,8 @@ class Scanpaths(object):
 
 
         for key, value in kwargs.items():
+            if value is None:
+                continue
             if not len(value) == len(self.xs):
                 raise ValueError(f"Length of attribute {key} has to match number of scanpaths, but got {len(value)} != {len(self.xs)}")
             if isinstance(value, VariableLengthArray) or isinstance(value[0], (list, np.ndarray)):
@@ -88,12 +90,12 @@ class Scanpaths(object):
     def _check_lengths(self, other: VariableLengthArray):
         if not len(self) == len(other):
             raise ValueError("Length of scanpaths has to match")
-        if not np.all(self.lengths == other.lengths):
+        if not np.all(self.length == other.lengths):
             raise ValueError("Lengths of scanpaths have to match")
 
     def _as_variable_length_array(self, data: Union[np.ndarray, VariableLengthArray]) -> VariableLengthArray:
         if not isinstance(data, VariableLengthArray):
-            data = VariableLengthArray(data, self.lengths)
+            data = VariableLengthArray(data, self.length)
 
         self._check_lengths(data)
 
@@ -121,7 +123,7 @@ class Scanpaths(object):
         target.create_dataset('xs', data=self.xs._data)
         target.create_dataset('ys', data=self.ys._data)
         target.create_dataset('n', data=self.n)
-        target.create_dataset('lengths', data=self.lengths)
+        target.create_dataset('length', data=self.length)
 
         scanpath_attributes_group = target.create_group('scanpath_attributes')
         for attribute_name, attribute_value in self.scanpath_attributes.items():
@@ -149,9 +151,9 @@ class Scanpaths(object):
         if data_version not in valid_versions:
             raise ValueError("Invalid version! Expected one of {}, got {}".format(', '.join(valid_versions), data_version))
 
-        lengths = source['lengths'][...]
-        xs = VariableLengthArray(source['xs'][...], lengths)
-        ys = VariableLengthArray(source['ys'][...], lengths)
+        length = source['length'][...]
+        xs = VariableLengthArray(source['xs'][...], length)
+        ys = VariableLengthArray(source['ys'][...], length)
         n = source['n'][...]
 
         scanpath_attributes = _load_attribute_dict_from_hdf5(source['scanpath_attributes'])
@@ -162,13 +164,13 @@ class Scanpaths(object):
             json_attributes = json_attributes.decode('utf8')
         __attributes__ = json.loads(json_attributes)
 
-        fixation_attributes = {attribute: VariableLengthArray(fixation_attributes_group[attribute][...], lengths) for attribute in __attributes__}
+        fixation_attributes = {attribute: VariableLengthArray(fixation_attributes_group[attribute][...], length) for attribute in __attributes__}
 
         return cls(
             xs=xs,
             ys=ys,
             n=n,
-            lengths=lengths,
+            length=length,
             scanpath_attributes=scanpath_attributes,
             fixation_attributes=fixation_attributes,
             attribute_mapping=json.loads(decode_string(source.attrs['attribute_mapping']))
@@ -185,13 +187,13 @@ class Scanpaths(object):
         elif isinstance(index, int):
             raise NotImplementedError("Not implemented yet")
         else:
-            return type(self)(self.xs[index], self.ys[index], self.n[index], self.lengths[index],
+            return type(self)(self.xs[index], self.ys[index], self.n[index], self.length[index],
                               scanpath_attributes={key: value[index] for key, value in self.scanpath_attributes.items()},
                               fixation_attributes={key: value[index] for key, value in self.fixation_attributes.items()},
                               attribute_mapping=self.attribute_mapping)
 
     def copy(self) -> 'Scanpaths':
-        return type(self)(self.xs.copy(), self.ys.copy(), self.n.copy(), self.lengths.copy(),
+        return type(self)(self.xs.copy(), self.ys.copy(), self.n.copy(), self.length.copy(),
                           scanpath_attributes={key: value.copy() for key, value in self.scanpath_attributes.items()},
                           fixation_attributes={key: value.copy() for key, value in self.fixation_attributes.items()},
                           attribute_mapping=self.attribute_mapping.copy())
@@ -205,7 +207,7 @@ def concatenate_scanpaths(scanpaths_list: List[Scanpaths]) -> Scanpaths:
     xs = concatenate_variable_length_arrays([scanpaths.xs for scanpaths in scanpaths_list])
     ys = concatenate_variable_length_arrays([scanpaths.ys for scanpaths in scanpaths_list])
     n = np.concatenate([scanpaths.n for scanpaths in scanpaths_list])
-    lengths = np.concatenate([scanpaths.lengths for scanpaths in scanpaths_list])
+    length = np.concatenate([scanpaths.length for scanpaths in scanpaths_list])
 
     merged_scanpath_attributes = get_merged_attribute_list([scanpaths.scanpath_attributes.keys() for scanpaths in scanpaths_list])
     scanpath_attributes = {key: np.concatenate([scanpaths.scanpath_attributes[key] for scanpaths in scanpaths_list]) for key in merged_scanpath_attributes}
@@ -221,4 +223,4 @@ def concatenate_scanpaths(scanpaths_list: List[Scanpaths]) -> Scanpaths:
         elif len(mappings) == 1:
             merged_attribute_mapping[key] = mappings.pop()
 
-    return Scanpaths(xs, ys, n, lengths, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=merged_attribute_mapping)
+    return Scanpaths(xs, ys, n, length, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=merged_attribute_mapping)

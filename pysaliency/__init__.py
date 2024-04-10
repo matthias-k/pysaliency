@@ -11,6 +11,7 @@ from .datasets import (
     Fixations,
     FixationTrains,
     ScanpathFixations,
+    Scanpaths,
     Stimuli,
     FileStimuli,
     create_nonfixations,
