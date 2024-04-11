@@ -16,7 +16,7 @@ from .saliency_map_models import (SaliencyMapModel, ScanpathSaliencyMapModel, ha
                                   DisjointUnionMixin,
                                   GaussianSaliencyMapModel,
                                   )
-from .datasets import FixationTrains, check_prediction_shape, get_image_hash, as_stimulus
+from .datasets import Scanpaths, ScanpathFixations, check_prediction_shape, get_image_hash, as_stimulus
 from .metrics import probabilistic_image_based_kl_divergence, convert_saliency_map_to_density
 from .sampling_models import SamplingModelMixin
 from .utils import Cache, average_values, deprecated_class, remove_trailing_nans, iterator_chunks
@@ -212,7 +212,7 @@ class ScanpathModel(SamplingModelMixin, object, metaclass=ABCMeta):
 
         return stimuli, train_counts, lengths, stimulus_indices
 
-    def sample(self, stimuli, train_counts, lengths=1, stimulus_indices=None, rst=None, verbose=False):
+    def sample(self, stimuli, train_counts, lengths=1, stimulus_indices=None, rst=None, verbose=False) -> ScanpathFixations:
         """
         Sample fixations for given stimuli
 
@@ -261,7 +261,7 @@ class ScanpathModel(SamplingModelMixin, object, metaclass=ABCMeta):
                 ns.append(stimulus_index)
                 subjects.append(0)
                 pbar.update(1)
-        return FixationTrains.from_fixation_trains(xs, ys, ts, ns, subjects)
+        return ScanpathFixations(Scanpaths(xs=xs, ys=ys, ts=ts, n=ns, subject=subjects))
 
     def _sample_fixation_train(self, stimulus, length, rst=None):
         """Sample one fixation train of given length from stimulus"""

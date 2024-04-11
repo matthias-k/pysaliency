@@ -6,7 +6,7 @@ import deprecation
 import numpy as np
 from tqdm import tqdm
 
-from ..utils import remove_trailing_nans
+from ..utils import remove_trailing_nans, deprecated_class
 from ..utils.variable_length_array import VariableLengthArray
 from .scanpaths import Scanpaths
 from .utils import _load_attribute_dict_from_hdf5, concatenate_attributes, decode_string, get_merged_attribute_list, hdf5_wrapper
@@ -315,7 +315,10 @@ class Fixations(object):
         variable_length_arrays = []
 
         for attribute in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'lengths'] + self.__attributes__:
-            data = getattr(self, attribute)
+            if attribute == 'lengths':
+                data = self.scanpath_history_length
+            else:
+                data = getattr(self, attribute)
             if isinstance(data, VariableLengthArray):
                 variable_length_arrays.append(attribute)
                 data = data._data
@@ -528,6 +531,7 @@ class ScanpathFixations(Fixations):
         return cls(scanpaths=scanpaths)
 
 
+@deprecated_class(deprecated_in="0.3.0", removed_in="1.0.0", details="Use `ScanpathFixations` instead")
 class FixationTrains(ScanpathFixations):
     """
     Capsules the fixations of a dataset as fixation trains.
@@ -551,6 +555,8 @@ class FixationTrains(ScanpathFixations):
 
     """
     def __init__(self, train_xs, train_ys, train_ts, train_ns, train_subjects, scanpath_attributes=None, scanpath_fixation_attributes=None, attributes=None, scanpath_attribute_mapping=None, scanpaths=None):
+
+        # raise ValueError("DON'T USE FIXATIONTRAINS ANYMORE, USE SCANPATHFIXATIONS INSTEAD")
 
         if isinstance(train_xs, Scanpaths):
             scanpaths = train_xs
@@ -580,7 +586,7 @@ class FixationTrains(ScanpathFixations):
             attributes = {}
 
         if attributes:
-            warnings.warn("don't use attributes for FixationTrains, use scanpath_attributes or scanpath_fixation_attributes instead!", stacklevel=2)
+            warnings.warn("Don't use attributes for FixationTrains, use scanpath_attributes or scanpath_fixation_attributes instead! FixationTrains is deprecated, the successor ScanpathFixations doesn't support attributes anymore", stacklevel=2, category=DeprecationWarning)
 
         if attributes:
             self.__attributes__ = list(self.__attributes__)

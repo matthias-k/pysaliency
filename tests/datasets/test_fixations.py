@@ -131,7 +131,7 @@ class TestFixations(TestWithData):
         cum_inds = inds[inds2]
         compare_fixations_subset(__f, f, cum_inds)
 
-    def test_filter_trains(self):
+    def test_scanpaths(self):
         xs_trains = []
         ys_trains = []
         ts_trains = []
@@ -148,7 +148,7 @@ class TestFixations(TestWithData):
         f = pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
         # First order filtering
         inds = f.train_ns == 10
-        _f = f.filter_fixation_trains(inds)
+        _f = f.filter_scanpaths(inds)
         self.assertIsInstance(_f, pysaliency.FixationTrains)
         equivalent_indices = f.n == 10
         compare_fixations_subset(_f, f, equivalent_indices)
@@ -444,7 +444,7 @@ def test_scanpath_fixations_filter_scanpaths(scanpath_fixations, scanpath_indice
     ([2], [5, 6, 7]),
 ])
 def test_filter_fixation_trains(fixation_trains, scanpath_indices, fixation_indices):
-    sub_fixations = fixation_trains.filter_fixation_trains(scanpath_indices)
+    sub_fixations = fixation_trains.filter_scanpaths(scanpath_indices)
 
     assert_variable_length_array_equal(
         sub_fixations.train_xs,

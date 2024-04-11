@@ -131,7 +131,7 @@ def test_create_subset_scanpath_fixations(file_stimuli_with_attributes, scanpath
 def test_create_subset_fixation_trains(file_stimuli_with_attributes, fixation_trains, stimulus_indices, scanpath_indices, fixation_indices):
     sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixation_trains, stimulus_indices)
 
-    expected_sub_fixations= fixation_trains.filter_fixation_trains(scanpath_indices).copy()
+    expected_sub_fixations= fixation_trains.filter_scanpaths(scanpath_indices).copy()
     expected_sub_fixations.scanpaths.n = sub_fixations.scanpaths.n
     expected_sub_fixations.n = sub_fixations.n
 

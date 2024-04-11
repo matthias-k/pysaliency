@@ -4,7 +4,7 @@ import numpy as np
 
 from boltons.iterutils import chunked
 
-from .datasets import create_subset, FixationTrains, Fixations, Stimuli
+from .datasets import create_subset, FixationTrains, Fixations, Stimuli, ScanpathFixations
 
 
 def train_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True, stratified_attributes=None):
@@ -234,17 +234,17 @@ def filter_stimuli_by_size(stimuli, fixations, size=None, sizes=None):
     return create_subset(stimuli, fixations, indices)
 
 
-def filter_scanpaths_by_attribute(scanpaths:  FixationTrains, attribute_name, attribute_value, invert_match=False):
-    """Filter Scanpaths by values of scanpath attribute (fixation_trains.scanpath_attributes)"""
+def filter_scanpaths_by_attribute(scanpaths: ScanpathFixations, attribute_name, attribute_value, invert_match=False):
+    """Filter Scanpaths by values of scanpath attribute (fixation_trains.scanpaths.scanpath_attributes)"""
 
-    mask = scanpaths.scanpath_attributes[attribute_name] == attribute_value
+    mask = scanpaths.scanpaths.scanpath_attributes[attribute_name] == attribute_value
     if mask.ndim > 1:
         mask = np.all(mask, axis=1)
 
     if invert_match is True:
         mask = ~mask
 
-    return scanpaths.filter_fixation_trains(mask)
+    return scanpaths.filter_scanpaths(mask)
 
 
 def filter_fixations_by_attribute(fixations: Fixations, attribute_name, attribute_value, invert_match=False):
@@ -280,20 +280,20 @@ def filter_stimuli_by_attribute(stimuli: Stimuli, fixations: Fixations, attribut
     return create_subset(stimuli, fixations, indices)
 
 
-def filter_scanpaths_by_length(scanpaths: FixationTrains, intervals: list):
+def filter_scanpaths_by_length(scanpath_fixations: ScanpathFixations, intervals: list):
     """Filter Scanpaths by number of fixations"""
 
     intervals = _check_intervals(intervals, type=int)
-    mask = np.zeros(len(scanpaths.train_lengths), dtype=bool)
+    mask = np.zeros(len(scanpath_fixations.scanpaths), dtype=bool)
     for start, end in intervals:
         temp_mask = np.logical_and(
-            scanpaths.train_lengths >= start, scanpaths.train_lengths < end)
+            scanpath_fixations.scanpaths.length >= start, scanpath_fixations.scanpaths.length < end)
         mask = np.logical_or(mask, temp_mask)
     indices = list(np.nonzero(mask)[0])
 
-    scanpaths = scanpaths.filter_fixation_trains(indices)
+    scanpath_fixations = scanpath_fixations.filter_scanpaths(indices)
 
-    return scanpaths
+    return scanpath_fixations
 
 
 def remove_stimuli_without_fixations(stimuli: Stimuli, fixations: Fixations):

@@ -33,7 +33,7 @@ class Scanpaths(object):
                  length=None,
                  scanpath_attributes: Optional[Dict[str, np.ndarray]] = None,
                  fixation_attributes: Optional[Dict[str, Union[np.ndarray, VariableLengthArray]]]=None,
-                 attribute_mapping=Dict[str, str],
+                 attribute_mapping: Optional[Dict[str, str]] = None,
                  **kwargs):
 
         self.n = np.asarray(n)
@@ -57,6 +57,7 @@ class Scanpaths(object):
         scanpath_attributes = scanpath_attributes or {}
         fixation_attributes = fixation_attributes or {}
         self.attribute_mapping = attribute_mapping or {}
+        self.attribute_mapping = dict(self.attribute_mapping)
 
 
         for key, value in kwargs.items():

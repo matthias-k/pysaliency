@@ -57,7 +57,7 @@ class GaussianDensityModel(pysaliency.Model):
 
 
 @pytest.fixture
-def fixation_trains():
+def scanpath_fixations():
     xs_trains = [
         [0, 1, 2],
         [2, 2],
@@ -72,7 +72,7 @@ def fixation_trains():
         [50, 500, 900]]
     ns = [0, 0, 1]
     subjects = [0, 1, 1]
-    return pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+    return pysaliency.ScanpathFixations(pysaliency.Scanpaths(xs_trains, ys_trains, ts=ts_trains, n=ns, subject=subjects))
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ def stimuli():
 
 
 @pytest.fixture
-def more_fixation_trains():
+def more_scanpath_fixations():
     xs_trains = [
         [0, 1, 2],
         [2, 2],
@@ -100,7 +100,7 @@ def more_fixation_trains():
         [0, 1, 2, 3]]
     ns = [0, 0, 1, 2]
     subjects = [0, 1, 1, 0]
-    return pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+    return pysaliency.ScanpathFixations(pysaliency.Scanpaths(xs_trains, ys_trains, ts=ts_trains, n=ns, subject=subjects))
 
 
 @pytest.fixture
@@ -110,162 +110,162 @@ def more_stimuli():
                                np.random.randn(100, 200, 3)])
 
 
-def test_auc_constant(stimuli, fixation_trains):
+def test_auc_constant(stimuli, scanpath_fixations):
     csmm = ConstantSaliencyMapModel()
 
-    aucs = csmm.AUCs(stimuli, fixation_trains, nonfixations='uniform')
-    np.testing.assert_allclose(aucs, np.ones(len(fixation_trains.x))*0.5)
+    aucs = csmm.AUCs(stimuli, scanpath_fixations, nonfixations='uniform')
+    np.testing.assert_allclose(aucs, np.ones(len(scanpath_fixations.x))*0.5)
 
-    aucs = csmm.AUCs(stimuli, fixation_trains, nonfixations='shuffled')
-    np.testing.assert_allclose(aucs, np.ones(len(fixation_trains.x))*0.5)
+    aucs = csmm.AUCs(stimuli, scanpath_fixations, nonfixations='shuffled')
+    np.testing.assert_allclose(aucs, np.ones(len(scanpath_fixations.x))*0.5)
 
-    aucs = csmm.sAUCs(stimuli, fixation_trains)
-    np.testing.assert_allclose(aucs, np.ones(len(fixation_trains.x))*0.5)
+    aucs = csmm.sAUCs(stimuli, scanpath_fixations)
+    np.testing.assert_allclose(aucs, np.ones(len(scanpath_fixations.x))*0.5)
 
-    auc = csmm.AUC(stimuli, fixation_trains, nonfixations=fixation_trains)
+    auc = csmm.AUC(stimuli, scanpath_fixations, nonfixations=scanpath_fixations)
     np.testing.assert_allclose(auc, 0.5)
 
 
-def test_auc_gauss(stimuli, fixation_trains):
+def test_auc_gauss(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
 
-    aucs = gsmm.AUCs(stimuli, fixation_trains, nonfixations='uniform')
+    aucs = gsmm.AUCs(stimuli, scanpath_fixations, nonfixations='uniform')
     np.testing.assert_allclose(aucs, [0.099375,  0.158125,  0.241875,  0.241875,
                                       0.241875,  0.291875, 0.509375,  0.138125],
                                rtol=1e-6)
 
-    aucs = gsmm.AUCs(stimuli, fixation_trains, nonfixations='unfixated')
+    aucs = gsmm.AUCs(stimuli, scanpath_fixations, nonfixations='unfixated')
     np.testing.assert_allclose(aucs, [0.099248591108, 0.157482780213, 0.240763932373, 0.240763932373,
                                       0.240763932373, 0.291484032561, 0.50876643707,  0.138071383845],
                                rtol=1e-6)
 
-    aucs = gsmm.AUCs(stimuli, fixation_trains, nonfixations='shuffled')
+    aucs = gsmm.AUCs(stimuli, scanpath_fixations, nonfixations='shuffled')
     np.testing.assert_allclose(aucs, [0.0,         0.33333333,  0.33333333,  0.33333333,
                                       0.33333333,  1.,          1.,          0.2],
                                rtol=1e-6)
 
-    aucs = gsmm.sAUCs(stimuli, fixation_trains)
+    aucs = gsmm.sAUCs(stimuli, scanpath_fixations)
     np.testing.assert_allclose(aucs, [0.0,         0.33333333,  0.33333333,  0.33333333,
                                       0.33333333,  1.,          1.,          0.2],
                                rtol=1e-6)
 
-    auc = gsmm.AUC(stimuli, fixation_trains, nonfixations=fixation_trains)
+    auc = gsmm.AUC(stimuli, scanpath_fixations, nonfixations=scanpath_fixations)
     np.testing.assert_allclose(auc, 0.5)
 
-    auc = gsmm.AUC(stimuli, fixation_trains)
+    auc = gsmm.AUC(stimuli, scanpath_fixations)
     np.testing.assert_allclose(auc, 0.2403125)
 
-    auc = gsmm.AUC(stimuli, fixation_trains, average='image')
+    auc = gsmm.AUC(stimuli, scanpath_fixations, average='image')
     np.testing.assert_allclose(auc, 0.254875)
 
-    auc = pysaliency.saliency_map_models.ScanpathSaliencyMapModel.AUC(gsmm, stimuli, fixation_trains)
+    auc = pysaliency.saliency_map_models.ScanpathSaliencyMapModel.AUC(gsmm, stimuli, scanpath_fixations)
     np.testing.assert_allclose(auc, 0.2403125)
 
-    auc = pysaliency.saliency_map_models.ScanpathSaliencyMapModel.AUC(gsmm, stimuli, fixation_trains, average='image')
+    auc = pysaliency.saliency_map_models.ScanpathSaliencyMapModel.AUC(gsmm, stimuli, scanpath_fixations, average='image')
     np.testing.assert_allclose(auc, 0.254875)
 
-    auc = gsmm.AUC(stimuli, fixation_trains, nonfixations='unfixated')
+    auc = gsmm.AUC(stimuli, scanpath_fixations, nonfixations='unfixated')
     np.testing.assert_allclose(auc, 0.2396681277395116)
 
-    auc = gsmm.AUC(stimuli, fixation_trains, nonfixations='unfixated', thresholds='fixations')
+    auc = gsmm.AUC(stimuli, scanpath_fixations, nonfixations='unfixated', thresholds='fixations')
     np.testing.assert_allclose(auc, 0.44286161552911707)
 
-    auc = gsmm.AUC(stimuli, fixation_trains, nonfixations='unfixated', thresholds='fixations', average='image')
+    auc = gsmm.AUC(stimuli, scanpath_fixations, nonfixations='unfixated', thresholds='fixations', average='image')
     np.testing.assert_allclose(auc, 0.44504278856188684)
 
-    auc = gsmm.AUC_Judd(stimuli, fixation_trains, jitter=False)
+    auc = gsmm.AUC_Judd(stimuli, scanpath_fixations, jitter=False)
     np.testing.assert_allclose(auc, 0.44504278856188684)
 
-    auc = gsmm.AUC_Judd(stimuli, fixation_trains)
+    auc = gsmm.AUC_Judd(stimuli, scanpath_fixations)
     np.testing.assert_allclose(auc, 0.44674389480275517)
 
-    aucs_single = pysaliency.ScanpathSaliencyMapModel.AUCs(gsmm, stimuli, fixation_trains)
-    aucs_combined = gsmm.AUCs(stimuli, fixation_trains, nonfixations='uniform')
+    aucs_single = pysaliency.ScanpathSaliencyMapModel.AUCs(gsmm, stimuli, scanpath_fixations)
+    aucs_combined = gsmm.AUCs(stimuli, scanpath_fixations, nonfixations='uniform')
     np.testing.assert_allclose(aucs_single, aucs_combined)
 
 
-def test_auc_per_image(stimuli, fixation_trains):
+def test_auc_per_image(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
 
-    aucs = gsmm.AUC_per_image(stimuli, fixation_trains)
+    aucs = gsmm.AUC_per_image(stimuli, scanpath_fixations)
     np.testing.assert_allclose(aucs,
                                [0.196625, 0.313125],
                                rtol=1e-6)
 
 
-def test_auc_per_image_images_without_fixations(stimuli, fixation_trains):
+def test_auc_per_image_images_without_fixations(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
 
-    aucs = gsmm.AUC_per_image(stimuli, fixation_trains[:5],)
+    aucs = gsmm.AUC_per_image(stimuli, scanpath_fixations[:5],)
     np.testing.assert_allclose(aucs,
                                [0.196625, np.nan],
                                rtol=1e-6)
 
 
-def test_auc_image_average_with_images_without_fixations(stimuli, fixation_trains):
+def test_auc_image_average_with_images_without_fixations(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
 
-    auc = gsmm.AUC(stimuli, fixation_trains[:5], average='image')
+    auc = gsmm.AUC(stimuli, scanpath_fixations[:5], average='image')
     np.testing.assert_allclose(auc, 0.196625, rtol=1e-6)
 
 
-def test_nss_gauss(stimuli, fixation_trains):
+def test_nss_gauss(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
 
-    nsss = gsmm.NSSs(stimuli, fixation_trains)
+    nsss = gsmm.NSSs(stimuli, scanpath_fixations)
     np.testing.assert_allclose(
         nsss,
         [-0.821596006113, -0.789526121554, -0.740616174533, -0.740616174533,
          -0.740616174533, -0.707322347863, -0.433094498355, -0.800070419267],
         rtol=1e-6)
 
-    nsss = pysaliency.ScanpathSaliencyMapModel.NSSs(gsmm, stimuli, fixation_trains)
+    nsss = pysaliency.ScanpathSaliencyMapModel.NSSs(gsmm, stimuli, scanpath_fixations)
     np.testing.assert_allclose(
         nsss,
         [-0.821596006113, -0.789526121554, -0.740616174533, -0.740616174533,
          -0.740616174533, -0.707322347863, -0.433094498355, -0.800070419267],
         rtol=1e-6)
 
-    nss = gsmm.NSS(stimuli, fixation_trains)
+    nss = gsmm.NSS(stimuli, scanpath_fixations)
     np.testing.assert_allclose(nss, -0.721682239593952)
 
-    nss = gsmm.NSS(stimuli, fixation_trains, average='image')
+    nss = gsmm.NSS(stimuli, scanpath_fixations, average='image')
     np.testing.assert_allclose(nss, -0.706711609374163)
 
 
-def test_nss_uniform(stimuli, fixation_trains):
+def test_nss_uniform(stimuli, scanpath_fixations):
     gsmm = ConstantSaliencyMapModel()
 
-    nsss = gsmm.NSSs(stimuli, fixation_trains)
+    nsss = gsmm.NSSs(stimuli, scanpath_fixations)
     np.testing.assert_allclose(
         nsss,
         [0, 0, 0, 0, 0, 0, 0, 0],
         rtol=1e-6)
 
-    nss = gsmm.NSS(stimuli, fixation_trains)
+    nss = gsmm.NSS(stimuli, scanpath_fixations)
     np.testing.assert_allclose(nss, 0)
 
-    nss = gsmm.NSS(stimuli, fixation_trains, average='image')
+    nss = gsmm.NSS(stimuli, scanpath_fixations, average='image')
     np.testing.assert_allclose(nss, 0)
 
 
-def test_cc_constant(stimuli, fixation_trains):
+def test_cc_constant(stimuli, scanpath_fixations):
     model = ConstantSaliencyMapModel()
-    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size=10, ignore_doublicates=True)
+    gold = pysaliency.FixationMap(stimuli, scanpath_fixations, kernel_size=10, ignore_doublicates=True)
 
     cc = model.CC(stimuli, gold)
     np.testing.assert_allclose(cc, 0)
 
 
-def test_cc_gauss(stimuli, fixation_trains):
+def test_cc_gauss(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
-    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size=10, ignore_doublicates=True)
+    gold = pysaliency.FixationMap(stimuli, scanpath_fixations, kernel_size=10, ignore_doublicates=True)
 
     cc = gsmm.CC(stimuli, gold)
     np.testing.assert_allclose(cc, -0.1542654)
 
 
-def test_SIM_gauss(stimuli, fixation_trains):
+def test_SIM_gauss(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
 
     constant_gold = ConstantSaliencyMapModel()
@@ -276,53 +276,53 @@ def test_SIM_gauss(stimuli, fixation_trains):
     sim = gsmm.SIM(stimuli, constant_gold)
     np.testing.assert_allclose(sim, 0.54392, rtol=1e-6)
 
-    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size = 10, ignore_doublicates=True)
+    gold = pysaliency.FixationMap(stimuli, scanpath_fixations, kernel_size = 10, ignore_doublicates=True)
     sim = gsmm.SIM(stimuli, gold)
     np.testing.assert_allclose(sim, 0.315899, rtol=1e-6)
 
 
-def test_fixation_based_kldiv_constant(stimuli, fixation_trains):
+def test_fixation_based_kldiv_constant(stimuli, scanpath_fixations):
     csmm = ConstantSaliencyMapModel()
 
-    fb_kl = csmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='uniform')
+    fb_kl = csmm.fixation_based_KL_divergence(stimuli, scanpath_fixations, nonfixations='uniform')
     np.testing.assert_allclose(fb_kl, 0.0)
 
-    fb_kl = csmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='shuffled')
+    fb_kl = csmm.fixation_based_KL_divergence(stimuli, scanpath_fixations, nonfixations='shuffled')
     np.testing.assert_allclose(fb_kl, 0.0)
 
-    fb_kl = csmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations=fixation_trains)
+    fb_kl = csmm.fixation_based_KL_divergence(stimuli, scanpath_fixations, nonfixations=scanpath_fixations)
     np.testing.assert_allclose(fb_kl, 0.0)
 
 
-def test_fixation_based_kldiv_gauss(stimuli, fixation_trains):
+def test_fixation_based_kldiv_gauss(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
 
-    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='uniform')
+    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, scanpath_fixations, nonfixations='uniform')
     np.testing.assert_allclose(fb_kl, 0.4787711930295902)
 
-    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='shuffled')
+    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, scanpath_fixations, nonfixations='shuffled')
     np.testing.assert_allclose(fb_kl, 0.0)
 
-    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations=fixation_trains)
+    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, scanpath_fixations, nonfixations=scanpath_fixations)
     np.testing.assert_allclose(fb_kl, 0.0)
 
 
-def test_fixation_based_kldiv_mixed(stimuli, fixation_trains):
+def test_fixation_based_kldiv_mixed(stimuli, scanpath_fixations):
     gsmm = MixedSaliencyMapModel()
 
-    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='uniform')
+    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, scanpath_fixations, nonfixations='uniform')
     np.testing.assert_allclose(fb_kl, 0.19700844437943388)
 
-    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations='shuffled')
+    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, scanpath_fixations, nonfixations='shuffled')
     np.testing.assert_allclose(fb_kl, 5.874655219107867)
 
-    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, fixation_trains, nonfixations=fixation_trains)
+    fb_kl = gsmm.fixation_based_KL_divergence(stimuli, scanpath_fixations, nonfixations=scanpath_fixations)
     np.testing.assert_allclose(fb_kl, 0.0)
 
 
-def test_image_based_kldiv_gauss(stimuli, fixation_trains):
+def test_image_based_kldiv_gauss(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
-    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size = 10, ignore_doublicates=True)
+    gold = pysaliency.FixationMap(stimuli, scanpath_fixations, kernel_size = 10, ignore_doublicates=True)
 
     ib_kl = gsmm.image_based_kl_divergence(stimuli, gsmm)
     np.testing.assert_allclose(ib_kl, 0.0)
@@ -358,11 +358,11 @@ def test_image_based_kldiv_gauss(stimuli, fixation_trains):
     np.testing.assert_allclose(ib_kl, 0.0)
 
 
-def test_image_based_kldiv_gauss_functions(stimuli, fixation_trains):
+def test_image_based_kldiv_gauss_functions(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyMapModel()
-    gold = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size=10, ignore_doublicates=True)
+    gold = pysaliency.FixationMap(stimuli, scanpath_fixations, kernel_size=10, ignore_doublicates=True)
 
-    stimuli, fixation_trains = pysaliency.create_subset(stimuli, fixation_trains, [0])
+    stimuli, scanpath_fixations = pysaliency.create_subset(stimuli, scanpath_fixations, [0])
     saliency_map_1 = gsmm.saliency_map(stimuli[0])
     saliency_map_2 = gold.saliency_map(stimuli[0])
 
@@ -400,12 +400,12 @@ def test_image_based_kldiv_gauss_functions(stimuli, fixation_trains):
     np.testing.assert_allclose(value1, value2)
 
 
-def test_shuffled_nonfixation_provider(more_stimuli, more_fixation_trains):
+def test_shuffled_nonfixation_provider(more_stimuli, more_scanpath_fixations):
     from pysaliency.saliency_map_models import FullShuffledNonfixationProvider
-    prov = FullShuffledNonfixationProvider(more_stimuli, more_fixation_trains)
+    prov = FullShuffledNonfixationProvider(more_stimuli, more_scanpath_fixations)
 
-    xs, ys = prov(more_stimuli, more_fixation_trains, 0)
-    assert len(xs) == (more_fixation_trains.n != 0).sum()
+    xs, ys = prov(more_stimuli, more_scanpath_fixations, 0)
+    assert len(xs) == (more_scanpath_fixations.n != 0).sum()
     np.testing.assert_allclose(xs, [1, 10, 3, 1, 1, 8, 1])
     np.testing.assert_allclose(ys, [21, 25, 33, 20, 21, 21, 22])
 
@@ -444,21 +444,21 @@ def test_saliency_map_model_operators():
         np.testing.assert_allclose((m1/m2).saliency_map(s), smap1 / smap2)
 
 
-def test_fixation_map_model(stimuli, fixation_trains):
-    fixation_map = pysaliency.FixationMap(stimuli, fixation_trains)
+def test_fixation_map_model(stimuli, scanpath_fixations):
+    fixation_map = pysaliency.FixationMap(stimuli, scanpath_fixations)
     smap1 = fixation_map.saliency_map(stimuli[0])
 
     assert smap1.min() == 0
     assert smap1.max() == 3
-    assert smap1.sum() == (fixation_trains.n == 0).sum()
+    assert smap1.sum() == (scanpath_fixations.n == 0).sum()
 
-def test_fixation_map_model_ignore_doublicates(stimuli, fixation_trains):
-    fixation_map = pysaliency.FixationMap(stimuli, fixation_trains, ignore_doublicates=True)
+def test_fixation_map_model_ignore_doublicates(stimuli, scanpath_fixations):
+    fixation_map = pysaliency.FixationMap(stimuli, scanpath_fixations, ignore_doublicates=True)
     smap1 = fixation_map.saliency_map(stimuli[0])
 
     assert smap1.min() == 0
     assert smap1.max() == 1
-    assert smap1.sum() == (fixation_trains.n == 0).sum() - 2
+    assert smap1.sum() == (scanpath_fixations.n == 0).sum() - 2
 
 
 def test_get_unfixated_values():
@@ -499,28 +499,28 @@ def test_wta_sampling(stimuli):
     np.testing.assert_allclose(ys, 0.5 * stimulus.shape[0], atol=0.6)
 
 
-def test_subject_specific_saliency_map_model(stimuli, fixation_trains):
+def test_subject_specific_saliency_map_model(stimuli, scanpath_fixations):
     one_model = ConstantSaliencyMapModel(value=1.0)
     zero_model = ConstantSaliencyMapModel(value=0.0)
     model = pysaliency.saliency_map_models.SubjectDependentSaliencyMapModel(subject_models={
         0: zero_model,
         1: one_model
     })
-    for i in range(len(fixation_trains.x)):
-        np.testing.assert_allclose(model.conditional_saliency_map_for_fixation(stimuli, fixation_trains, i), fixation_trains.subjects[i])
-    np.testing.assert_allclose(model.AUC(stimuli, fixation_trains), 0.5)
+    for i in range(len(scanpath_fixations.x)):
+        np.testing.assert_allclose(model.conditional_saliency_map_for_fixation(stimuli, scanpath_fixations, i), scanpath_fixations.subject[i])
+    np.testing.assert_allclose(model.AUC(stimuli, scanpath_fixations), 0.5)
 
 
-def test_conditional_saliency_maps(stimuli, fixation_trains):
-    model = pysaliency.FixationMap(stimuli, fixation_trains, kernel_size=10)
+def test_conditional_saliency_maps(stimuli, scanpath_fixations):
+    model = pysaliency.FixationMap(stimuli, scanpath_fixations, kernel_size=10)
 
-    saliency_maps_1 = model.conditional_saliency_maps(stimuli, fixation_trains)
-    saliency_maps_2 = [model.conditional_saliency_map_for_fixation(stimuli, fixation_trains, i) for i in range(len(fixation_trains))]
+    saliency_maps_1 = model.conditional_saliency_maps(stimuli, scanpath_fixations)
+    saliency_maps_2 = [model.conditional_saliency_map_for_fixation(stimuli, scanpath_fixations, i) for i in range(len(scanpath_fixations))]
 
     np.testing.assert_allclose(saliency_maps_1, saliency_maps_2)
 
 
-def test_stimulus_dependent_saliency_map_model(stimuli, fixation_trains):
+def test_stimulus_dependent_saliency_map_model(stimuli, scanpath_fixations):
     # Create stimulus models
     stimulus_model_1 = ConstantSaliencyMapModel(value=0.5)
     stimulus_model_2 = GaussianSaliencyMapModel()

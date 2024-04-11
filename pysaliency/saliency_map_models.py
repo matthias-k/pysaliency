@@ -956,12 +956,12 @@ class SubjectDependentSaliencyMapModel(DisjointUnionSaliencyMapModel):
 
     def _split_fixations(self, stimuli, fixations):
         for s in self.subject_models:
-            yield fixations.subjects == s, self.subject_models[s]
+            yield fixations.subject == s, self.subject_models[s]
 
     def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None, **kwargs):
-        if 'subjects' not in attributes:
+        if 'subject' not in attributes:
             raise ValueError("SubjectDependentSaliencyModel can't compute conditional saliency maps without subject indication!")
-        return self.subject_models[attributes['subjects']].conditional_saliency_map(
+        return self.subject_models[attributes['subject']].conditional_saliency_map(
             stimulus, x_hist, y_hist, t_hist, attributes=attributes, **kwargs)
 
 
