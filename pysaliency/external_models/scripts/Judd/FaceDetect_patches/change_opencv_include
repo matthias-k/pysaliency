@@ -1,0 +1,13 @@
+Index: FaceDetect/src/FaceDetect.cpp
+===================================================================
+--- FaceDetect.orig/src/FaceDetect.cpp	2008-05-15 12:09:24.000000000 +0200
++++ FaceDetect/src/FaceDetect.cpp	2013-08-19 15:00:33.552389407 +0200
+@@ -23,7 +23,7 @@
+ #include "mex.h" // Required for the use of MEX files
+ 
+ // Required for OpenCV 
+-#include "cv.h" 
++#include "opencv.hpp" 
+ 
+ static CvMemStorage* storage = 0;
+ static CvHaarClassifierCascade* cascade = 0;

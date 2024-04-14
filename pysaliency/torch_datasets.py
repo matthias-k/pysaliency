@@ -73,9 +73,9 @@ class ImageDataset(torch.utils.data.Dataset):
             predictions = {}
             for model_name, model in self.models.items():
                 if isinstance(model, Model):
-                    prediction = model.log_density(image)
+                    prediction = np.asarray(model.log_density(image))
                 elif isinstance(model, SaliencyMapModel):
-                    prediction = model.saliency_map(image)
+                    prediction = np.asarray(model.saliency_map(image))
                 predictions[model_name] = prediction
 
             image = ensure_color_image(image).astype(np.float32)

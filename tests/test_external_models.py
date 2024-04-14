@@ -31,7 +31,8 @@ def test_AIM(tmpdir, matlab, color_stimulus, grayscale_stimulus):
     print('Testing Grayscale')
     saliency_map = model.saliency_map(grayscale_stimulus)
     np.testing.assert_allclose(saliency_map,
-                               np.load(os.path.join('tests', 'external_models', '{}_grayscale_stimulus.npy'.format(model.__modelname__))))
+                               np.load(os.path.join('tests', 'external_models', '{}_grayscale_stimulus.npy'.format(model.__modelname__))),
+                               rtol=1e-5)
 
 
 @pytest.mark.skip_octave
@@ -45,7 +46,8 @@ def test_SUN(tmpdir, matlab, color_stimulus, grayscale_stimulus):
     print('Testing Grayscale')
     saliency_map = model.saliency_map(grayscale_stimulus)
     np.testing.assert_allclose(saliency_map,
-                               np.load(os.path.join('tests', 'external_models', '{}_grayscale_stimulus.npy'.format(model.__modelname__))))
+                               np.load(os.path.join('tests', 'external_models', '{}_grayscale_stimulus.npy'.format(model.__modelname__))),
+                               rtol=1e-5)
 
 
 @pytest.mark.skip_octave

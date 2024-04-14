@@ -1,13 +1,11 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import pytest
 import numpy as np
+import pytest
+from sklearn.model_selection import cross_val_score
 
 import pysaliency
-from pysaliency.baseline_utils import ScikitLearnImageCrossValidationGenerator, ScikitLearnImageSubjectCrossValidationGenerator, \
-    RegularizedKernelDensityEstimator, fixations_to_scikit_learn
-
-from sklearn.model_selection import cross_val_score
+from pysaliency.baseline_utils import RegularizedKernelDensityEstimator, ScikitLearnImageCrossValidationGenerator, ScikitLearnImageSubjectCrossValidationGenerator, fixations_to_scikit_learn
 
 
 class ConstantSaliencyModel(pysaliency.Model):
@@ -94,12 +92,10 @@ def test_image_subject_crossvalidation(stimuli, fixation_trains):
     cv = ScikitLearnImageSubjectCrossValidationGenerator(stimuli, fixation_trains)
 
     assert unpack_crossval(cv) == [
-        ([False, False, False, True, True, False, False, False, False],
-         [True, True, True, False, False, False, False, False, False]),
-        ([True, True, True, False, False, False, False, False, False],
-         [False, False, False, True, True, False, False, False, False])
+        ([3, 4], [0, 1, 2]),
+        ([0, 1, 2], [3, 4])
     ]
-    
+
     X = fixations_to_scikit_learn(fixation_trains, normalize=stimuli, add_shape=True)
 
     assert cross_val_score(

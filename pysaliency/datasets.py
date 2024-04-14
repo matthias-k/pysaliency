@@ -2,27 +2,33 @@
 #kate: space-indent on; indent-width 4; backspace-indents on;
 from __future__ import absolute_import, print_function, division, unicode_literals
 
-import os
-from hashlib import sha1
 from collections.abc import Sequence
-import json
 from functools import wraps
+from hashlib import sha1
+import json
+import os
+import pathlib
+from typing import Union
+import warnings
 from weakref import WeakValueDictionary
 
 from boltons.cacheutils import cached
 import numpy as np
-from imageio import imread
+try:
+    from imageio.v3 import imread
+except ImportError:
+    from imageio import imread
 from PIL import Image
 from tqdm import tqdm
 
-from .utils import LazyList, build_padded_2d_array
+from .utils import LazyList, build_padded_2d_array, remove_trailing_nans
 
 
 def hdf5_wrapper(mode=None):
     def decorator(f):
         @wraps(f)
         def wrapped(self, target, *args, **kwargs):
-            if isinstance(target, str):
+            if isinstance(target, (str, pathlib.Path)):
                 import h5py
                 with h5py.File(target, mode) as hdf5_file:
                     return f(self, hdf5_file, *args, **kwargs)
@@ -61,7 +67,7 @@ def _split_crossval(fixations, part, partcount):
 
 
 def read_hdf5(source):
-    if isinstance(source, str):
+    if isinstance(source, (str, pathlib.Path)):
         return _read_hdf5_from_file(source)
 
     data_type = decode_string(source.attrs['type'])
@@ -137,7 +143,7 @@ class Fixations(object):
         t = np.asarray(t)
         n = np.asarray(n)
         x_hist = np.asarray(x_hist)
-        t_hist = np.asarray(y_hist)
+        y_hist = np.asarray(y_hist)
         t_hist = np.asarray(t_hist)
         subjects = np.asarray(subjects)
 
@@ -154,8 +160,8 @@ class Fixations(object):
         if attributes is not None:
             self.__attributes__ = list(self.__attributes__)
             for name, value in attributes.items():
-                if key not in self.__attributes__:
-                    self.__attributes__.append(key)
+                if name not in self.__attributes__:
+                    self.__attributes__.append(name)
                 setattr(self, name, value)
 
     @classmethod
@@ -204,6 +210,25 @@ class Fixations(object):
         y = np.hstack(ys).astype(float)
         n = np.hstack(ns)
         return cls.create_without_history(x, y, n)
+
+    @classmethod
+    def concatenate(cls, fixations):
+        kwargs = {}
+        for key in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']:
+            kwargs[key] = concatenate_attributes(getattr(f, key) for f in fixations)
+
+        attributes = _get_merged_attribute_list([f.__attributes__ for f in fixations])
+        attribute_dict = {}
+        for key in attributes:
+            if key == 'subjects':
+                continue
+            attribute_dict[key] = concatenate_attributes(getattr(f, key) for f in fixations)
+
+        kwargs['attributes'] = attribute_dict
+
+        new_fixations = cls(**kwargs)
+
+        return new_fixations
 
     def __getitem__(self, indices):
         return self.filter(indices)
@@ -373,8 +398,17 @@ class FixationTrains(Fixations):
         train_ns: 1d array (number_of_trains)
         train_subjects: 1d array (number_of_trains)
 
+    scanpath_attributes: dictionary of attributes applying to full scanpaths, e.g. task
+            {attribute_name: $NUM_SCANPATHS-length-list}
+            scanpath attributes will automatically also become attributes
+    scanpath_fixation_attribute: dictionary of attributes applying to fixations in the scanpath, e.g. duration
+            {attribute_name: $NUM_SCANPATH x $NUM_FIXATIONS_IN_SCANPATH}
+            scanpath fixation attributes will generate two attributes: the value for each fixation
+            and the history for previous fixations. E.g. a scanpath fixation attribute "durations" will generate
+            an attribute "durations" and an attribute "durations_hist"
+
     """
-    def __init__(self, train_xs, train_ys, train_ts, train_ns, train_subjects, scanpath_attributes=None, attributes=None):
+    def __init__(self, train_xs, train_ys, train_ts, train_ns, train_subjects, scanpath_attributes=None, scanpath_fixation_attributes=None, attributes=None, scanpath_attribute_mapping=None):
         self.__attributes__ = list(self.__attributes__)
         self.__attributes__.append('scanpath_index')
         self.train_xs = train_xs
@@ -384,6 +418,26 @@ class FixationTrains(Fixations):
         self.train_subjects = train_subjects
         N_trains = self.train_xs.shape[0] * self.train_xs.shape[1] - np.isnan(self.train_xs).sum()
         max_length_trains = self.train_xs.shape[1]
+
+        if scanpath_attributes is not None:
+            assert isinstance(scanpath_attributes, dict)
+            self.scanpath_attributes = {key: np.array(value) for key, value in scanpath_attributes.items()}
+            for key, value in self.scanpath_attributes.items():
+                assert len(value) == len(self.train_xs)
+        else:
+            self.scanpath_attributes = {}
+
+        if scanpath_fixation_attributes is not None:
+            assert isinstance(scanpath_fixation_attributes, dict)
+            self.scanpath_fixation_attributes = {key: np.array(value) for key, value in scanpath_fixation_attributes.items()}
+            for key, value in self.scanpath_fixation_attributes.items():
+                assert len(value) == len(self.train_xs)
+        else:
+            self.scanpath_fixation_attributes = {}
+
+        self.scanpath_attribute_mapping = scanpath_attribute_mapping or {}
+
+
 
         # Create conditional fixations
         self.x = np.empty(N_trains)
@@ -397,11 +451,16 @@ class FixationTrains(Fixations):
         self.t_hist[:] = np.nan
         self.n = np.empty(N_trains, dtype=int)
         self.lengths = np.empty(N_trains, dtype=int)
+        self.train_lengths = np.empty(len(self.train_xs), dtype=int)
         self.subjects = np.empty(N_trains, dtype=int)
         self.scanpath_index = np.empty(N_trains, dtype=int)
+
         out_index = 0
+        # TODO: maybe implement in numba?
+        # probably best: have function fill_fixation_data(scanpath_data, fixation_data, hist_data=None)
         for train_index in range(self.train_xs.shape[0]):
-            fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
+            fix_length = len(remove_trailing_nans(self.train_xs[train_index]))
+            self.train_lengths[train_index] = fix_length
             for fix_index in range(fix_length):
                 self.x[out_index] = self.train_xs[train_index][fix_index]
                 self.y[out_index] = self.train_ys[train_index][fix_index]
@@ -415,11 +474,50 @@ class FixationTrains(Fixations):
                 self.t_hist[out_index][:fix_index] = self.train_ts[train_index][:fix_index]
                 out_index += 1
 
-        if scanpath_attributes is not None:
-            assert isinstance(scanpath_attributes, dict)
-            self.scanpath_attributes = {key: np.array(value) for key, value in scanpath_attributes.items()}
-        else:
-            self.scanpath_attributes = {}
+
+        if attributes is None:
+            attributes = {}
+        elif attributes:
+            warnings.warn("don't use attributes for FixationTrains, use scanpath_attributes or scanpath_fixation_attributes instead!", stacklevel=2)
+
+        self.auto_attributes = []
+
+        for attribute_name, value in self.scanpath_attributes.items():
+            new_attribute_name = self.scanpath_attribute_mapping.get(attribute_name, attribute_name)
+            if new_attribute_name in attributes:
+                raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
+            attribute_shape = [] if not value.any() else np.asarray(value[0]).shape
+            attributes[new_attribute_name] = np.empty([N_trains] + list(attribute_shape), dtype=value.dtype)
+            self.auto_attributes.append(new_attribute_name)
+
+            out_index = 0
+            for train_index in range(self.train_xs.shape[0]):
+                fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
+                for fix_index in range(fix_length):
+                    attributes[new_attribute_name][out_index] = self.scanpath_attributes[attribute_name][train_index]
+                    out_index += 1
+
+
+        for attribute_name, value in self.scanpath_fixation_attributes.items():
+            new_attribute_name = self.scanpath_attribute_mapping.get(attribute_name, attribute_name)
+            if new_attribute_name in attributes:
+                raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
+            attributes[new_attribute_name] = np.empty(N_trains)
+            self.auto_attributes.append(new_attribute_name)
+
+            hist_attribute_name = new_attribute_name + '_hist'
+            if hist_attribute_name in attributes:
+                raise ValueError("attribute name clash: {hist_attribute_name}".format(hist_attribute_name=hist_attribute_name))
+            attributes[hist_attribute_name] = np.full_like(self.x_hist, fill_value=np.nan)
+            self.auto_attributes.append(hist_attribute_name)
+
+            out_index = 0
+            for train_index in range(self.train_xs.shape[0]):
+                fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
+                for fix_index in range(fix_length):
+                    attributes[new_attribute_name][out_index] = self.scanpath_fixation_attributes[attribute_name][train_index, fix_index]
+                    attributes[hist_attribute_name][out_index][:fix_index] = self.scanpath_fixation_attributes[attribute_name][train_index, :fix_index]
+                    out_index += 1
 
         if attributes:
             self.__attributes__ = list(self.__attributes__)
@@ -434,10 +532,89 @@ class FixationTrains(Fixations):
         self.full_nonfixations = None
 
 
+    @classmethod
+    def concatenate(cls, fixation_trains):
+        kwargs = {}
+
+        for key in ['train_xs', 'train_ys', 'train_ts', 'train_ns', 'train_subjects']:
+            kwargs[key] = concatenate_attributes(getattr(f, key) for f in fixation_trains)
+
+        def _real_attributes(scanpaths: FixationTrains):
+            return [attribute_name for attribute_name in scanpaths.__attributes__ if attribute_name not in scanpaths.auto_attributes + ['scanpath_index']]
+
+        def _mapped_attribute_name(attribute_name: str, scanpaths: FixationTrains):
+            names = [s.scanpath_attribute_mapping.get(attribute_name) for s in scanpaths]
+            if len(set(names)) > 1:
+                raise ValueError(f"inconsistent attribute name mappings for '{attribute_name}': {names}")
+
+            return names[0]
+
+        attributes = _get_merged_attribute_list([_real_attributes(f) for f in fixation_trains])
+        attribute_dict = {}
+        for key in attributes:
+            if key == 'subjects':
+                continue
+            attribute_dict[key] = concatenate_attributes(getattr(f, key) for f in fixation_trains)
+
+        kwargs['attributes'] = attribute_dict
+
+        scanpath_attribute_names = _get_merged_attribute_list([list(f.scanpath_attributes) for f in fixation_trains])
+
+        kwargs['scanpath_attributes'] = {}
+        kwargs['scanpath_attribute_mapping'] = {}
+        for name in scanpath_attribute_names:
+            kwargs['scanpath_attributes'][name] = concatenate_attributes(f.scanpath_attributes[name] for f in fixation_trains)
+            mapped_name = _mapped_attribute_name(name, fixation_trains)
+            if mapped_name is not None:
+                kwargs['scanpath_attribute_mapping'][name] = mapped_name
+
+        scanpath_fixation_attribute_names = _get_merged_attribute_list([list(f.scanpath_fixation_attributes) for f in fixation_trains])
+
+        kwargs['scanpath_fixation_attributes'] = {}
+        for name in scanpath_fixation_attribute_names:
+            kwargs['scanpath_fixation_attributes'][name] = concatenate_attributes(f.scanpath_fixation_attributes[name] for f in fixation_trains)
+            mapped_name = _mapped_attribute_name(name, fixation_trains)
+            if mapped_name is not None:
+                kwargs['scanpath_attribute_mapping'][name] = mapped_name
+
+        new_fixations = cls(**kwargs)
+
+        return new_fixations
+
+
+    def set_scanpath_attribute(self, name, data, fixation_attribute_name=None):
+        """Sets a scanpath attribute
+        name: name of scanpath attribute
+        data: data of scanpath attribute, has to be of same length as number of scanpaths
+        fixation_attribute: name of automatically generated fixation attribute if it should be different than scanpath attribute name
+        """
+        if not len(data) == len(self.train_xs):
+            raise ValueError(f'Length of scanpath attribute data has to match number of scanpaths: {len(data)} != {len(self.train_xs)}')
+        self.scanpath_attributes[name] = data
+
+        if fixation_attribute_name is not None:
+            self.scanpath_attribute_mapping[name] = fixation_attribute_name
+
+        new_attribute_name = self.scanpath_attribute_mapping.get(name, name)
+        if new_attribute_name in self.attributes and new_attribute_name not in self.auto_attributes:
+            raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
+
+        attribute_shape = np.asarray(data[0]).shape
+        self.attributes[new_attribute_name] = np.empty([len(self.train_xs)] + list(attribute_shape), dtype=data.dtype)
+        if new_attribute_name not in self.auto_attributes:
+            self.auto_attributes.append(new_attribute_name)
+
+        out_index = 0
+        for train_index in range(self.train_xs.shape[0]):
+            fix_length = (1 - np.isnan(self.train_xs[train_index])).sum()
+            for _ in range(fix_length):
+                self.attributes[new_attribute_name][out_index] = self.scanpath_attributes[name][train_index]
+                out_index += 1
+
     def copy(self):
         copied_attributes = {}
         for attribute_name in self.__attributes__:
-            if attribute_name in ['subjects', 'scanpath_index']:
+            if attribute_name in ['subjects', 'scanpath_index'] + self.auto_attributes:
                 continue
             copied_attributes[attribute_name] = getattr(self, attribute_name).copy()
         copied_scanpaths = FixationTrains(
@@ -449,6 +626,10 @@ class FixationTrains(Fixations):
             scanpath_attributes={
                 key: value.copy() for key, value in self.scanpath_attributes.items()
             } if self.scanpath_attributes else None,
+            scanpath_fixation_attributes={
+                key: value.copy() for key, value in self.scanpath_fixation_attributes.items()
+            } if self.scanpath_fixation_attributes else None,
+            scanpath_attribute_mapping=dict(self.scanpath_attribute_mapping),
             attributes=copied_attributes if copied_attributes else None,
         )
         return copied_scanpaths
@@ -463,15 +644,26 @@ class FixationTrains(Fixations):
         train_ns = self.train_ns[indices]
         train_subjects = self.train_subjects[indices]
         scanpath_attributes = {key: np.array(value)[indices] for key, value in self.scanpath_attributes.items()}
+        scanpath_fixation_attributes = {key: np.array(value)[indices] for key, value in self.scanpath_fixation_attributes.items()}
 
         scanpath_indices = np.arange(len(self.train_xs), dtype=int)[indices]
         fixation_indices = np.in1d(self.scanpath_index, scanpath_indices)
 
         attributes = {
-            attribute_name: getattr(self, attribute_name)[fixation_indices] for attribute_name in self.__attributes__ if attribute_name not in ['subjects', 'scanpath_index']
+            attribute_name: getattr(self, attribute_name)[fixation_indices] for attribute_name in self.__attributes__ if attribute_name not in ['subjects', 'scanpath_index'] + self.auto_attributes
         }
 
-        return type(self)(train_xs, train_ys, train_ts, train_ns, train_subjects, attributes=attributes, scanpath_attributes=scanpath_attributes)
+        return type(self)(
+            train_xs,
+            train_ys,
+            train_ts,
+            train_ns,
+            train_subjects,
+            attributes=attributes,
+            scanpath_attributes=scanpath_attributes,
+            scanpath_fixation_attributes=scanpath_fixation_attributes,
+            scanpath_attribute_mapping=dict(self.scanpath_attribute_mapping)
+        )
 
     def fixation_trains(self):
         """Yield for every fixation train of the dataset:
@@ -487,7 +679,7 @@ class FixationTrains(Fixations):
             yield xs, ys, ts, n, subject
 
     @classmethod
-    def from_fixation_trains(cls, xs, ys, ts, ns, subjects, attributes=None, scanpath_attributes=None):
+    def from_fixation_trains(cls, xs, ys, ts, ns, subjects, attributes=None, scanpath_attributes=None, scanpath_fixation_attributes=None, scanpath_attribute_mapping=None):
         """ Create Fixation object from fixation trains.
               - xs, ys, ts: Lists of array_like of double. Each array has to contain
                     the data from one fixation train.
@@ -504,15 +696,34 @@ class FixationTrains(Fixations):
         train_ts[:] = np.nan
         train_ns = np.empty(len(xs), dtype=int)
         train_subjects = np.empty(len(xs), dtype=int)
+
+        padded_scanpath_fixation_attributes = {}
+        if scanpath_fixation_attributes is not None:
+            for key, value in scanpath_fixation_attributes.items():
+                assert len(value) == len(xs)
+                if isinstance(value, list):
+                    padded_scanpath_fixation_attributes[key] = np.full((len(xs), maxlength), fill_value=np.nan, dtype=float)
+
         for i in range(len(train_xs)):
             length = len(xs[i])
             train_xs[i, :length] = xs[i]
             train_ys[i, :length] = ys[i]
             train_ts[i, :length] = ts[i]
-            #print ns[i], train_ns[i]
             train_ns[i] = ns[i]
             train_subjects[i] = subjects[i]
-        return cls(train_xs, train_ys, train_ts, train_ns, train_subjects, attributes=attributes, scanpath_attributes=scanpath_attributes)
+            for attribute_name in padded_scanpath_fixation_attributes.keys():
+                padded_scanpath_fixation_attributes[attribute_name][i, :length] = scanpath_fixation_attributes[attribute_name][i]
+
+        return cls(
+            train_xs,
+            train_ys,
+            train_ts,
+            train_ns,
+            train_subjects,
+            attributes=attributes,
+            scanpath_attributes=scanpath_attributes,
+            scanpath_fixation_attributes=padded_scanpath_fixation_attributes,
+            scanpath_attribute_mapping=scanpath_attribute_mapping)
 
     def generate_crossval(self, splitcount = 10):
         train_xs_training = []
@@ -750,23 +961,32 @@ class FixationTrains(Fixations):
 
     @hdf5_wrapper(mode='w')
     def to_hdf5(self, target):
-        """ Write fixations to hdf5 file or hdf5 group
+        """ Write fixationtrains to hdf5 file or hdf5 group
         """
 
         target.attrs['type'] = np.string_('FixationTrains')
-        target.attrs['version'] = np.string_('1.1')
+        target.attrs['version'] = np.string_('1.2')
 
         for attribute in ['train_xs', 'train_ys', 'train_ts', 'train_ns', 'train_subjects'] + self.__attributes__:
-            if attribute in ['subjects', 'scanpath_index']:
+            if attribute in ['subjects', 'scanpath_index'] + self.auto_attributes:
                 continue
             target.create_dataset(attribute, data=getattr(self, attribute))
 
-        target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
+        saved_attributes = [attribute_name for attribute_name in self.__attributes__ if attribute_name not in self.auto_attributes]
+        target.attrs['__attributes__'] = np.string_(json.dumps(saved_attributes))
+
+        target.attrs['scanpath_attribute_mapping'] = np.string_(json.dumps(self.scanpath_attribute_mapping))
 
         scanpath_attributes_group = target.create_group('scanpath_attributes')
         for attribute_name, attribute_value in self.scanpath_attributes.items():
             scanpath_attributes_group.create_dataset(attribute_name, data=attribute_value)
         scanpath_attributes_group.attrs['__attributes__'] = np.string_(json.dumps(sorted(self.scanpath_attributes.keys())))
+
+        scanpath_fixation_attributes_group = target.create_group('scanpath_fixation_attributes')
+        for attribute_name, attribute_value in self.scanpath_fixation_attributes.items():
+            scanpath_fixation_attributes_group.create_dataset(attribute_name, data=attribute_value)
+        scanpath_fixation_attributes_group.attrs['__attributes__'] = np.string_(json.dumps(sorted(self.scanpath_fixation_attributes.keys())))
+
 
     @classmethod
     @hdf5_wrapper(mode='r')
@@ -779,7 +999,7 @@ class FixationTrains(Fixations):
         if data_type != 'FixationTrains':
             raise ValueError("Invalid type! Expected 'FixationTrains', got", data_type)
 
-        valid_versions = ['1.0', '1.1']
+        valid_versions = ['1.0', '1.1', '1.2']
         if data_version not in valid_versions:
             raise ValueError("Invalid version! Expected one of {}, got {}".format(', '.join(valid_versions), data_version))
 
@@ -799,18 +1019,16 @@ class FixationTrains(Fixations):
         data['attributes'] = attributes
 
         if data_version < '1.1':
-            scanpath_attributes = {}
+            data['scanpath_attributes'] = {}
         else:
-            scanpath_attributes_group = source['scanpath_attributes']
+            data['scanpath_attributes'] = _load_attribute_dict_from_hdf5(source['scanpath_attributes'])
 
-            json_attributes = scanpath_attributes_group.attrs['__attributes__']
-            if not isinstance(json_attributes, str):
-                json_attributes = json_attributes.decode('utf8')
-            __attributes__ = json.loads(json_attributes)
-
-            scanpath_attributes = {attribute: scanpath_attributes_group[attribute][...] for attribute in __attributes__}
-
-        data['scanpath_attributes'] = scanpath_attributes
+        if data_version < '1.2':
+            data['scanpath_fixation_attributes'] = {}
+            data['scanpath_attribute_mapping'] = {}
+        else:
+            data['scanpath_fixation_attributes'] = _load_attribute_dict_from_hdf5(source['scanpath_fixation_attributes'])
+            data['scanpath_attribute_mapping'] = json.loads(decode_string(source.attrs['scanpath_attribute_mapping']))
 
         fixations = cls(**data)
 
@@ -826,13 +1044,6 @@ def get_image_hash(img):
     if isinstance(img, Stimulus):
         return img.stimulus_id
     return sha1(np.ascontiguousarray(img)).hexdigest()
-
-
-def as_stimulus(img_or_stimulus):
-    if isinstance(img_or_stimulus, Stimulus):
-        return img_or_stimulus
-
-    return Stimulus(img_or_stimulus)
 
 
 class Stimulus(object):
@@ -868,6 +1079,13 @@ class Stimulus(object):
         if self._size is None:
             self._size = self.stimulus_data.shape[0], self.stimulus_data.shape[1]
         return self._size
+
+
+def as_stimulus(img_or_stimulus: Union[np.ndarray, Stimulus]) -> Stimulus:
+    if isinstance(img_or_stimulus, Stimulus):
+        return img_or_stimulus
+
+    return Stimulus(img_or_stimulus)
 
 
 class StimuliStimulus(Stimulus):
@@ -939,12 +1157,28 @@ class Stimuli(Sequence):
     def __len__(self):
         return len(self.stimuli)
 
+    def _get_attribute_for_stimulus_subset(self, index):
+        sub_attributes = {}
+        for attribute_name, attribute_value in self.attributes.items():
+            if isinstance(index, (list, np.ndarray)) and not isinstance(attribute_value, np.ndarray):
+                sub_attributes[attribute_name] = [attribute_value[i] for i in index]
+            else:
+                sub_attributes[attribute_name] = attribute_value[index]
+
+        return sub_attributes
+
     def __getitem__(self, index):
         if isinstance(index, slice):
-            attributes = {key: value[index] for key, value in self.attributes.items()}
+            attributes = self._get_attribute_for_stimulus_subset(index)
             return ObjectStimuli([self.stimulus_objects[i] for i in range(len(self))[index]], attributes=attributes)
-        elif isinstance(index, list):
-            attributes = {key: value[index] for key, value in self.attributes.items()}
+        elif isinstance(index, (list, np.ndarray)):
+            index = np.asarray(index)
+            if index.dtype == bool:
+                if not len(index) == len(self.stimuli):
+                    raise ValueError(f"Boolean index has to have the same length as the stimuli list but got {len(index)} and {len(self.stimuli)}")
+                index = np.nonzero(index)[0]
+
+            attributes = self._get_attribute_for_stimulus_subset(index)
             return ObjectStimuli([self.stimulus_objects[i] for i in index], attributes=attributes)
         else:
             return self.stimulus_objects[index]
@@ -1048,7 +1282,7 @@ class FileStimuli(Stimuli):
     """
     Manage a list of stimuli that are saved as files.
     """
-    def __init__(self, filenames, cache=True, shapes=None, attributes=None):
+    def __init__(self, filenames, cached=True, shapes=None, attributes=None):
         """
         Create a stimuli object that reads it's stimuli from files.
 
@@ -1073,7 +1307,7 @@ class FileStimuli(Stimuli):
             whether loaded stimuli should be cached. The cache is excluded from pickling.
         """
         self.filenames = filenames
-        self.stimuli = LazyList(self.load_stimulus, len(self.filenames), cache=cache)
+        self.stimuli = LazyList(self.load_stimulus, len(self.filenames), cache=cached)
         if shapes is None:
             self.shapes = []
             for f in filenames:
@@ -1102,6 +1336,14 @@ class FileStimuli(Stimuli):
         else:
             self.attributes = {}
 
+    @property
+    def cached(self):
+        return self.stimuli.cache
+
+    @cached.setter
+    def cached(self, value):
+        self.stimuli.cache = value
+
     def load_stimulus(self, n):
         return imread(self.filenames[n])
 
@@ -1109,11 +1351,17 @@ class FileStimuli(Stimuli):
         if isinstance(index, slice):
             index = list(range(len(self)))[index]
 
-        if isinstance(index, list):
+        if isinstance(index, (list, np.ndarray)):
+            index = np.asarray(index)
+            if index.dtype == bool:
+                if not len(index) == len(self.stimuli):
+                    raise ValueError(f"Boolean index has to have the same length as the stimuli list but got {len(index)} and {len(self.stimuli)}")
+                index = np.nonzero(index)[0]
+
             filenames = [self.filenames[i] for i in index]
             shapes = [self.shapes[i] for i in index]
-            attributes = {key: [value[i] for i in index] for key, value in self.attributes.items()}
-            return type(self)(filenames=filenames, shapes=shapes, attributes=attributes)
+            attributes = self._get_attribute_for_stimulus_subset(index)
+            return type(self)(filenames=filenames, shapes=shapes, attributes=attributes, cached=self.cached)
         else:
             return self.stimulus_objects[index]
 
@@ -1156,7 +1404,7 @@ class FileStimuli(Stimuli):
 
     @classmethod
     @hdf5_wrapper(mode='r')
-    def read_hdf5(cls, source, cache=True):
+    def read_hdf5(cls, source, cached=True):
         """ Read FileStimuli from hdf5 file or hdf5 group """
 
         data_type = decode_string(source.attrs['type'])
@@ -1182,7 +1430,7 @@ class FileStimuli(Stimuli):
 
         __attributes__, attributes = cls._get_attributes_from_hdf5(source, data_version, '2.1')
 
-        stimuli = cls(filenames=filenames, cache=cache, shapes=shapes, attributes=attributes)
+        stimuli = cls(filenames=filenames, cached=cached, shapes=shapes, attributes=attributes)
 
         return stimuli
 
@@ -1191,6 +1439,11 @@ def create_subset(stimuli, fixations, stimuli_indices):
     """Create subset of stimuli and fixations using only stimuli
     with given indices.
     """
+    if isinstance(stimuli_indices, np.ndarray) and stimuli_indices.dtype == bool:
+        if len(stimuli_indices) != len(stimuli):
+            raise ValueError("length of mask doesn't match stimuli")
+        stimuli_indices = np.nonzero(stimuli_indices)[0]
+
     new_stimuli = stimuli[stimuli_indices]
     if isinstance(fixations, FixationTrains):
         fix_inds = np.in1d(fixations.train_ns, stimuli_indices)
@@ -1215,11 +1468,30 @@ def create_subset(stimuli, fixations, stimuli_indices):
     return new_stimuli, new_fixations
 
 
+def _get_merged_attribute_list(attributes):
+    all_attributes = set(attributes[0])
+    common_attributes = set(attributes[0])
+
+    for _attributes in attributes[1:]:
+        all_attributes = all_attributes.union(_attributes)
+        common_attributes = common_attributes.intersection(_attributes)
+
+    if common_attributes != all_attributes:
+        lost_attributes = all_attributes.difference(common_attributes)
+        warnings.warn(f"Discarding attributes which are not present everywhere: {lost_attributes}", stacklevel=4)
+
+    return sorted(common_attributes)
+
+
 def concatenate_stimuli(stimuli):
     attributes = {}
-    for key in stimuli[0].attributes.keys():
+    for key in _get_merged_attribute_list([list(s.attributes.keys()) for s in stimuli]):
         attributes[key] = concatenate_attributes(s.attributes[key] for s in stimuli)
-    return ObjectStimuli(sum([s.stimulus_objects for s in stimuli], []), attributes=attributes)
+
+    if all(isinstance(s, FileStimuli) for s in stimuli):
+        return FileStimuli(sum([s.filenames for s in stimuli], []), attributes=attributes)
+    else:
+        return ObjectStimuli(sum([s.stimulus_objects for s in stimuli], []), attributes=attributes)
 
 
 def concatenate_attributes(attributes):
@@ -1249,22 +1521,10 @@ def concatenate_attributes(attributes):
 
 
 def concatenate_fixations(fixations):
-    kwargs = {}
-    for key in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n', 'subjects']:
-        kwargs[key] = concatenate_attributes(getattr(f, key) for f in fixations)
-    new_fixations = Fixations(**kwargs)
-    attributes = set(fixations[0].__attributes__)
-    for f in fixations:
-        attributes = attributes.intersection(f.__attributes__)
-    attributes = sorted(attributes, key=fixations[0].__attributes__.index)
-    for key in attributes:
-        if key == 'subjects':
-            continue
-        setattr(new_fixations, key, concatenate_attributes(getattr(f, key) for f in fixations))
-
-    new_fixations.__attributes__ = attributes
-
-    return new_fixations
+    if all(isinstance(f, FixationTrains) for f in fixations):
+        return FixationTrains.concatenate(fixations)
+    else:
+        return Fixations.concatenate(fixations)
 
 
 def concatenate_datasets(stimuli, fixations):
@@ -1280,6 +1540,8 @@ def concatenate_datasets(stimuli, fixations):
         offset = sum(len(s) for s in stimuli[:i])
         f = fixations[i].copy()
         f.n += offset
+        if isinstance(f, FixationTrains):
+            f.train_ns += offset
         fixations[i] = f
 
     return concatenate_stimuli(stimuli), concatenate_fixations(fixations)
@@ -1374,3 +1636,151 @@ def create_nonfixations(stimuli, fixations, index, adjust_n = True, adjust_histo
         non_fixations.n = np.ones(len(non_fixations.n), dtype=int)*index
 
     return non_fixations
+
+
+def _scanpath_from_fixation_index(fixations, fixation_index, scanpath_attribute_names, scanpath_fixation_attribute_names):
+    history_length = fixations.lengths[fixation_index]
+    xs = np.hstack((
+        fixations.x_hist[fixation_index, :history_length],
+        [fixations.x[fixation_index]]
+    ))
+
+    ys = np.hstack((
+        fixations.y_hist[fixation_index, :history_length],
+        [fixations.y[fixation_index]]
+    ))
+
+    ts = np.hstack((
+        fixations.t_hist[fixation_index, :history_length],
+        [fixations.t[fixation_index]]
+    ))
+
+    n = fixations.n[fixation_index]
+
+    subject = fixations.subjects[fixation_index]
+
+    scanpath_attributes = {
+        attribute: getattr(fixations, attribute)[fixation_index]
+        for attribute in scanpath_attribute_names
+    }
+
+    scanpath_fixation_attributes = {}
+    for attribute in scanpath_fixation_attribute_names:
+        attribute_value = np.hstack((
+            getattr(fixations, '{attribute}_hist'.format(attribute=attribute))[fixation_index, :history_length],
+            [getattr(fixations, attribute)[fixation_index]]
+        ))
+        scanpath_fixation_attributes[attribute] = attribute_value
+
+
+    return xs, ys, ts, n, subject, scanpath_attributes, scanpath_fixation_attributes
+
+
+def scanpaths_from_fixations(fixations, verbose=False):
+    """ reconstructs scanpaths (FixationTrains) from fixation which originally came from scanpaths.
+
+    when called as in
+
+        scanpaths, indices = scanpaths_from_fixations(fixations)
+
+    you will get scanpathhs[indices] == fixations.
+
+    :note
+        only works if the original scanpaths only used scanpath_attributes and scanpath_fixation_attribute,
+        but not attributes (which should not be used for scanpaths anyway).
+    """
+    if 'scanpath_index' not in fixations.__attributes__:
+        raise NotImplementedError("Fixations with scanpath_index attribute required!")
+
+    scanpath_xs = []
+    scanpath_ys = []
+    scanpath_ts = []
+    scanpath_ns = []
+    scanpath_subjects = []
+    __attributes__ = [attribute for attribute in fixations.__attributes__ if attribute != 'subjects' and attribute != 'scanpath_index' and not attribute.endswith('_hist')]
+    __scanpath_attributes__ = [attribute for attribute in __attributes__ if '{attribute}_hist'.format(attribute=attribute) not in fixations.__attributes__]
+    __scanpath_fixation_attributes__ = [attribute for attribute in __attributes__ if attribute not in __scanpath_attributes__]
+
+    scanpath_fixation_attributes = {attribute: [] for attribute in __scanpath_fixation_attributes__}
+    scanpath_attributes = {attribute: [] for attribute in __scanpath_attributes__}
+
+    attribute_shapes = {
+        attribute: getattr(fixations, attribute)[0].shape for attribute in __attributes__
+    }
+
+    __all_attributes__ = __attributes__ + ['{attribute}_hist'.format(attribute=attribute) for attribute in __scanpath_fixation_attributes__]
+
+    indices = np.ones(len(fixations), dtype=int) * -1
+    fixation_counter = 0
+
+    for scanpath_index in tqdm(sorted(np.unique(fixations.scanpath_index)), disable=not verbose):
+        scanpath_indices = fixations.scanpath_index == scanpath_index
+        scanpath_integer_indices = np.nonzero(scanpath_indices)[0]
+        lengths = fixations.lengths[scanpath_indices]
+
+        # build scanpath up to maximum length
+        maximum_length = max(lengths)
+        _index_of_maximum_length = np.argmax(lengths)
+        index_of_maximum_length = scanpath_integer_indices[_index_of_maximum_length]
+
+        xs, ys, ts, n, subject, this_scanpath_attributes, this_scanpath_fixation_attributes = _scanpath_from_fixation_index(
+            fixations,
+            index_of_maximum_length,
+            __scanpath_attributes__,
+            __scanpath_fixation_attributes__
+        )
+
+        scanpath_xs.append(xs)
+        scanpath_ys.append(ys)
+        scanpath_ts.append(ts)
+        scanpath_ns.append(n)
+        scanpath_subjects.append(subject)
+
+        for attribute, value in this_scanpath_fixation_attributes.items():
+            scanpath_fixation_attributes[attribute].append(value)
+        for attribute, value in this_scanpath_attributes.items():
+            scanpath_attributes[attribute].append(value)
+
+        # build indices
+
+        for index_in_scanpath in range(maximum_length+1):
+            if index_in_scanpath in lengths:
+                # add index to indices
+                index_in_fixations = scanpath_integer_indices[list(lengths).index(index_in_scanpath)]
+
+                # there might be one fixation multiple times in fixations.
+                indices_in_fixations = scanpath_integer_indices[lengths == index_in_scanpath]
+                indices[indices_in_fixations] = fixation_counter + index_in_scanpath
+
+        fixation_counter += len(xs)
+
+    scanpath_attributes = {
+        attribute: np.array(value) for attribute, value in scanpath_attributes.items()
+    }
+
+    return FixationTrains.from_fixation_trains(
+        xs=scanpath_xs,
+        ys=scanpath_ys,
+        ts=scanpath_ts,
+        ns=scanpath_ns,
+        subjects=scanpath_subjects,
+        scanpath_attributes=scanpath_attributes,
+        scanpath_fixation_attributes=scanpath_fixation_attributes
+    ), indices
+
+
+def _load_attribute_dict_from_hdf5(attribute_group):
+    json_attributes = attribute_group.attrs['__attributes__']
+    if not isinstance(json_attributes, str):
+        json_attributes = json_attributes.decode('utf8')
+    __attributes__ = json.loads(json_attributes)
+
+    attributes = {attribute: attribute_group[attribute][...] for attribute in __attributes__}
+    return attributes
+
+
+def check_prediction_shape(prediction: np.ndarray, stimulus: Union[np.ndarray, Stimulus]):
+    stimulus = as_stimulus(stimulus)
+
+    if prediction.shape != stimulus.size:
+        raise ValueError(f"Prediction shape {prediction.shape} does not match stimulus shape {stimulus.size}")

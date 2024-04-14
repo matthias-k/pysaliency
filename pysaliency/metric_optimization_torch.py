@@ -6,15 +6,8 @@ from torch.optim.optimizer import required
 import torch.nn as nn
 from tqdm import tqdm
 
-from .models import sample_from_logdensity
+from .models import LogDensitySampler
 from .torch_utils import gaussian_filter
-
-
-def sample_batch_fixations(log_density, fixations_per_image, batch_size, rst=None):
-    xs, ys = sample_from_logdensity(log_density, fixations_per_image * batch_size, rst=rst)
-    ns = np.repeat(np.arange(batch_size, dtype=int), repeats=fixations_per_image)
-
-    return xs, ys, ns
 
 
 class DistributionSGD(torch.optim.Optimizer):
@@ -123,7 +116,7 @@ class Similarities(nn.Module):
         return similarities
 
 
-def _eval_metric(log_density, test_samples, fn, seed=42, fixation_count=120, batch_size=50, verbose=True):
+def _eval_metric(log_density_sampler, test_samples, fn, seed=42, fixation_count=120, batch_size=50, verbose=True):
     values = []
     weights = []
     count = 0
@@ -133,7 +126,7 @@ def _eval_metric(log_density, test_samples, fn, seed=42, fixation_count=120, bat
     with tqdm(total=test_samples, leave=False, disable=not verbose) as t:
         while count < test_samples:
             this_count = min(batch_size, test_samples - count)
-            xs, ys, ns = sample_batch_fixations(log_density, fixations_per_image=fixation_count, batch_size=this_count, rst=rst)
+            xs, ys, ns = log_density_sampler.sample_batch_fixations(fixations_per_image=fixation_count, batch_size=this_count, rst=rst)
 
             values.append(fn(ns, ys, xs, this_count))
             weights.append(this_count)
@@ -196,6 +189,8 @@ def maximize_expected_sim(log_density, kernel_size,
 
     dtype = torch.float32
 
+    sampler = LogDensitySampler(log_density)
+
     model = Similarities(
         initial_saliency_map=initial_value,
         kernel_size=kernel_size,
@@ -233,11 +228,13 @@ def maximize_expected_sim(log_density, kernel_size,
         Xs = torch.tensor(xs).to(device)
         batch_size = torch.tensor(batch_size).to(device)
 
-        ret = -torch.mean(model(Ns, Ys, Xs, batch_size)).detach().cpu().numpy()
+        model_output = model(Ns, Ys, Xs, batch_size)
+        mean_output = -torch.mean(model_output)
+        ret = mean_output.detach().cpu().numpy()
         return ret
 
     def val_loss():
-        return _eval_metric(log_density, val_samples, _val_loss, seed=val_seed,
+        return _eval_metric(sampler, val_samples, _val_loss, seed=val_seed,
                             fixation_count=fixation_count, batch_size=max_batch_size, verbose=False)
 
     total_samples = 0
@@ -277,7 +274,7 @@ def maximize_expected_sim(log_density, kernel_size,
                     optimizer.zero_grad()
                     this_count = min(batch_size, train_samples_per_epoch - count)
 
-                    xs, ys, ns = sample_batch_fixations(log_density, fixations_per_image=fixation_count, batch_size=this_count, rst=train_rst)
+                    xs, ys, ns = sampler.sample_batch_fixations(fixations_per_image=fixation_count, batch_size=this_count, rst=train_rst)
 
                     Ns = torch.tensor(ns).to(device)
                     Ys = torch.tensor(ys).to(device)
@@ -289,7 +286,7 @@ def maximize_expected_sim(log_density, kernel_size,
                     optimizer.step()
 
                     with torch.no_grad():
-                        if torch.sum(model.saliency_map < 0):
+                        if torch.any(model.saliency_map < 0):
                             model.saliency_map.mul_(model.saliency_map >= 0)
                         model.saliency_map.div_(torch.sum(model.saliency_map))
 
@@ -302,6 +299,7 @@ def maximize_expected_sim(log_density, kernel_size,
                             scheduler.step()
 
                     t.update(this_count)
+
             val_scores.append(val_loss())
             learning_rate_relevant_scores.append(val_scores[-1])
 

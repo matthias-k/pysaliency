@@ -113,7 +113,7 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                     subject_path = os.path.join('DATA', subject)
                     outfile = '{0}_{1}.mat'.format(stimulus, subject)
                     outfile = os.path.join(out_path, outfile)
-                    cmds.append("fprintf('%d/%d\\n', {}, {});".format(n * len(subjects) + subject_id, total_cmd_count))
+                    cmds.append("fprintf('%d/%d\\r', {}, {});".format(n * len(subjects) + subject_id, total_cmd_count))
                     cmds.append("extract_fixations('{0}', '{1}', '{2}');".format(stimulus, subject_path, outfile))
 
             print('Running original code to extract fixations. This can take some minutes.')
@@ -220,15 +220,28 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                     # train_subjects.append(subject_id)
                     # train_durations.append(duration)
 
-            attributes = {
-                # duration_hist contains for each fixation the durations of the previous fixations in the scanpath
-                'duration_hist': build_padded_2d_array(duration_hist),
+            #attributes = {
+            #    # duration_hist contains for each fixation the durations of the previous fixations in the scanpath
+            #    'duration_hist': build_padded_2d_array(duration_hist),
+            #}
+            #scanpath_attributes = {
+            #    # train_durations contains the fixation durations for each scanpath
+            #    'train_durations': build_padded_2d_array(train_durations),
+            #}
+            scanpath_fixation_attributes = {
+                'durations': train_durations,
             }
-            scanpath_attributes = {
-                # train_durations contains the fixation durations for each scanpath
-                'train_durations': build_padded_2d_array(train_durations),
-            }
-            fixations = FixationTrains.from_fixation_trains(xs, ys, ts, ns, train_subjects, attributes=attributes, scanpath_attributes=scanpath_attributes)
+            fixations = FixationTrains.from_fixation_trains(
+                xs,
+                ys,
+                ts,
+                ns,
+                train_subjects,
+                #attributes=attributes,
+                #scanpath_attributes=scanpath_attributes
+                scanpath_fixation_attributes=scanpath_fixation_attributes,
+                scanpath_attribute_mapping={'durations': 'duration'}
+            )
 
         if location:
             stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
@@ -270,7 +283,7 @@ def get_mit1003(location=None):
     return _get_mit1003('MIT1003', location=location, include_initial_fixation=False)
 
 
-def get_mit1003_with_initial_fixation(location=None):
+def get_mit1003_with_initial_fixation(location=None, replace_initial_invalid_fixations=False):
     """
     Loads or downloads and caches the MIT1003 dataset. The dataset
     consists of 1003 natural indoor and outdoor scenes of
@@ -280,6 +293,16 @@ def get_mit1003_with_initial_fixation(location=None):
 
     All fixations outside of the image are discarded. This includes
     blinks.
+
+    This version of the dataset include the initial central forced fixation,
+    which is usually discarded. However, for scanpath prediction,
+    it's important.
+
+    Sometimes, the first recorded fixation is invalid. In this case,
+    if `replace_initial_invalid_fixations` is True, it is replaced
+    with a central fixation of the same length. This makes
+    the dataset consistent with the ones without initial fixation
+    in the sense of `fixations_without_initial_fixations = fixations_with[fixations_with.lengths > 0].
 
     @type  location: string, defaults to `None`
     @param location: If and where to cache the dataset. The dataset
@@ -303,7 +326,11 @@ def get_mit1003_with_initial_fixation(location=None):
 
         http://people.csail.mit.edu/tjudd/WherePeopleLook/index.html
     """
-    return _get_mit1003('MIT1003_initial_fix', location=location, include_initial_fixation=True)
+    name = 'MIT1003_initial_fix'
+    if replace_initial_invalid_fixations:
+        name += '_consistent'
+
+    return _get_mit1003(name, location=location, include_initial_fixation=True, replace_initial_invalid_fixations=replace_initial_invalid_fixations)
 
 
 def get_mit1003_onesize(location=None):

@@ -11,6 +11,41 @@ Pysaliency can evaluate most commonly used saliency metrics, including AUC, sAUC
 image-based KL divergence, fixation based KL divergence and SIM for saliency map models and
 log likelihoods and information gain for probabilistic models.
 
+Installation
+------------
+
+You can install pysaliency from pypi via
+
+    pip install pysaliency
+
+
+Quickstart
+----------
+
+    import pysaliency
+
+    dataset_location = 'datasets'
+    model_location = 'models'
+
+    mit_stimuli, mit_fixations = pysaliency.external_datasets.get_mit1003(location=dataset_location)
+    aim = pysaliency.AIM(location=model_location)
+    saliency_map = aim.saliency_map(mit_stimuli.stimuli[0])
+
+    plt.imshow(saliency_map)
+
+
+    auc = aim.AUC(mit_stimuli, mit_fixations)
+
+If you already have saliency maps for some dataset, you can import them into pysaliency easily:
+
+    my_model = pysaliency.SaliencyMapModelFromDirectory(mit_stimuli, '/path/to/my/saliency_maps')
+    auc = my_model.AUC(mit_stimuli, mit_fixations)
+
+Check out the [Tutorial](notebooks/Tutorial.ipynb) for a more detailed introduction!
+
+Included datasets and models
+----------------------------
+
 Pysaliency provides several important datasets:
 
 * MIT1003
@@ -36,41 +71,9 @@ and some influential models:
 * RARE2012
 * CovSal
 
-
 These models are using the original code which is often matlab.
 Therefore, a matlab licence is required to make use of these models, although quite some of them
 work with octave, too (see below).
-
-
-Installation
-------------
-
-You can install pysaliency from pypi via
-
-    pip install pysaliency
-
-
-Quickstart
-----------
-
-    import pysaliency
-    
-    dataset_location = 'datasets'
-    model_location = 'models'
-
-    mit_stimuli, mit_fixations = pysaliency.external_datasets.get_mit1003(location=dataset_location)
-    aim = pysaliency.AIM(location=model_location)
-    saliency_map = aim.saliency_map(mit_stimuli.stimuli[0])
-
-    plt.imshow(saliency_map)
-
-
-    auc = aim.AUC(mit_stimuli, mit_fixations)
-
-If you already have saliency maps for some dataset, you can import them into pysaliency easily:
-
-    my_model = pysaliency.SaliencyMapModelFromDirectory(mit_stimuli, '/path/to/my/saliency_maps')
-    auc = my_model.AUC(mit_stimuli, mit_fixations)
 
 
 Using Octave

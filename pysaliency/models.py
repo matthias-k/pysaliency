@@ -10,26 +10,19 @@ from scipy.ndimage import zoom
 from scipy.special import logsumexp
 from tqdm import tqdm
 
-from .generics import progressinfo
-from .saliency_map_models import (SaliencyMapModel, handle_stimulus,
+from .saliency_map_models import (SaliencyMapModel, ScanpathSaliencyMapModel, handle_stimulus,
                                   SubjectDependentSaliencyMapModel,
-                                  ExpSaliencyMapModel,
+                                  DensitySaliencyMapModel,
                                   DisjointUnionMixin,
                                   GaussianSaliencyMapModel,
                                   )
-from .datasets import FixationTrains, get_image_hash, as_stimulus
+from .datasets import FixationTrains, check_prediction_shape, get_image_hash, as_stimulus
 from .metrics import probabilistic_image_based_kl_divergence, convert_saliency_map_to_density
 from .sampling_models import SamplingModelMixin
-from .utils import Cache, average_values, deprecated_class, remove_trailing_nans
+from .utils import Cache, average_values, deprecated_class, remove_trailing_nans, iterator_chunks
 
 
-def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
-    """ Sample from log probabilities (robust to many bins and small probabilities).
-
-        +-np.inf and np.nan will be interpreted as zero probability
-    """
-    if rst is None:
-        rst = np.random
+def _prepare_logprobabilities_for_sampling(log_probabilities):
     log_probabilities = np.asarray(log_probabilities)
 
     valid_indices = np.nonzero(np.isfinite(log_probabilities))[0]
@@ -40,10 +33,29 @@ def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
     cumsums = np.logaddexp.accumulate(sorted_log_probabilities)
     cumsums -= cumsums[-1]
 
+    return cumsums, ndxs, valid_indices
+
+
+def _sample_from_cumsums(cumsums, ndxs, valid_indices, size, rst=None):
+    if rst is None:
+        rst = np.random
+
     tmps = -rst.exponential(size=size)
     js = np.searchsorted(cumsums, tmps)
     valid_values = ndxs[js]
     values = valid_indices[valid_values]
+
+    return values
+
+
+def sample_from_logprobabilities(log_probabilities, size=1, rst=None):
+    """ Sample from log probabilities (robust to many bins and small probabilities).
+
+        +-np.inf and np.nan will be interpreted as zero probability
+    """
+
+    cumsums, ndxs, valid_indices = _prepare_logprobabilities_for_sampling(log_probabilities)
+    values = _sample_from_cumsums(cumsums, ndxs, valid_indices, size, rst=rst)
 
     return values
 
@@ -64,6 +76,29 @@ def sample_from_logdensity(log_density, count=None, rst=None):
         return sample_xs[0], sample_ys[0]
     else:
         return np.asarray(sample_xs), np.asarray(sample_ys)
+
+
+class LogDensitySampler(object):
+    """use this class if you need to sample repeatedly from the same log density. It will do the
+       slow parts (sorting the log density, computing log cum sums etc) only once.
+    """
+    def __init__(self, log_density):
+        self.height, self.width = log_density.shape
+        flat_log_density = log_density.flatten(order='C')
+        self.cumsums, self.ndxs, self.valid_indices = _prepare_logprobabilities_for_sampling(flat_log_density)
+
+    def sample(self, size, rst=None):
+        samples = _sample_from_cumsums(self.cumsums, self.ndxs, self.valid_indices, size, rst=rst)
+        sample_xs = samples % self.width
+        sample_ys = samples // self.width
+
+        return np.asarray(sample_xs), np.asarray(sample_ys)
+
+    def sample_batch_fixations(self, fixations_per_image, batch_size, rst=None):
+        xs, ys = self.sample(fixations_per_image * batch_size, rst=rst)
+        ns = np.repeat(np.arange(batch_size, dtype=int), repeats=fixations_per_image)
+
+        return xs, ys, ns
 
 
 def sample_from_image(densities, count=None, rst=None):
@@ -120,14 +155,12 @@ class ScanpathModel(SamplingModelMixin, object, metaclass=ABCMeta):
         log_likelihoods = np.empty(len(fixations.x))
         for i in tqdm(range(len(fixations.x)), disable=not verbose):
             conditional_log_density = self.conditional_log_density_for_fixation(stimuli, fixations, i)
+            check_prediction_shape(conditional_log_density, stimuli[fixations.n[i]])
             log_likelihoods[i] = conditional_log_density[fixations.y_int[i], fixations.x_int[i]]
 
         return log_likelihoods
 
     def log_likelihood(self, stimuli, fixations, verbose=False, average='fixation'):
-        log_likelihoods = self.log_likelihoods(stimuli, fixations, verbose=verbose)
-
-
         return average_values(self.log_likelihoods(stimuli, fixations, verbose=verbose), fixations, average=average)
 
     def information_gains(self, stimuli, fixations, baseline_model=None, verbose=False, average='fixation'):
@@ -299,7 +332,8 @@ class Model(ScanpathModel):
             inds = fixations.n == n
             if not inds.sum():
                 continue
-            log_density = self.log_density(stimuli.stimulus_objects[n])
+            log_density = self.log_density(stimuli[n])
+            check_prediction_shape(log_density, stimuli[n])
             this_log_likelihoods = log_density[fixations.y_int[inds], fixations.x_int[inds]]
             log_likelihoods[inds] = this_log_likelihoods
 
@@ -340,6 +374,8 @@ class Model(ScanpathModel):
         for s in tqdm(stimuli, disable=not verbose):
             logp_model = self.log_density(s)
             logp_gold = gold_standard.log_density(s)
+            check_prediction_shape(logp_model, s)
+            check_prediction_shape(logp_gold, s)
             kl_divs.append(
                 probabilistic_image_based_kl_divergence(logp_model, logp_gold, log_regularization=log_regularization, quotient_regularization=quotient_regularization)
             )
@@ -348,9 +384,9 @@ class Model(ScanpathModel):
 
     def set_params(self, **kwargs):
         """
-	        Set model parameters, if the model has parameters
+            Set model parameters, if the model has parameters
 
-	        This method has to reset caches etc., if the depend on the parameters
+            This method has to reset caches etc., if the depend on the parameters
         """
         if kwargs:
             raise ValueError('Unkown parameters!', kwargs)
@@ -375,10 +411,15 @@ class UniformModel(Model):
         return np.zeros((stimulus.shape[0], stimulus.shape[1])) - np.log(stimulus.shape[0]) - np.log(stimulus.shape[1])
 
     def log_likelihoods(self, stimuli, fixations, verbose=False):
-        lls = []
-        for n in fixations.n:
-            lls.append(-np.log(stimuli.shapes[n][0]) - np.log(stimuli.shapes[n][1]))
-        return np.array(lls)
+        stimulus_shapes = np.zeros((len(stimuli), 2), dtype=int)
+        stimulus_indices = sorted(np.unique(fixations.n))
+        for stimulus_index in stimulus_indices:
+            stimulus_shapes[stimulus_index] = stimuli.stimulus_objects[stimulus_index].size
+
+        with np.errstate(divide='ignore'):  # ignore log(0) warnings, we won't use them anyway
+            stimulus_log_likelihoods = -np.log(stimulus_shapes).sum(axis=1)
+
+        return stimulus_log_likelihoods[fixations.n]
 
 
 class MixtureModel(Model):
@@ -543,7 +584,7 @@ class SubjectDependentModel(DisjointUnionModel):
 
     def get_saliency_map_model_for_NSS(self):
         return SubjectDependentSaliencyMapModel({
-            s: ExpSaliencyMapModel(self.subject_models[s])
+            s: DensitySaliencyMapModel(self.subject_models[s])
             for s in self.subject_models})
 
 
@@ -625,8 +666,74 @@ class ShuffledAUCSaliencyMapModel(SaliencyMapModel):
         return self.probabilistic_model.log_density(stimulus) - self.baseline_model.log_density(stimulus)
 
 
-def average_predictions(predictions, library):
-    predictions = np.array(predictions) - np.log(len(predictions))
+class ShuffledAUCScanpathSaliencyMapModel(ScanpathSaliencyMapModel):
+    def __init__(self, probabilistic_model: ScanpathModel, baseline_model: Model):
+        super(ShuffledAUCScanpathSaliencyMapModel, self).__init__()
+        self.probabilistic_model = probabilistic_model
+        self.baseline_model = baseline_model
+
+    def conditional_saliency_map(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
+        return (
+            self.probabilistic_model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes=attributes)
+            - self.baseline_model.log_density(stimulus)
+        )
+
+
+def average_predictions(log_densities, log_density_count=None, maximal_chunk_size=None, verbose=False, library='torch'):
+    """ compute average log density given multiple log densities.
+
+    specifying log_density_count allows to process generator arrays to avoid keeping all predictions in memory.
+    specifying maximal_chunk_size allows to process the log densities such that not too many log densities are kept in
+    memory at all (which only makes sense if log_densities is a generator), see logsumexp_iterator for more details
+    """
+
+    if maximal_chunk_size is not None and log_density_count is None:
+        print("Warning: specifying maximal_chunk_size without log_density_count doesn't make sense because then the log densities have to be converted into a list and hence put in memory anyway.")
+
+    if log_density_count is None:
+        log_densities = np.array(list(log_densities))
+        log_density_count = len(log_densities)
+
+    normalization_constant = np.log(log_density_count)
+    def weighted_log_densities(log_densities, normalization_constant):
+        for log_density in log_densities:
+            yield log_density - normalization_constant
+
+    result = logsumexp_iterator(weighted_log_densities(log_densities, normalization_constant), log_density_count, maximal_chunk_size=maximal_chunk_size, verbose=verbose, library=library)
+    result_norm = logsumexp(result)
+
+    if not (-0.0001 < result_norm < 0.0001):
+        print(f"Warning: result of averaging not well normalized (logsum={result_norm}). This could either be a problem with the averaged predictions or indicate numerical issues in averaging.")
+
+    result -= result_norm
+
+    return result
+
+
+def logsumexp_iterator(log_density_iterator, iterator_length, maximal_chunk_size=10, verbose=False, library='torch'):
+    """computes logsumexp of iterator such not too many values are in memory.
+
+    Works by splitting the sequence into shorter chunks, processing them and then adding the results up.
+    This is done in a recursive manner: If the chunks are still too long, they are again split up.
+    This guarantees that per recursion level never more than `maximal_chunk_size` items are kept in memory.
+    """
+    if iterator_length is None or maximal_chunk_size is None or (maximal_chunk_size is not None and iterator_length <= maximal_chunk_size):
+        if verbose:
+            print(f"directly handling {iterator_length} predictions")
+        predictions = np.array(list(log_density_iterator))
+    else:
+        predictions = []
+        chunk_size = iterator_length // (maximal_chunk_size // 2)
+        if verbose:
+            print(f"splitting {iterator_length} predictions up into chunks of length {chunk_size}")
+        for i, iterator_chunk in enumerate(iterator_chunks(log_density_iterator, chunk_size=chunk_size)):
+            if verbose:
+                print(f"handling {i}th chunk of length {chunk_size}")
+            predictions.append(logsumexp_iterator(iterator_chunk, chunk_size, maximal_chunk_size=maximal_chunk_size, verbose=verbose))
+        predictions = np.array(predictions)
+        if verbose:
+            print(f"Done handling {iterator_length} predictions in chunks of {chunk_size}")
+
 
     if library == 'tensorflow':
         from .tf_utils import tf_logsumexp
@@ -648,102 +755,60 @@ class ShuffledBaselineModel(Model):
 
     This model will usually be used as baseline model for computing sAUC saliency maps.
 
-    use the library parameter to define whether the logsumexp should be computed
-    with torch (default), tensorflow or numpy.
-    """
-    def __init__(self, parent_model, stimuli, resized_predictions_cache_size=5000,
-                 compute_size=(500, 500),
-                 library='torch',
-                 **kwargs):
-        super(ShuffledBaselineModel, self).__init__(**kwargs)
-        self.parent_model = parent_model
-        self.stimuli = stimuli
-        self.compute_size = compute_size
-        self.resized_predictions_cache = LRU(
-            max_size=resized_predictions_cache_size,
-            on_miss=self._cache_miss
-        )
-        if library not in ['torch', 'tensorflow', 'numpy']:
-            raise ValueError(library)
-        self.library = library
-
-    def _resize_prediction(self, prediction, target_shape):
-        if prediction.shape != target_shape:
-            x_factor = target_shape[1] / prediction.shape[1]
-            y_factor = target_shape[0] / prediction.shape[0]
-
-            prediction = zoom(prediction, [y_factor, x_factor], order=1, mode='nearest')
-
-            prediction -= logsumexp(prediction)
-
-            assert prediction.shape == target_shape
-
-        return prediction
-
-    def _cache_miss(self, key):
-        stimulus = self.stimuli[key]
-        return self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
-
-    def _log_density(self, stimulus):
-        stimulus_id = get_image_hash(stimulus)
-
-        predictions = []
-        prediction = None
-
-        target_shape = (stimulus.shape[0], stimulus.shape[1])
-
-        for k, other_stimulus in enumerate((self.stimuli)):
-            if other_stimulus.stimulus_id == stimulus_id:
-                continue
-            other_prediction = self.resized_predictions_cache[k]
-            predictions.append(other_prediction)
-
-        prediction = average_predictions(predictions, self.library)
-
-        prediction = self._resize_prediction(prediction, target_shape)
-
-        return prediction
-
-
-class ShuffledSimpleBaselineModel(Model):
-    """Predicts a mixture of all predictions for all images.
-
-    This model will usually be used as baseline model for computing sAUC saliency maps
-    when the ShuffledBaselineModel is not feasible.
+    To avoid computing many averages over many images, this model will once compute an
+    an average over all predictions, and then only remove the prediction for a given
+    image when computing model predictions.
 
     use the library parameter to define whether the logsumexp should be computed
     with torch (default), tensorflow or numpy.
+
+    predict_overall_average: If False (default), for each image, the average over all
+    other images in `stimuli` will be predicted. If set to True, simply the average
+    over all images in stimuli will be predicted.
     """
     def __init__(self, parent_model, stimuli,
                  compute_size=(500, 500),
                  library='torch',
+                 prepopulate_cache=False,
+                 maximal_chunk_size=20,
+                 predict_overall_average=False,
                  **kwargs):
-        super(ShuffledSimpleBaselineModel, self).__init__(**kwargs)
+        super(ShuffledBaselineModel, self).__init__(**kwargs)
         self.parent_model = parent_model
         self.stimuli = stimuli
-        self.compute_size = compute_size
+        self.compute_size = tuple(compute_size)
+        self.maximal_chunk_size = maximal_chunk_size
+        self.predict_overall_average = predict_overall_average
         self.prediction = None
         if library not in ['torch', 'tensorflow', 'numpy']:
             raise ValueError(library)
         self.library = library
 
+        if prepopulate_cache:
+            self.get_average_prediction(verbose=True)
+
     def get_average_prediction(self, verbose=False):
         if self.prediction is not None:
             return self.prediction
 
-        predictions = []
-        for stimulus in tqdm(self.stimuli, disable=not verbose):
-            predictions.append(
-                self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
-            )
 
-        prediction = average_predictions(predictions, self.library)
+        def log_density_iterable():
+            for stimulus in tqdm(self.stimuli, disable=not verbose):
+                yield self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
+
+        prediction = average_predictions(
+            log_density_iterable(),
+            log_density_count=len(self.stimuli),
+            maximal_chunk_size=self.maximal_chunk_size,
+            library=self.library
+        )
 
         self.prediction = prediction
         return self.prediction
 
     def _resize_prediction(self, prediction, target_shape):
         if prediction.shape != target_shape:
+            orig_shape = prediction.shape
             x_factor = target_shape[1] / prediction.shape[1]
             y_factor = target_shape[0] / prediction.shape[0]
 
@@ -751,17 +816,40 @@ class ShuffledSimpleBaselineModel(Model):
 
             prediction -= logsumexp(prediction)
 
+            if prediction.shape != target_shape:
+                print("compute size", self.compute_size)
+                print("prediction shape", orig_shape)
+                print("target shape", target_shape)
+                print("x factor", x_factor)
+                print("y factor", y_factor)
+                raise ValueError(prediction.shape)
+
             assert prediction.shape == target_shape
 
         return prediction
 
     def _log_density(self, stimulus):
-        prediction = self.get_average_prediction()
+        average_log_density = self.get_average_prediction()
+
+        if self.predict_overall_average:
+            prediction = average_log_density
+        else:
+            # here we're effectively computing the average prediction of all predictions except for the
+            # one for this stimulus, by substracting the current prection from the average prediction
+            # with correct weights. This allows us to only once iterate over all predictions at model start.
+            this_log_density = self._resize_prediction(self.parent_model.log_density(stimulus), self.compute_size)
+            N = len(self.stimuli)
+            prediction =np.log(
+                np.exp(average_log_density + np.log(N) - np.log(N - 1))
+                -np.exp(this_log_density - np.log(N - 1))
+            )
 
         target_shape = (stimulus.shape[0], stimulus.shape[1])
         prediction = self._resize_prediction(prediction, target_shape)
 
         return prediction
+
+ShuffledSimpleBaselineModel = deprecated_class(deprecated_in='0.2.22', removed_in='1.0.0', details="Use ShuffledBaselineModel instead, which is now as effective as the old ShuffledSimpleBaselineModel")(ShuffledBaselineModel)
 
 
 class GaussianModel(Model):
@@ -853,7 +941,8 @@ class DVAAwareModel(Model):
         self.factor = self.parent_model_dva / self.dva
 
     def _log_density(self, stimulus):
-        stimulus = self.ensure_color(stimulus)
+        stimulus_data = as_stimulus(stimulus).stimulus_data
+        stimulus = self.ensure_color(stimulus_data)
 
         if self.factor != 1.0:
             if self.verbose:
@@ -863,6 +952,87 @@ class DVAAwareModel(Model):
             stimulus_for_parent_model = stimulus
 
         log_density = self.parent_model.log_density(stimulus_for_parent_model)
+
+        factor_y = stimulus.shape[0] / log_density.shape[0]
+        factor_x = stimulus.shape[1] / log_density.shape[1]
+
+        if factor_y != 1.0 or factor_x != 1.0:
+            if self.verbose:
+                print("Wrong shape, resizing log densities", stimulus.shape, log_density.shape)
+            log_density = zoom(log_density, [factor_y, factor_x], order=1, mode='nearest')
+            log_density -= logsumexp(log_density)
+
+        assert log_density.shape[0] == stimulus.shape[0]
+        assert log_density.shape[1] == stimulus.shape[1]
+
+        return log_density
+
+    def ensure_color(self, image):
+        if image.ndim == 2:
+            return np.dstack((image, image, image))
+        return image
+
+
+class DVAAwareScanpathModel(ScanpathModel):
+    """ A scanpath model which adapts another model to a new image resolution by rescaling images before computing predictions
+
+    - dva: expected image resolution in pixel per dva for this model
+    - parent_model_dva: image resolution expected by parent_model
+    """
+    def __init__(self, dva: float, parent_model: ScanpathModel, parent_model_dva: float, verbose=False, **kwargs):
+
+        super(DVAAwareScanpathModel, self).__init__(**kwargs)
+
+        self.dva = dva
+        self.parent_model = parent_model
+        self.parent_model_dva = parent_model_dva
+        self.verbose = verbose
+
+        self.factor = self.parent_model_dva / self.dva
+
+    def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
+        stimulus_data = as_stimulus(stimulus).stimulus_data
+        stimulus = self.ensure_color(stimulus_data)
+        if out is not None:
+            raise NotImplementedError()
+
+        if self.factor != 1.0:
+            if self.verbose:
+                print("Resizing with factor", self.factor)
+            stimulus_for_parent_model = zoom(stimulus, [self.factor, self.factor, 1.0], order=1, mode='nearest')
+
+            outer_shape = (
+                stimulus.shape[0],
+                stimulus.shape[1]
+            )
+
+            inner_shape = (
+                stimulus_for_parent_model.shape[0],
+                stimulus_for_parent_model.shape[1]
+            )
+
+            x_factor = outer_shape[1] / inner_shape[1]
+            y_factor = outer_shape[0] / inner_shape[0]
+
+            if x_factor != 1:
+                x_hist_for_parent_model = np.array(x_hist) / x_factor
+            if y_factor != 1:
+                y_hist_for_parent_model = np.array(y_hist) / y_factor
+
+
+        else:
+            stimulus_for_parent_model = stimulus
+            x_hist_for_parent_model = x_hist
+            y_hist_for_parent_model = y_hist
+
+
+        log_density = self.parent_model.conditional_log_density(
+            stimulus=stimulus_for_parent_model,
+            x_hist = x_hist_for_parent_model,
+            y_hist=y_hist_for_parent_model,
+            t_hist=t_hist,
+            attributes=attributes
+        )
 
         factor_y = stimulus.shape[0] / log_density.shape[0]
         factor_x = stimulus.shape[1] / log_density.shape[1]

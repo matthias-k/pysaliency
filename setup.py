@@ -23,7 +23,7 @@ except IOError:
     long_description = ''
 
 extensions = [
-    Extension("pysaliency.roc", ['pysaliency/*.pyx'],
+    Extension("pysaliency.roc_cython", ['pysaliency/*.pyx'],
               include_dirs = [np.get_include()],
               extra_compile_args = ['-O3'],
               #extra_compile_args = ['-fopenmp', '-O3'],
@@ -70,13 +70,13 @@ setup(
         'tqdm',
     ],
     include_package_data = True,
-    package_data={'pysaliency': ['scripts/*.m',
-                                 'scripts/models/*.m',
-                                 'scripts/models/*/*.m',
-                                 'scripts/models/*/*/*',
-                                 'scripts/models/BMS/patches/*',
-                                 'scripts/models/GBVS/patches/*',
-                                 'scripts/models/Judd/patches/*',
+    package_data={'pysaliency': ['external_models/scripts/*.m',
+                                 'external_models/scripts/*/*.m',
+                                 'external_models/scripts/*/*/*',
+                                 'external_models/scripts/BMS/patches/*',
+                                 'external_models/scripts/GBVS/patches/*',
+                                 'external_models/scripts/Judd/patches/*',
+                                 'external_datasets/scripts/*.m'
                                  ]},
     ext_modules = cythonize(extensions),
 )

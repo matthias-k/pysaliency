@@ -38,6 +38,7 @@ def convert_saliency_map_to_density(saliency_map, minimum_value=0.0):
 def NSS(saliency_map, xs, ys):
     xs = np.asarray(xs, dtype=int)
     ys = np.asarray(ys, dtype=int)
+    saliency_map = np.asarray(saliency_map, dtype=float)
 
     mean = saliency_map.mean()
     std = saliency_map.std()
@@ -53,6 +54,7 @@ def NSS(saliency_map, xs, ys):
 
 def CC(saliency_map_1, saliency_map_2):
     def normalize(saliency_map):
+        saliency_map = np.asarray(saliency_map, dtype=float)
         saliency_map -= saliency_map.mean()
         std = saliency_map.std()
 

@@ -1,0 +1,45 @@
+Index: src/mex/compile.m
+===================================================================
+--- src.orig/mex/compile.m	2013-09-14 14:27:14.000000000 +0200
++++ src/mex/compile.m	2014-07-04 16:12:38.350680006 +0200
+@@ -5,8 +5,8 @@
+ function compile()
+ 
+ % set the values
+-opts.opencv_include_path    =   'C:\opencv240\install\include'; % OpenCV include path
+-opts.opencv_lib_path        =   'C:\opencv240\install\lib'; % OpenCV lib path
++opts.opencv_include_path    =   '/usr/include'; % OpenCV include path
++opts.opencv_lib_path        =   '/usr/lib/x86_64-linux-gnu'; % OpenCV lib path
+ opts.clean                  =   false; % clean mode
+ opts.dryrun                 =   false; % dry run mode
+ opts.verbose                =   1; % output verbosity
+@@ -23,7 +23,7 @@
+     if opts.verbose > 0, disp(cmd); end
+     if ~opts.dryrun, delete(cmd); end
+ 
+-    cmd = fullfile('*.obj');
++    cmd = fullfile('*.o');
+     if opts.verbose > 0, disp(cmd); end
+     if ~opts.dryrun, delete(cmd); end
+ 
+@@ -49,7 +49,7 @@
+ 
+ % Compile the mex file
+ src = 'mexBMS.cpp';
+-obj = 'BMS.obj MxArray.obj';
++obj = 'BMS.o MxArray.o';
+ cmd = sprintf('mex %s %s %s', mex_flags, src, obj);
+ if opts.verbose > 0, disp(cmd); end
+ if ~opts.dryrun, eval(cmd); end
+@@ -83,7 +83,7 @@
+ 
+ function l = lib_names(L_path)
+     %LIB_NAMES  return library names
+-    d = dir( fullfile(L_path,'opencv_*.lib') );
+-    l = regexp({d.name}, '(opencv_core.+)\.lib|(opencv_imgproc.+)\.lib|(opencv_highgui.+)\.lib', 'tokens', 'once');
++    d = dir( fullfile(L_path,'libopencv_*.so') );
++    l = regexp({d.name}, 'lib(opencv_core.*)\.so|lib(opencv_imgproc.*)\.so|lib(opencv_highgui.*)\.so', 'tokens', 'once');
+     l = [l{:}];
+-end
+\ No newline at end of file
++end

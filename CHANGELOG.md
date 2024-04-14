@@ -1,6 +1,32 @@
 # Changelog
 
-* 0.2.22 (dev):
+* 0.2.22:
+  * Enhancement: New [Tutorial](notebooks/Tutorial.ipynb).
+  * Bugfix: `SaliencyMapModel.AUC` failed if some images didn't have any fixations.
+  * Feature: `StimulusDependentSaliencyMapModel`
+  * Bugfix: The NUSEF dataset scaled some fixations not correctly to image coordinates. Also, we now account for some typos in the
+    dataset source data.
+  * Feature: CrossvalMultipleRegularizations and GeneralMixtureKernelDensityEstimator in baseline utils (names might change!)
+  * Feature: DVAAwareScanpathModel
+  * Feature: ShuffledBaselineModel is now much more efficient and able to handle large numbers of stimuli.
+    hence, ShuffledSimpleBaselineModel is not necessary anymore and a deprecated alias to ShuffledBaselineModel
+  * Feature: ShuffledBaselineModel can now compute predictions for very large numbers of stimuli without needing
+    to have all individual predictions in memory due to a recursive reduce logsumexp implementation.
+  * Feature: `plotting.plot_scanpath` to visualize scanpaths and saccades. WIP, expect the API to change!
+  * Feature: DeepGaze I and DeepGazeIIE models
+  * Feature: COCO Freeview dataset
+  * Feature: `optimize_for_information_gain(framework='torch', ...) now supports a `cache_directory`,
+    where intermediate steps are cached. This supports resuming crashed optimization runs.
+  * Bugfix: fixed some edge cases in `optimize_for_information_gain(framework='torch')`
+  * Feature: COCO Seach18 dataset
+  * Feature: `FixationTrains.train_lengths`
+  * Feature: `FixationTrains.scanpath_fixation_attributes` allows handling of per-fixation attributes on scanpath level,
+    e.g. fixation durations. According attributes as in a Fixations instance are automatically created,
+    e.g. for durations there will be an attribute `durations` and an attribute `duration_hist`. Also
+    for scanpath_attributes (e.g., attributes applying to a whole scanpath, such as task) will also generate
+    an attribute for each fixation to make this information available in Fixations instance.
+  * Feature: `scanpaths_from_fixations` reconstructs a FixationTrains object from a Fixations instance
+  * Bugfix: `t_hist` got replaced with `y_hist` in Fixations instances (but luckily not in FixationTrains instances)
   * Bugfix: torch code was broken due to changes in torch 1.11
   * Bugfix: SALICON dataset download did not work anymore
   * Bugfix: NUSEF datast links changed

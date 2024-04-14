@@ -1,0 +1,14 @@
+Index: src/BMS.m
+===================================================================
+--- src.orig/BMS.m	2013-09-14 12:28:06.000000000 +0200
++++ src/BMS.m	2014-07-04 16:44:51.765801441 +0200
+@@ -33,7 +33,8 @@
+ % **sod** is a boolean value indicating whether to use the salient object
+ % detection mode
+ 
+-addpath('mex/');
++[directory name ext] = fileparts(mfilename('fullpath'));
++addpath(fullfile(directory, 'mex'));
+ 
+ if input_dir(end) ~= '/' && input_dir(end) ~= '\'
+     input_dir           =   [input_dir,'/'];

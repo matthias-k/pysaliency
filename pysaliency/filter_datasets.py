@@ -4,7 +4,7 @@ import numpy as np
 
 from boltons.iterutils import chunked
 
-from .datasets import create_subset
+from .datasets import create_subset, FixationTrains, Fixations, Stimuli
 
 
 def train_split(stimuli, fixations, crossval_folds, fold_no, val_folds=1, test_folds=1, random=True, stratified_attributes=None):
@@ -232,3 +232,72 @@ def filter_stimuli_by_size(stimuli, fixations, size=None, sizes=None):
     indices = [i for i in range(len(stimuli)) if stimuli.sizes[i] in sizes]
 
     return create_subset(stimuli, fixations, indices)
+
+
+def filter_scanpaths_by_attribute(scanpaths:  FixationTrains, attribute_name, attribute_value, invert_match=False):
+    """Filter Scanpaths by values of scanpath attribute (fixation_trains.scanpath_attributes)"""
+
+    mask = scanpaths.scanpath_attributes[attribute_name] == attribute_value
+    if mask.ndim > 1:
+        mask = np.all(mask, axis=1)
+
+    if invert_match is True:
+        mask = ~mask
+
+    return scanpaths.filter_fixation_trains(mask)
+
+
+def filter_fixations_by_attribute(fixations: Fixations, attribute_name, attribute_value, invert_match=False):
+    """Filter Fixations by values of attribute (fixations.__attributes__)"""
+
+    mask = np.asarray(getattr(fixations, attribute_name)) == attribute_value
+    if mask.ndim > 1:
+        mask = np.all(mask, axis=1)
+
+    if invert_match is True:
+        mask = ~mask
+
+    return fixations[mask]
+
+
+def filter_stimuli_by_attribute(stimuli: Stimuli, fixations: Fixations, attribute_name, attribute_value=None, attribute_values=None, invert_match=False):
+    """Filter stimuli by values of attribute (stimuli.attributes)
+
+    use `attribute_value` to filter for a single value, or `attribute_values` to filter for multiple allowed values
+    """
+
+    if attribute_values is not None:
+        mask = np.isin(np.asarray(stimuli.attributes[attribute_name]), attribute_values)
+    else:
+        mask = np.asarray(stimuli.attributes[attribute_name]) == attribute_value
+    if mask.ndim > 1:
+        mask = np.all(mask, axis=1)
+
+    if invert_match is True:
+        mask = ~mask
+    indices = list(np.nonzero(mask)[0])
+
+    return create_subset(stimuli, fixations, indices)
+
+
+def filter_scanpaths_by_length(scanpaths: FixationTrains, intervals: list):
+    """Filter Scanpaths by number of fixations"""
+
+    intervals = _check_intervals(intervals, type=int)
+    mask = np.zeros(len(scanpaths.train_lengths), dtype=bool)
+    for start, end in intervals:
+        temp_mask = np.logical_and(
+            scanpaths.train_lengths >= start, scanpaths.train_lengths < end)
+        mask = np.logical_or(mask, temp_mask)
+    indices = list(np.nonzero(mask)[0])
+
+    scanpaths = scanpaths.filter_fixation_trains(indices)
+
+    return scanpaths
+
+
+def remove_stimuli_without_fixations(stimuli: Stimuli, fixations: Fixations):
+    """Remove stimuli with no fixations"""
+
+    stimuli_indices_with_fixations = list(set(fixations.n))
+    return create_subset(stimuli, fixations, stimuli_indices_with_fixations)

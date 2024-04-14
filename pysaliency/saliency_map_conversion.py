@@ -23,6 +23,7 @@ def optimize_for_information_gain(
         maxiter=1000,
         method='trust-constr',
         minimize_options=None,
+        cache_directory=None,
         framework='torch'):
     """ convert saliency map model into probabilistic model as described in Kümmerer et al, PNAS 2015.
     """
@@ -46,6 +47,7 @@ def optimize_for_information_gain(
         assert average == 'fixations'
         assert batch_size == 1
         assert minimize_options is None
+        assert cache_directory is None
 
         from .saliency_map_conversion_theano import optimize_for_information_gain
         return optimize_for_information_gain(
@@ -79,5 +81,6 @@ def optimize_for_information_gain(
             return_optimization_result=return_optimization_result,
             maxiter=maxiter,
             minimize_options=minimize_options,
+            cache_directory=cache_directory,
             method=method
         )

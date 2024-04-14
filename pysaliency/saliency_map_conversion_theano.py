@@ -7,8 +7,6 @@ import numpy as np
 
 from tqdm import tqdm
 
-
-from .generics import progressinfo
 from .models import Model, UniformModel
 from .optpy import minimize
 from .datasets import Fixations
@@ -178,7 +176,7 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
         grads = [[] for p in params]
         all_rets = []
         if view is None:
-            for n in progressinfo(range(len(saliency_maps)), verbose=verbose > 2):
+            for n in tqdm(range(len(saliency_maps)), disable=verbose <= 2):
                 rets = f_ll_with_grad(saliency_maps[n], x_inds[n], y_inds[n])
                 all_rets.append(rets)
         else:
@@ -190,7 +188,7 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
             async_rets.wait_interactive()
             all_rets = list(async_rets)
 
-        for n in progressinfo(range(len(saliency_maps)), verbose=verbose > 10):
+        for n in tqdm(range(len(saliency_maps)), disable=verbose <= 10):
             if len(x_inds[n]):
                 rets = all_rets[n]
                 values.append(rets[0])
@@ -431,7 +429,7 @@ class SaliencyMapConvertor(Model):
         print('Caching saliency maps')
         sys.stdout.flush()
         saliency_maps = []
-        for n, s in enumerate(progressinfo(stimuli, verbose=verbose > 1)):
+        for n, s in enumerate(tqdm(stimuli, disable=verbose <= 1)):
             smap = self._prepare_saliency_map(self.saliency_map_model.saliency_map(s))
             saliency_maps.append(smap)
         self.saliency_map_model._cache.clear()
@@ -582,7 +580,7 @@ class JointSaliencyMapConvertor(object):
         saliency_maps = []
         x_inds = []
         y_inds = []
-        for n, s in enumerate(progressinfo(stimuli, verbose=verbose > 1)):
+        for n, s in enumerate(tqdm(stimuli, disable=verbose <= 1)):
             for saliency_map_model, f in zip(self.saliency_map_models, fixations):
                 smap = self._prepare_saliency_map(saliency_map_model.saliency_map(s))
                 saliency_maps.append(smap)

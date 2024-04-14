@@ -5,6 +5,7 @@ from . import saliency_map_models
 from . import models
 from . import external_models
 from . import external_datasets
+from . import utils
 
 from .datasets import (
     Fixations,
@@ -28,6 +29,7 @@ from .saliency_map_models import (
     ExpSaliencyMapModel,
     DisjointUnionSaliencyMapModel,
     SubjectDependentSaliencyMapModel,
+    StimulusDependentSaliencyMapModel,
     ResizingSaliencyMapModel,
     BluringSaliencyMapModel,
     DigitizeMapModel,

@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function, division, unicode_literals
+from itertools import combinations
 
 import os
 from abc import ABCMeta, abstractmethod
@@ -15,7 +16,7 @@ from .roc import general_roc, general_rocs_per_positive
 from .numba_utils import fill_fixation_map, auc_for_one_positive
 
 from .utils import TemporaryDirectory, run_matlab_cmd, Cache, average_values, deprecated_class, remove_trailing_nans
-from .datasets import Stimulus, Fixations
+from .datasets import Stimulus, Fixations, check_prediction_shape, get_image_hash
 from .metrics import CC, NSS, SIM
 from .sampling_models import SamplingModelMixin
 
@@ -154,6 +155,8 @@ class ScanpathSaliencyMapModel(object, metaclass=ABCMeta):
 
         for i in tqdm(range(len(fixations.x)), total=len(fixations.x), disable=not verbose):
             out = self.conditional_saliency_map_for_fixation(stimuli, fixations, i, out=out)
+            check_prediction_shape(out, stimuli[fixations.n[i]])
+
             positive = out[fixations.y_int[i], fixations.x_int[i]]
             if nonfixations == 'uniform':
                 negatives = out.flatten()
@@ -219,6 +222,7 @@ class ScanpathSaliencyMapModel(object, metaclass=ABCMeta):
 
         for i in tqdm(range(len(fixations.x)), disable=not verbose, total=len(fixations.x)):
             out = self.conditional_saliency_map_for_fixation(stimuli, fixations, i, out=out)
+            check_prediction_shape(out, stimuli[fixations.n[i]])
             values[i] = NSS(out, fixations.x_int[i], fixations.y_int[i])
         return values
 
@@ -330,6 +334,7 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
             if not inds.sum():
                 continue
             out = self.saliency_map(stimuli.stimulus_objects[n])
+            check_prediction_shape(out, stimuli[n])
             positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
@@ -405,8 +410,14 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
             nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
 
         for n in tqdm(range(len(stimuli)), disable=not verbose):
-            out = self.saliency_map(stimuli.stimulus_objects[n])
             inds = fixations.n == n
+            if not inds.sum():
+                rocs_per_image.append(np.nan)
+                continue
+
+            out = self.saliency_map(stimuli.stimulus_objects[n])
+            check_prediction_shape(out, stimuli[n])
+
             positives = np.asarray(out[fixations.y_int[inds], fixations.x_int[inds]])
             if nonfixations == 'uniform':
                 negatives = out.flatten()
@@ -476,6 +487,14 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
 
             return np.average(aucs, weights=weights)
         elif average == 'image':
+            stimulus_indices = set(fixations.n)
+            nan_value_indices = np.nonzero(np.isnan(aucs))[0]
+
+            if stimulus_indices.intersection(nan_value_indices):
+                raise ValueError("Some images with fixations returned AUC of nan, which should not happen")
+
+            aucs = aucs[~np.isnan(aucs)]
+
             return np.mean(aucs)
         else:
             raise ValueError(average)
@@ -532,7 +551,8 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
         saliency_max = -np.inf
 
         for n in range(len(stimuli.stimuli)):
-            saliency_map = self.saliency_map(stimuli.stimulus_objects[n])
+            saliency_map = self.saliency_map(stimuli[n])
+            check_prediction_shape(saliency_map, stimuli[n])
             saliency_min = min(saliency_min, saliency_map.min())
             saliency_max = max(saliency_max, saliency_map.max())
 
@@ -630,7 +650,13 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
         coeffs = []
 
         for s in tqdm(stimuli, disable=not verbose):
-            coeffs.append(CC(self.saliency_map(s), other.saliency_map(s)))
+            saliency_map_self = self.saliency_map(s)
+            saliency_map_other = other.saliency_map(s)
+
+            check_prediction_shape(saliency_map_self, s)
+            check_prediction_shape(saliency_map_other, s)
+
+            coeffs.append(CC(saliency_map_self, saliency_map_other))
 
         return np.asarray(coeffs)
 
@@ -640,8 +666,11 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
     def NSSs(self, stimuli, fixations, verbose=False):
         values = np.empty(len(fixations.x))
         for n, s in enumerate(tqdm(stimuli, disable=not verbose)):
-            smap = self.saliency_map(s).copy()
             inds = fixations.n == n
+            if not inds.sum():
+                continue
+            smap = self.saliency_map(s).copy()
+            check_prediction_shape(smap, s)
             values[inds] = NSS(smap, fixations.x_int[inds], fixations.y_int[inds])
 
         return values
@@ -657,6 +686,10 @@ class SaliencyMapModel(ScanpathSaliencyMapModel):
         for s in tqdm(stimuli, disable=not verbose):
             smap1 = self.saliency_map(s)
             smap2 = other.saliency_map(s)
+
+            check_prediction_shape(smap1, s)
+            check_prediction_shape(smap2, s)
+
             values.append(SIM(smap1, smap2))
 
         return np.asarray(values)
@@ -930,6 +963,31 @@ class SubjectDependentSaliencyMapModel(DisjointUnionSaliencyMapModel):
             raise ValueError("SubjectDependentSaliencyModel can't compute conditional saliency maps without subject indication!")
         return self.subject_models[attributes['subjects']].conditional_saliency_map(
             stimulus, x_hist, y_hist, t_hist, attributes=attributes, **kwargs)
+
+
+class StimulusDependentSaliencyMapModel(SaliencyMapModel):
+    def __init__(self, stimuli_models, check_stimuli=True, fallback_model=None, **kwargs):
+        super(StimulusDependentSaliencyMapModel, self).__init__(**kwargs)
+        self.stimuli_models = stimuli_models
+        self.fallback_model = fallback_model
+        if check_stimuli:
+            self.check_stimuli()
+
+    def check_stimuli(self):
+        for s1, s2 in tqdm(list(combinations(self.stimuli_models, 2))):
+            if not set(s1.stimulus_ids).isdisjoint(s2.stimulus_ids):
+                raise ValueError('Stimuli not disjoint')
+
+    def _saliency_map(self, stimulus):
+        stimulus_hash = get_image_hash(stimulus)
+        for stimuli, model in self.stimuli_models.items():
+            if stimulus_hash in stimuli.stimulus_ids:
+                return model.saliency_map(stimulus)
+        else:
+            if self.fallback_model is not None:
+                return self.fallback_model.saliency_map(stimulus)
+            else:
+                raise ValueError('stimulus not provided by these models')
 
 
 class ExpSaliencyMapModel(SaliencyMapModel):

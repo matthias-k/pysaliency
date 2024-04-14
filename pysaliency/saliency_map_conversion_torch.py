@@ -55,33 +55,36 @@ class SaliencyMapProcessing(nn.Module):
         self.nonlinearity_target = nonlinearity_target
 
         if nonlinearity_target == 'density' and nonlinearity_values == 'logdensity':
-            self.nonlinearity = Nonlinearity(value_scale='log')
+            self.nonlinearity = Nonlinearity(num_values=num_nonlinearity, value_scale='log')
             with torch.no_grad():
                 self.nonlinearity.ys.mul_(8.0)
-        elif nonlinearity_target == 'density' and nonlinearity_values == 'logdensity':
+        elif nonlinearity_target == 'logdensity' and nonlinearity_values == 'density':
             raise ValueError("Invalid combination of nonlinearity target and values")
         elif nonlinearity_target == nonlinearity_values:
-            self.nonlinearity = Nonlinearity(value_scale='linear')
+            self.nonlinearity = Nonlinearity(num_values=num_nonlinearity, value_scale='linear')
 
         self.centerbias = CenterBias(num_values=num_centerbias)
 
     def forward(self, tensor):
-        tensor = self.blur(tensor)
-        tensor = self.nonlinearity(tensor)
+        if self.blur.sigma > 0:
+            tensor = self.blur(tensor)
+        if len(self.nonlinearity.ys) > 0:
+            tensor = self.nonlinearity(tensor)
 
-        centerbias = self.centerbias(tensor)
-        if self.nonlinearity_target == 'density':
-            tensor *= centerbias
-        elif self.nonlineary_target == 'logdensity':
-            tensor += centerbias
-        else:
-            raise ValueError(self.nonlinearity_target)
+        if len(self.centerbias.nonlinearity.ys) > 0:
+            centerbias = self.centerbias(tensor)
+            if self.nonlinearity_target == 'density':
+                tensor *= centerbias
+            elif self.nonlinearity_target == 'logdensity':
+                tensor += centerbias
+            else:
+                raise ValueError(self.nonlinearity_target)
 
         if self.nonlinearity_target == 'density':
             sums = torch.sum(tensor, dim=(2, 3), keepdim=True)
             tensor = tensor / sums
             tensor = torch.log(tensor)
-        elif self.nonlineary_target == 'logdensity':
+        elif self.nonlinearity_target == 'logdensity':
             logsums = torch.logsumexp(tensor, dim=(2, 3), keepdim=True)
             tensor = tensor - logsums
         else:
@@ -172,7 +175,8 @@ def optimize_saliency_map_conversion(
         tol=None,
         maxiter=1000,
         minimize_options=None,
-        return_optimization_result=False):
+        return_optimization_result=False,
+        cache_directory=None):
 
     targets = [([model], stimuli, fixations)]
 
@@ -205,7 +209,8 @@ def optimize_saliency_map_conversion(
         batch_size=batch_size,
         tol=tol,
         maxiter=maxiter,
-        minimize_options=minimize_options)
+        minimize_options=minimize_options,
+        cache_directory=cache_directory)
 
     return_model = SaliencyMapProcessingModel(
         model,
@@ -241,7 +246,8 @@ def _optimize_saliency_map_conversion_over_multiple_models_and_datasets(
         batch_size=8,
         tol=None,
         maxiter=1000,
-        minimize_options=None):
+        minimize_options=None,
+        cache_directory=None):
 
     if len(list_of_targets) != 1:
         raise NotImplementedError()
@@ -293,6 +299,7 @@ def _optimize_saliency_map_conversion_over_multiple_models_and_datasets(
         tol=tol,
         maxiter=maxiter,
         minimize_options=minimize_options,
+        cache_directory=cache_directory,
     )
 
     return saliency_map_processing, optimization_result
@@ -306,7 +313,8 @@ def _optimize_saliency_map_processing(
         method='SLSQP',
         tol=None,
         maxiter=1000,
-        minimize_options=None):
+        minimize_options=None,
+        cache_directory=None):
 
     if optimize is None:
         optimize = ['blur_radius', 'nonlinearity', 'centerbias', 'alpha']
@@ -354,6 +362,11 @@ def _optimize_saliency_map_processing(
         ]
 
         return loss, tuple(gradients)
+
+    if cache_directory is not None:
+        import diskcache
+        cache = diskcache.Cache(directory=cache_directory)
+        func = cache.memoize()(func)
 
     bounds = {
         'alpha': [(1e-4, 1.0 - 1e-4)],
@@ -481,3 +494,51 @@ class SaliencyMapProcessingModel(Model):
         saliency_map = self.normalized_saliency_map_model.saliency_map(stimulus)
         saliency_map_tensor = torch.tensor(saliency_map[np.newaxis, np.newaxis, :, :]).to(self.device)
         return self.saliency_map_processing.forward(saliency_map_tensor).detach().cpu().numpy()[0, 0, :, :]
+
+    def state_dict(self):
+        """returns a state dict for use with torch.load"""
+        nonlinearity_target = self.saliency_map_processing.nonlinearity_target
+
+        if nonlinearity_target == 'density' and self.saliency_map_processing.nonlinearity.value_scale == 'log':
+            nonlinearity_values = "logdensity"
+        elif nonlinearity_target == 'density' and self.saliency_map_processing.nonlinearity.value_scale == 'linear':
+            nonlinearity_values = "density"
+        elif nonlinearity_target == 'logdensity' and self.saliency_map_processing.nonlinearity.value_scale == 'linear':
+            nonlinearity_values = "logdensity"
+        else:
+            raise ValueError()
+        state_dict = {
+            "version": "1.0",
+            "saliency_min": self.normalized_saliency_map_model.saliency_min,
+            "saliency_max": self.normalized_saliency_map_model.saliency_max,
+            "nonlinearity_target": nonlinearity_target,
+            "nonlinearity_values": nonlinearity_values,
+            "saliency_map_processing": self.saliency_map_processing.state_dict(),
+        }
+
+        return state_dict
+
+    @classmethod
+    def build_from_state_dict(cls, saliency_map_model, state_dict, device=None, **kwargs):
+        assert state_dict['version'] == "1.0"
+
+        saliency_map_processing = SaliencyMapProcessing(
+            nonlinearity_values=state_dict['nonlinearity_values'],
+            nonlinearity_target=state_dict['nonlinearity_target'],
+            num_nonlinearity=len(state_dict['saliency_map_processing']['nonlinearity.ys']),
+            num_centerbias=len(state_dict['saliency_map_processing']['centerbias.nonlinearity.ys']),
+            blur_radius=state_dict['saliency_map_processing']['blur.sigma'],
+        )
+
+        saliency_map_processing.load_state_dict(state_dict['saliency_map_processing'])
+
+        return cls(
+            saliency_map_model=saliency_map_model,
+            nonlinearity_values=state_dict['nonlinearity_values'],
+            nonlinearity_target=state_dict['nonlinearity_target'],
+            saliency_min=state_dict['saliency_min'],
+            saliency_max=state_dict['saliency_max'],
+            saliency_map_processing=saliency_map_processing,
+            device=device,
+            **kwargs
+        )

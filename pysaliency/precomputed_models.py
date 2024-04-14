@@ -1,4 +1,4 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 import glob
 import os.path
@@ -8,14 +8,14 @@ import zipfile
 
 import numpy as np
 from imageio import imread
-from scipy.special import logsumexp
 from scipy.io import loadmat
+from scipy.special import logsumexp
 from tqdm import tqdm
 
+from .datasets import FileStimuli, get_image_hash
 from .models import Model
 from .saliency_map_models import SaliencyMapModel
-from .datasets import get_image_hash, FileStimuli
-from .utils import get_minimal_unique_filenames
+from .utils import full_split, get_minimal_unique_filenames
 
 
 def get_stimuli_filenames(stimuli):
@@ -28,7 +28,53 @@ def get_stimuli_filenames(stimuli):
         return stimuli.filenames
 
 
-def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True):
+def get_keys_from_filenames(filenames, keys):
+    """checks how much filenames have to be shorted to get the correct hdf5 or other keys"""
+    first_filename_parts = full_split(filenames[0])
+    for part_index in range(len(first_filename_parts)):
+        remaining_filename = os.path.join(*first_filename_parts[part_index:])
+        if remaining_filename in keys:
+            break
+    else:
+        print("No common prefix found!")
+        print(f"  filename: {filenames[0]}")
+        print("  keys:")
+        for key in keys[:5]:
+            print(f"    {key}")
+        for key in keys[-5:]:
+            print(f"    {key}")
+
+        raise ValueError('No common prefix found!')
+
+    filename_keys = []
+    for filename in filenames:
+        filename_parts = full_split(filename)
+        remaining_filename = os.path.join(*filename_parts[part_index:])
+        filename_keys.append(remaining_filename)
+
+    return filename_keys
+
+
+def get_keys_from_filenames_with_prefix(filenames, keys):
+    """checks how much filenames have to be shorted to get the correct hdf5 or other keys, where the keys might have a prefix"""
+    first_key_parts = full_split(keys[0])
+
+    for key_part_index in range(len(first_key_parts)):
+        remaining_keys = [os.path.join(*full_split(key)[key_part_index:]) for key in keys]
+        try:
+            filename_keys = get_keys_from_filenames(filenames, remaining_keys)
+        except ValueError:
+            continue
+        else:
+            full_filename_keys = []
+            for key, filename_key in zip(keys, filename_keys):
+                full_filename_keys.append(os.path.join(*full_split(key)[:key_part_index], filename_key))
+            return full_filename_keys
+
+    raise ValueError('No common prefix found from {} and {}'.format(filenames[0], keys[0]))
+
+
+def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True, flush=False):
     """Export pysaliency model predictions for stimuli into hdf5 file
 
     model: Model or SaliencyMapModel
@@ -38,6 +84,7 @@ def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True
     overwrite: if False, an existing file will be appended to and
       if for some stimuli predictions already exist, they will be
       kept.
+    flush: whether the hdf5 file should be flushed after each stimulus
     """
     filenames = get_stimuli_filenames(stimuli)
     names = get_minimal_unique_filenames(filenames)
@@ -61,6 +108,8 @@ def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True
             else:
                 raise TypeError(type(model))
             f.create_dataset(names[k], data=smap, compression=compression)
+            if flush:
+                f.flush()
 
 
 class SaliencyMapModelFromFiles(SaliencyMapModel):
@@ -80,8 +129,8 @@ class SaliencyMapModelFromFiles(SaliencyMapModel):
 
         try:
             stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
-        except IndexError:
-            raise IndexError("Stimulus id '{}' not found in stimuli!".format(stimulus_id))
+        except IndexError as exc:
+            raise IndexError("Stimulus id '{}' not found in stimuli!".format(stimulus_id)) from exc
 
         return self.files[stimulus_index]
 
@@ -111,10 +160,12 @@ class SaliencyMapModelFromDirectory(SaliencyMapModelFromFiles):
         files = [os.path.relpath(filename, start=directory) for filename in glob.glob(os.path.join(directory, '**', '*'), recursive=True)]
         stems = [os.path.splitext(f)[0] for f in files]
 
-        stimuli_files = get_minimal_unique_filenames(stimulus_filenames)
-        stimuli_stems = [os.path.splitext(f)[0] for f in stimuli_files]
+        stimuli_stems = [os.path.splitext(f)[0] for f in stimulus_filenames]
+        stimuli_stems = get_keys_from_filenames(stimuli_stems, stems)
 
-        assert set(stimuli_stems).issubset(stems)
+        if not set(stimuli_stems).issubset(stems):
+            missing_predictions = set(stimuli_stems).difference(stems)
+            raise ValueError("missing predictions for {}".format(missing_predictions))
 
         indices = [stems.index(f) for f in stimuli_stems]
 
@@ -178,6 +229,21 @@ class ModelFromDirectory(Model):
         return smap
 
 
+def get_keys_recursive(group, prefix=''):
+        import h5py
+
+        keys = []
+
+        for subgroup_name, subgroup in group.items():
+            if isinstance(subgroup, h5py.Group):
+                subprefix = f"{prefix}{subgroup_name}/"
+                keys.extend(get_keys_recursive(subgroup, prefix=subprefix))
+            else:
+                keys.append(f"{prefix}{subgroup_name}")
+
+        return keys
+
+
 class HDF5SaliencyMapModel(SaliencyMapModel):
     """ exposes a HDF5 file with saliency maps as pysaliency model
 
@@ -192,21 +258,20 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
         self.filename = filename
         self.check_shape = check_shape
 
-        self.names = get_minimal_unique_filenames(
-            get_stimuli_filenames(stimuli)
-        )
-
         import h5py
         self.hdf5_file = h5py.File(self.filename, 'r')
+        self.all_keys = get_keys_recursive(self.hdf5_file)
+
+        self.names = get_keys_from_filenames(get_stimuli_filenames(stimuli), self.all_keys)
 
     def _saliency_map(self, stimulus):
         stimulus_id = get_image_hash(stimulus)
         stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
-        stimulus_filename = self.names[stimulus_index]
-        smap = self.hdf5_file[stimulus_filename][:]
+        stimulus_key = self.names[stimulus_index]
+        smap = self.hdf5_file[stimulus_key][:]
         if not smap.shape == (stimulus.shape[0], stimulus.shape[1]):
             if self.check_shape:
-                warnings.warn('Wrong shape for stimulus {}'.format(stimulus_filename))
+                warnings.warn('Wrong shape for stimulus {}'.format(stimulus_key), stacklevel=4)
         return smap
 
 
@@ -272,8 +337,8 @@ class PredictionsFromArchiveMixin(object):
         files = [f for f in files if '__macosx' not in f.lower()]
         stems = [os.path.splitext(f)[0] for f in files]
 
-        stimuli_files = get_minimal_unique_filenames(get_stimuli_filenames(stimuli))
-        stimuli_stems = [os.path.splitext(f)[0] for f in stimuli_files]
+        stimuli_stems = [os.path.splitext(f)[0] for f in get_stimuli_filenames(stimuli)]
+        stimuli_stems = get_keys_from_filenames_with_prefix(stimuli_stems, stems)
 
         prediction_filenames = []
         for stimuli_stem in stimuli_stems:

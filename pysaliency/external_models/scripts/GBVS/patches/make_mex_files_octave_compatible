@@ -1,0 +1,96 @@
+Index: src/algsrc/mexArrangeLinear.cc
+===================================================================
+--- src.orig/algsrc/mexArrangeLinear.cc	2010-02-19 23:54:34.000000000 +0100
++++ src/algsrc/mexArrangeLinear.cc	2015-01-05 17:48:52.028027000 +0100
+@@ -2,7 +2,6 @@
+ #include <stdlib.h>
+ #include <mex.h>
+ #include <math.h>
+-#include <matrix.h>
+ #include <string.h>
+ 
+ // Avalues = mexArrangeLinear( A , dims )
+Index: src/algsrc/mexAssignWeights.cc
+===================================================================
+--- src.orig/algsrc/mexAssignWeights.cc	2010-02-19 23:54:34.000000000 +0100
++++ src/algsrc/mexAssignWeights.cc	2015-01-05 17:48:55.823430000 +0100
+@@ -2,7 +2,6 @@
+ #include <stdlib.h>
+ #include <mex.h>
+ #include <math.h>
+-#include <matrix.h>
+ #include <string.h>
+ 
+ //  mexAssignWeights( AL , D , MM , algtype )
+Index: src/algsrc/mexColumnNormalize.cc
+===================================================================
+--- src.orig/algsrc/mexColumnNormalize.cc	2010-02-19 23:54:34.000000000 +0100
++++ src/algsrc/mexColumnNormalize.cc	2015-01-05 17:48:59.834418000 +0100
+@@ -2,7 +2,6 @@
+ #include <stdlib.h>
+ #include <mex.h>
+ #include <math.h>
+-#include <matrix.h>
+ #include <string.h>
+ 
+ // Normalizes so that each column sums to one
+Index: src/algsrc/mexSumOverScales.cc
+===================================================================
+--- src.orig/algsrc/mexSumOverScales.cc	2010-02-19 23:54:34.000000000 +0100
++++ src/algsrc/mexSumOverScales.cc	2015-01-05 17:49:04.403376000 +0100
+@@ -3,7 +3,6 @@
+ #include <stdlib.h>
+ #include <mex.h>
+ #include <math.h>
+-#include <matrix.h>
+ #include <string.h>
+ 
+ //  Vo = mexSumOverScales( v , lx , N )
+Index: src/algsrc/mexVectorToMap.cc
+===================================================================
+--- src.orig/algsrc/mexVectorToMap.cc	2010-02-19 23:54:36.000000000 +0100
++++ src/algsrc/mexVectorToMap.cc	2015-01-05 17:49:15.931328000 +0100
+@@ -3,7 +3,6 @@
+ #include <stdlib.h>
+ #include <mex.h>
+ #include <math.h>
+-#include <matrix.h>
+ #include <string.h>
+ 
+ //  outmap = mexVectorToMap( v , dim )
+Index: src/saltoolbox/mexLocalMaximaGBVS.cc
+===================================================================
+--- src.orig/saltoolbox/mexLocalMaximaGBVS.cc	2010-02-19 23:54:52.000000000 +0100
++++ src/saltoolbox/mexLocalMaximaGBVS.cc	2015-01-05 17:49:31.381773000 +0100
+@@ -2,7 +2,6 @@
+ #include <stdlib.h>
+ #include <mex.h>
+ #include <math.h>
+-#include <matrix.h>
+ #include <string.h>
+ 
+ double getVal(double* img, int x, int y, int w, int h);
+Index: src/saltoolbox/mySubsample.cc
+===================================================================
+--- src.orig/saltoolbox/mySubsample.cc	2010-02-19 23:54:54.000000000 +0100
++++ src/saltoolbox/mySubsample.cc	2015-01-05 17:49:35.284199000 +0100
+@@ -2,7 +2,6 @@
+ #include <stdlib.h>
+ #include <mex.h>
+ #include <math.h>
+-#include <matrix.h>
+ #include <string.h>
+ 
+ void lowPass6yDecY(float* sptr, float* rptr, int w, int hs);
+Index: src/util/myContrast.cc
+===================================================================
+--- src.orig/util/myContrast.cc	2010-02-19 23:54:56.000000000 +0100
++++ src/util/myContrast.cc	2015-01-05 17:49:44.572766000 +0100
+@@ -2,7 +2,6 @@
+ #include <stdlib.h>
+ #include <mex.h>
+ #include <math.h>
+-#include <matrix.h>
+ #include <string.h>
+ 
+ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
