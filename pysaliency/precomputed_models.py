@@ -258,6 +258,9 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
         self.filename = filename
         self.check_shape = check_shape
 
+        if not os.path.isfile(self.filename):
+            raise ValueError(f'File {self.filename} does not exist')
+
         import h5py
         self.hdf5_file = h5py.File(self.filename, 'r')
         self.all_keys = get_keys_recursive(self.hdf5_file)

@@ -15,7 +15,10 @@ from pysaliency import export_model_to_hdf5
 class TestSaliencyMapModel(pysaliency.SaliencyMapModel):
     def _saliency_map(self, stimulus):
         stimulus_data = pysaliency.datasets.as_stimulus(stimulus).stimulus_data
-        return np.array(stimulus_data, dtype=float)
+        if stimulus_data.ndim == 3:
+            return stimulus_data.mean(axis=-1).astype(float)
+        else:
+            return np.array(stimulus_data, dtype=float)
 
 
 @pytest.fixture

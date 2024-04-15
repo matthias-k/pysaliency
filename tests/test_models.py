@@ -24,7 +24,7 @@ class GaussianSaliencyModel(pysaliency.Model):
 
 
 @pytest.fixture
-def fixation_trains():
+def scanpath_fixations():
     xs_trains = [
         [0, 1, 2],
         [2, 2],
@@ -39,7 +39,7 @@ def fixation_trains():
         [50, 500, 900]]
     ns = [0, 0, 1]
     subjects = [0, 1, 1]
-    return pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+    return pysaliency.ScanpathFixations(pysaliency.Scanpaths(xs=xs_trains, ys=ys_trains, ts=ts_trains, n=ns, subject=subjects))
 
 
 @pytest.fixture
@@ -48,20 +48,20 @@ def stimuli():
                                np.random.randn(40, 40, 3)])
 
 
-def test_log_likelihood_constant(stimuli, fixation_trains):
+def test_log_likelihood_constant(stimuli, scanpath_fixations):
     csmm = ConstantSaliencyModel()
 
-    log_likelihoods = csmm.log_likelihoods(stimuli, fixation_trains)
+    log_likelihoods = csmm.log_likelihoods(stimuli, scanpath_fixations)
     np.testing.assert_allclose(log_likelihoods, -np.log(40*40))
 
 
-def test_log_likelihood_gauss(stimuli, fixation_trains):
+def test_log_likelihood_gauss(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyModel()
 
-    log_likelihoods = gsmm.log_likelihoods(stimuli, fixation_trains)
+    log_likelihoods = gsmm.log_likelihoods(stimuli, scanpath_fixations)
     np.testing.assert_allclose(log_likelihoods, np.array([-10.276835,  -9.764182,  -9.286885,  -9.286885,
                                                           -9.286885,   -9.057075,  -8.067126,  -9.905604]))
-    log_likelihoods = pysaliency.ScanpathModel.log_likelihoods(gsmm, stimuli, fixation_trains)
+    log_likelihoods = pysaliency.ScanpathModel.log_likelihoods(gsmm, stimuli, scanpath_fixations)
     np.testing.assert_allclose(log_likelihoods, np.array([-10.276835,  -9.764182,  -9.286885,  -9.286885,
                                                           -9.286885,   -9.057075,  -8.067126,  -9.905604]))
 
@@ -72,7 +72,7 @@ def test_log_likelihood_gauss(stimuli, fixation_trains):
 def test_sampling(stimuli):
     model = GaussianSaliencyModel()
     fixations = model.sample(stimuli, train_counts=10, lengths=3)
-    assert len(fixations.train_xs) == len(stimuli) * 10
+    assert len(fixations.scanpaths) == len(stimuli) * 10
     assert len(fixations.x) == len(stimuli) * 10 * 3
 
 

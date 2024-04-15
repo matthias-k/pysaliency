@@ -1,8 +1,8 @@
 import random
 
-from boltons.iterutils import chunked
 import numpy as np
 import torch
+from boltons.iterutils import chunked
 from tqdm import tqdm
 
 from .models import Model
@@ -126,7 +126,8 @@ class FixationMaskTransform(object):
         inds = np.array([y, x])
         values = np.ones(len(y), dtype=int)
 
-        mask = torch.sparse.IntTensor(torch.tensor(inds), torch.tensor(values), shape)
+        # mask = torch.sparse.IntTensor(torch.tensor(inds), torch.tensor(values), shape)
+        mask = torch.sparse_coo_tensor(torch.tensor(inds), torch.tensor(values), shape, dtype=torch.int)
         mask = mask.coalesce()
 
         item['fixation_mask'] = mask

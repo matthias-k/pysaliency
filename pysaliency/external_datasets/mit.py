@@ -1,25 +1,18 @@
-from __future__ import absolute_import, print_function, division
+from __future__ import absolute_import, division, print_function
 
-import zipfile
-import os
 import glob
+import os
+import zipfile
 
 import numpy as np
-from scipy.io import loadmat
 from natsort import natsorted
-from pkg_resources import resource_string
 from PIL import Image
+from pkg_resources import resource_string
+from scipy.io import loadmat
 
-from ..datasets import FixationTrains
-from ..utils import (
-    TemporaryDirectory,
-    filter_files,
-    run_matlab_cmd,
-    download_and_check,
-    atomic_directory_setup,
-    build_padded_2d_array)
-
-from .utils import create_stimuli, _load
+from ..datasets import ScanpathFixations, Scanpaths
+from ..utils import TemporaryDirectory, atomic_directory_setup, build_padded_2d_array, download_and_check, filter_files, run_matlab_cmd
+from .utils import _load, create_stimuli
 
 
 def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, only_1024_by_768=False, replace_initial_invalid_fixations=False):
@@ -113,7 +106,7 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                     subject_path = os.path.join('DATA', subject)
                     outfile = '{0}_{1}.mat'.format(stimulus, subject)
                     outfile = os.path.join(out_path, outfile)
-                    cmds.append("fprintf('%d/%d\\r', {}, {});".format(n * len(subjects) + subject_id, total_cmd_count))
+                    cmds.append("fprintf('Processing scanpath %d/%d\\r', {}, {});".format(n * len(subjects) + subject_id, total_cmd_count))
                     cmds.append("extract_fixations('{0}', '{1}', '{2}');".format(stimulus, subject_path, outfile))
 
             print('Running original code to extract fixations. This can take some minutes.')
@@ -228,20 +221,19 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
             #    # train_durations contains the fixation durations for each scanpath
             #    'train_durations': build_padded_2d_array(train_durations),
             #}
-            scanpath_fixation_attributes = {
-                'durations': train_durations,
-            }
-            fixations = FixationTrains.from_fixation_trains(
-                xs,
-                ys,
-                ts,
-                ns,
-                train_subjects,
-                #attributes=attributes,
-                #scanpath_attributes=scanpath_attributes
-                scanpath_fixation_attributes=scanpath_fixation_attributes,
-                scanpath_attribute_mapping={'durations': 'duration'}
-            )
+
+            #scanpath_fixation_attributes = {
+            #    'durations': train_durations,
+            #}
+
+            fixations = ScanpathFixations(Scanpaths(
+                xs=xs,
+                ys=ys,
+                ts=ts,
+                n=ns,
+                subject=train_subjects,
+                durations=train_durations,
+            ))
 
         if location:
             stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))

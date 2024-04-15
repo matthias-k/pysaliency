@@ -1,5 +1,24 @@
 # Changelog
 
+* 0.3 (dev):
+  This is a major release, refactoring most of `pysaliency.datasets` including some breaking changes.
+  * Feature: `Scanpaths` is a new class for storing scanpaths. It has a similar API to the old `FixationTrains`,
+    but exclusively cares about scanpaths. For example, the length of a Scanpaths instance is the number of scanpaths,
+    not the number of fixations. It is intended to make iterating over and working with scanpaths more convenient.
+  * Feature: `ScanpathFixations` is a new subclass of `Fixations` intended for handling fixations that come from scanpaths.
+    It is intended to replace the old `FixationTrains` class. `ScanpathFixations` has a `scanpaths: Scanpaths`
+    attribute storing the source scanpaths (what used to be stored manually as `train_xs` etc in `FixationTrains`).
+    Unlike `FixationTrains`, `ScanpathFixations` does not have any attributes that are not derived from the scanpaths.
+    `FixationTrains` is now a deprecated subclass of `ScanpathFixations` which adds the old properties and constructor
+    and allows for attributes which are neither scanpath attributes nor scanpath fixation attributes.
+  * Feature: `VariableLengthArray` for inuititively handling data like scanpaths where each row can have a different length.
+    `Fixations.x_Hist`, `Fixations.y_hist`, `Scanpaths.xs` etc are now instances of `VariableLengthArray`.
+  * `Fixations.lengths` has been renamed to `Fixations.scanpath_history_length` to make it clear that it is the length of the scanpath history.
+    `Fixations.lengths` is now a deprecated alias.
+  * In general, naming convention for attriutes has been changed to use the plural form if the attribute is a list of values for each
+    element (i.e., `Scanpaths.xs`) and the singular form if the attribute is a single value (i.e., `Scanpaths.length`,  `Fixations.x`). This resulted in
+    renaming `Fixations.subjects` to `Fixations.subject`. The old name is now a deprecated alias.
+
 * 0.2.22:
   * Enhancement: New [Tutorial](notebooks/Tutorial.ipynb).
   * Bugfix: `SaliencyMapModel.AUC` failed if some images didn't have any fixations.

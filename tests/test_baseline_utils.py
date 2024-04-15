@@ -17,7 +17,7 @@ from pysaliency.baseline_utils import (
 
 
 @pytest.fixture
-def fixation_trains():
+def scanpath_fixations():
     xs_trains = [
         [15, 20, 25],
         [10, 30],
@@ -32,7 +32,7 @@ def fixation_trains():
         [50, 500, 900]]
     ns = [0, 0, 1]
     subjects = [0, 1, 1]
-    return pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+    return pysaliency.ScanpathFixations(pysaliency.Scanpaths(xs=xs_trains, ys=ys_trains, ts=ts_trains, n=ns, subject=subjects))
 
 
 @pytest.fixture
@@ -59,10 +59,10 @@ def test_fixation_map():
         [0, 1, 0]]))
 
 
-def test_kde_gold_model(stimuli, fixation_trains):
+def test_kde_gold_model(stimuli, scanpath_fixations):
     bandwidth = 0.1
-    kde_gold_model = KDEGoldModel(stimuli, fixation_trains, bandwidth=bandwidth)
-    spaced_kde_gold_model = KDEGoldModel(stimuli, fixation_trains, bandwidth=bandwidth, grid_spacing=2)
+    kde_gold_model = KDEGoldModel(stimuli, scanpath_fixations, bandwidth=bandwidth)
+    spaced_kde_gold_model = KDEGoldModel(stimuli, scanpath_fixations, bandwidth=bandwidth, grid_spacing=2)
 
     full_log_density = kde_gold_model.log_density(stimuli[0])
     spaced_log_density = spaced_kde_gold_model.log_density(stimuli[0])
@@ -73,8 +73,8 @@ def test_kde_gold_model(stimuli, fixation_trains):
     assert kl_div1 < 0.002
     assert kl_div2 < 0.002
 
-    full_ll = kde_gold_model.information_gain(stimuli, fixation_trains, average='image')
-    spaced_ll = spaced_kde_gold_model.information_gain(stimuli, fixation_trains, average='image')
+    full_ll = kde_gold_model.information_gain(stimuli, scanpath_fixations, average='image')
+    spaced_ll = spaced_kde_gold_model.information_gain(stimuli, scanpath_fixations, average='image')
     print(full_ll, spaced_ll)
     np.testing.assert_allclose(full_ll, 2.1912009255501252)
     np.testing.assert_allclose(spaced_ll, 2.191055750664578)
@@ -139,11 +139,11 @@ def test_mixture_kernel_density_estimator():
     assert isinstance(score, float)
 
 
-def test_crossval_multiple_regularizations(stimuli, fixation_trains):
+def test_crossval_multiple_regularizations(stimuli, scanpath_fixations):
     # Test initialization
     regularization_models = OrderedDict([('model1', pysaliency.UniformModel()), ('model2', pysaliency.models.GaussianModel())])
-    crossvalidation = ScikitLearnImageCrossValidationGenerator(stimuli, fixation_trains)
-    estimator = CrossvalMultipleRegularizations(stimuli, fixation_trains, regularization_models, crossvalidation)
+    crossvalidation = ScikitLearnImageCrossValidationGenerator(stimuli, scanpath_fixations)
+    estimator = CrossvalMultipleRegularizations(stimuli, scanpath_fixations, regularization_models, crossvalidation)
     assert estimator.cv is crossvalidation
     assert estimator.mean_area is not None
     assert estimator.X is not None

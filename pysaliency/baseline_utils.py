@@ -4,7 +4,7 @@ from typing import List
 import numba
 import numpy as np
 from boltons.iterutils import chunked
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage import gaussian_filter
 from scipy.special import logsumexp
 from sklearn.base import BaseEstimator, DensityMixin
 from sklearn.model_selection import cross_val_score
@@ -137,7 +137,7 @@ class ScikitLearnImageSubjectCrossValidationGenerator(object):
         for n in range(len(self.stimuli)):
             for s in range(self.fixations.subject_count):
                 image_inds = self.fixations.n == n
-                subject_inds = self.fixations.subjects == s
+                subject_inds = self.fixations.subject == s
                 train_inds, test_inds = image_inds & ~subject_inds, image_inds & subject_inds
                 if test_inds.sum() == 0 or train_inds.sum() == 0:
                     #print("Skipping")
@@ -152,7 +152,7 @@ class ScikitLearnImageSubjectCrossValidationGenerator(object):
                 yield train_inds, test_inds
 
     def __len__(self):
-        return len(set(zip(self.fixations.n, self.fixations.subjects)))
+        return len(set(zip(self.fixations.n, self.fixations.subject)))
 
 
 class ScikitLearnWithinImageCrossValidationGenerator(object):

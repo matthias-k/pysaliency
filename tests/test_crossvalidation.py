@@ -26,7 +26,7 @@ class GaussianSaliencyModel(pysaliency.Model):
 
 
 @pytest.fixture
-def fixation_trains():
+def scanpath_fixations():
     xs_trains = [
         [0, 1, 2],
         [2, 2],
@@ -44,7 +44,7 @@ def fixation_trains():
         [100]]
     ns = [0, 0, 1, 2]
     subjects = [0, 1, 1, 0]
-    return pysaliency.FixationTrains.from_fixation_trains(xs_trains, ys_trains, ts_trains, ns, subjects)
+    return pysaliency.ScanpathFixations(pysaliency.Scanpaths(xs=xs_trains, ys=ys_trains, ts=ts_trains, n=ns, subject=subjects))
 
 
 @pytest.fixture
@@ -63,10 +63,10 @@ def unpack_crossval(cv):
     return list(_unpack_crossval(cv))
 
 
-def test_image_crossvalidation(stimuli, fixation_trains):
+def test_image_crossvalidation(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyModel()
 
-    cv = ScikitLearnImageCrossValidationGenerator(stimuli, fixation_trains)
+    cv = ScikitLearnImageCrossValidationGenerator(stimuli, scanpath_fixations)
 
     assert unpack_crossval(cv) == [
         ([False, False, False, False, False, True, True, True, True],
@@ -77,7 +77,7 @@ def test_image_crossvalidation(stimuli, fixation_trains):
          [False, False, False, False, False, False, False, False, True])
     ]
 
-    X = fixations_to_scikit_learn(fixation_trains, normalize=stimuli, add_shape=True)
+    X = fixations_to_scikit_learn(scanpath_fixations, normalize=stimuli, add_shape=True)
 
     assert cross_val_score(
         RegularizedKernelDensityEstimator(bandwidth=0.1, regularization=0.1),
@@ -86,17 +86,17 @@ def test_image_crossvalidation(stimuli, fixation_trains):
         verbose=0).sum()
 
 
-def test_image_subject_crossvalidation(stimuli, fixation_trains):
+def test_image_subject_crossvalidation(stimuli, scanpath_fixations):
     gsmm = GaussianSaliencyModel()
 
-    cv = ScikitLearnImageSubjectCrossValidationGenerator(stimuli, fixation_trains)
+    cv = ScikitLearnImageSubjectCrossValidationGenerator(stimuli, scanpath_fixations)
 
     assert unpack_crossval(cv) == [
         ([3, 4], [0, 1, 2]),
         ([0, 1, 2], [3, 4])
     ]
 
-    X = fixations_to_scikit_learn(fixation_trains, normalize=stimuli, add_shape=True)
+    X = fixations_to_scikit_learn(scanpath_fixations, normalize=stimuli, add_shape=True)
 
     assert cross_val_score(
         RegularizedKernelDensityEstimator(bandwidth=0.1, regularization=0.1),
