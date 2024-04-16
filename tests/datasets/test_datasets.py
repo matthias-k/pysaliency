@@ -175,3 +175,51 @@ def test_create_subset_numpy_mask(file_stimuli_with_attributes, fixation_trains)
     assert isinstance(sub_fixations, pysaliency.FixationTrains)
     assert len(sub_stimuli) == 2
     np.testing.assert_array_equal(sub_fixations.x, fixation_trains.x[np.isin(fixation_trains.n, [0, 2])])
+
+
+def test_concatenate_datasets_with_scanpath_fixations(file_stimuli_with_attributes, scanpath_fixations):
+    stimuli1 = file_stimuli_with_attributes
+    stimuli2 = file_stimuli_with_attributes
+
+    fixations1 = scanpath_fixations
+    fixations2 = scanpath_fixations
+
+    stimuli_list = [stimuli1, stimuli2]
+    fixations_list = [fixations1, fixations2]
+
+    concatenated_stimuli, concatenated_fixations = pysaliency.datasets.concatenate_datasets(stimuli_list, fixations_list)
+
+    modified_fixations2 = fixations2.copy()
+    modified_fixations2.n += len(stimuli1)
+    modified_fixations2.scanpaths.n += len(stimuli1)
+
+    expected_fixations = pysaliency.datasets.concatenate_fixations([fixations1, modified_fixations2])
+
+
+    assert len(concatenated_stimuli) == len(stimuli1) + len(stimuli2)
+
+    assert_scanpath_fixations_equal(concatenated_fixations, expected_fixations)
+
+
+def test_concatenate_datasets_with_fixation_trains(file_stimuli_with_attributes, fixation_trains):
+    stimuli1 = file_stimuli_with_attributes
+    stimuli2 = file_stimuli_with_attributes
+
+    fixations1 = fixation_trains
+    fixations2 = fixation_trains
+
+    stimuli_list = [stimuli1, stimuli2]
+    fixations_list = [fixations1, fixations2]
+
+    concatenated_stimuli, concatenated_fixations = pysaliency.datasets.concatenate_datasets(stimuli_list, fixations_list)
+
+    modified_fixations2 = fixations2.copy()
+    modified_fixations2.n += len(stimuli1)
+    modified_fixations2.scanpaths.n += len(stimuli1)
+
+    expected_fixations = pysaliency.datasets.concatenate_fixations([fixations1, modified_fixations2])
+
+
+    assert len(concatenated_stimuli) == len(stimuli1) + len(stimuli2)
+
+    assert_fixation_trains_equal(concatenated_fixations, expected_fixations)

@@ -123,8 +123,8 @@ def concatenate_datasets(stimuli, fixations):
         offset = sum(len(s) for s in stimuli[:i])
         f = fixations[i].copy()
         f.n += offset
-        if isinstance(f, FixationTrains):
-            f.train_ns += offset
+        if isinstance(f, ScanpathFixations):
+            f.scanpaths.n += offset
         fixations[i] = f
 
     return concatenate_stimuli(stimuli), concatenate_fixations(fixations)
