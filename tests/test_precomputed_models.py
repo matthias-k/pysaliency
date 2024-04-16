@@ -113,6 +113,16 @@ def test_hdf5_model_sub_stimuli(stimuli, sub_stimuli, tmpdir):
         np.testing.assert_allclose(model.log_density(s), model2.log_density(s))
 
 
+def test_hdf5_model_empty_stimuli(stimuli, tmpdir):
+    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, stimuli, filename)
+
+    sub_stimuli = stimuli[[]]
+
+    pysaliency.HDF5Model(sub_stimuli, filename)
+
+
 def test_export_model_overwrite(file_stimuli, tmpdir):
     model1 = pysaliency.GaussianSaliencyMapModel(width=0.1)
     model2 = pysaliency.GaussianSaliencyMapModel(width=0.8)

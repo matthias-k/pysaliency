@@ -30,6 +30,9 @@ def get_stimuli_filenames(stimuli):
 
 def get_keys_from_filenames(filenames, keys):
     """checks how much filenames have to be shorted to get the correct hdf5 or other keys"""
+    if not filenames:
+        return []
+
     first_filename_parts = full_split(filenames[0])
     for part_index in range(len(first_filename_parts)):
         remaining_filename = os.path.join(*first_filename_parts[part_index:])
