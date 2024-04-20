@@ -221,7 +221,7 @@ def concatenate_scanpaths(scanpaths_list: List[Scanpaths]) -> Scanpaths:
         mappings = {scanpaths.attribute_mapping.get(key) for scanpaths in scanpaths_list}
         if len(mappings) > 1:
             raise ValueError(f"Multiple mappings for attribute {key} found: {mappings}")
-        elif len(mappings) == 1:
+        elif len(mappings) == 1 and list(mappings)[0] is not None:
             merged_attribute_mapping[key] = mappings.pop()
 
     return Scanpaths(xs, ys, n, length, scanpath_attributes=scanpath_attributes, fixation_attributes=fixation_attributes, attribute_mapping=merged_attribute_mapping)
