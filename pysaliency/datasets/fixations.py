@@ -375,6 +375,10 @@ class Fixations(object):
             if key in variable_length_arrays:
                 data = VariableLengthArray(data, lengths)
 
+            if key == 'subjects' and data_version < '1.2':
+                key = 'subject'
+                fixations.__attributes__[fixations.__attributes__.index('subjects')] = 'subject'
+
             setattr(fixations, key, data)
 
         return fixations
