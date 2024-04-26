@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 
-from ..models import Model, ScanpathModel
 from ..datasets import as_stimulus
-
+from ..models import Model
+from ..utils import as_rgb
 
 
 class StaticDeepGazeModel(Model):
@@ -22,9 +22,7 @@ class StaticDeepGazeModel(Model):
         stimulus = as_stimulus(stimulus)
         stimulus_data = stimulus.stimulus_data
 
-        if stimulus_data.ndim == 2:
-            stimulus_data = np.dstack((stimulus_data, stimulus_data, stimulus_data))
-
+        stimulus_data = as_rgb(stimulus_data)
         stimulus_data = stimulus_data.transpose(2, 0, 1)
 
         centerbias_data = self.centerbias_model.log_density(stimulus)

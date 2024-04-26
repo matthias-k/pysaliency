@@ -19,6 +19,7 @@ import deprecation
 import numpy as np
 import requests
 from boltons.cacheutils import LRU
+from PIL import Image
 from scipy.interpolate import griddata
 from tqdm import tqdm
 
@@ -510,3 +511,18 @@ def iterator_chunks(iterable, chunk_size=10):
     counter = count()
     for _, g in groupby(iterable, lambda _: next(counter) // chunk_size):
         yield g
+
+
+def as_rgb(image: np.ndarray):
+    """makes sure that image data is in 8 bit RGB format"""
+
+    pil_image = Image.fromarray(image)
+
+    if pil_image.mode == 'I;16':
+        # convert 16 bit images to 8 bit
+        array = np.uint8(np.array(pil_image) / 256)
+        pil_image = Image.fromarray(array)
+
+    rgb_image = pil_image.convert('RGB')
+
+    return np.array(rgb_image)
