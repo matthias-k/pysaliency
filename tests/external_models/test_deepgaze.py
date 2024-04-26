@@ -1,11 +1,11 @@
 import os
 
 import numpy as np
+import pytest
 
 import pysaliency
 from pysaliency.external_models.deepgaze import DeepGazeI, DeepGazeIIE
 
-import pytest
 
 @pytest.fixture(scope='module')
 def color_stimulus():
