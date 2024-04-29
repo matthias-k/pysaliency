@@ -942,12 +942,17 @@ class DVAAwareModel(Model):
 
     def _log_density(self, stimulus):
         stimulus_data = as_stimulus(stimulus).stimulus_data
-        stimulus = self.ensure_color(stimulus_data)
 
         if self.factor != 1.0:
             if self.verbose:
                 print("Resizing with factor", self.factor)
-            stimulus_for_parent_model = zoom(stimulus, [self.factor, self.factor, 1.0], order=1, mode='nearest')
+            if stimulus_data.ndim == 2:
+                factors = [self.factor, self.factor]
+            else:
+                factors = [self.factor, self.factor, 1.0]
+
+            stimulus_for_parent_model = zoom(stimulus_data, factors, order=1, mode='nearest')
+
         else:
             stimulus_for_parent_model = stimulus
 
@@ -992,18 +997,23 @@ class DVAAwareScanpathModel(ScanpathModel):
 
     def conditional_log_density(self, stimulus, x_hist, y_hist, t_hist, attributes=None, out=None):
         stimulus_data = as_stimulus(stimulus).stimulus_data
-        stimulus = self.ensure_color(stimulus_data)
         if out is not None:
             raise NotImplementedError()
 
         if self.factor != 1.0:
+
             if self.verbose:
                 print("Resizing with factor", self.factor)
-            stimulus_for_parent_model = zoom(stimulus, [self.factor, self.factor, 1.0], order=1, mode='nearest')
+            if stimulus_data.ndim == 2:
+                factors = [self.factor, self.factor]
+            else:
+                factors = [self.factor, self.factor, 1.0]
+
+            stimulus_for_parent_model = zoom(stimulus_data, factors, order=1, mode='nearest')
 
             outer_shape = (
-                stimulus.shape[0],
-                stimulus.shape[1]
+                stimulus_data.shape[0],
+                stimulus_data.shape[1]
             )
 
             inner_shape = (
