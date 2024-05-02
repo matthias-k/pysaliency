@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import glob
+import logging
 import os.path
 import tarfile
 import warnings
@@ -102,7 +103,7 @@ def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True
     with h5py.File(filename, mode=mode) as f:
         for k, s in enumerate(tqdm(stimuli)):
             if not overwrite and names[k] in f:
-                print("Skipping already existing entry", names[k])
+                logging.debug(f"Skipping already existing entry {names[k]}")
                 continue
             if isinstance(model, SaliencyMapModel):
                 smap = model.saliency_map(s)
