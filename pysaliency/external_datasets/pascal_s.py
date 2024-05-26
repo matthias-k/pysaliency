@@ -1,19 +1,18 @@
-from __future__ import absolute_import, print_function, division
+from __future__ import absolute_import, division, print_function
 
-import zipfile
 import os
+import zipfile
 
-import requests
 import numpy as np
+import requests
 
-from ..datasets import FixationTrains
+from ..datasets import ScanpathFixations, Scanpaths
 from ..utils import (
     TemporaryDirectory,
-    download_and_check,
     atomic_directory_setup,
+    download_and_check,
 )
-
-from .utils import create_stimuli, _load
+from .utils import _load, create_stimuli
 
 
 def get_PASCAL_S(location=None):
@@ -100,7 +99,13 @@ def get_PASCAL_S(location=None):
                     train_ns.append(n)
                     train_subjects.append(subject - 1)  # subjects are 1-indexed in matlab
 
-        fixations = FixationTrains.from_fixation_trains(train_xs, train_ys, train_ts, train_ns, train_subjects)
+        fixations = ScanpathFixations(Scanpaths(
+            xs=train_xs,
+            ys=train_ys,
+            ts=train_ts,
+            n=train_ns,
+            subject=train_subjects,
+        ))
 
         if location:
             stimuli.to_hdf5(os.path.join(location, 'stimuli.hdf5'))
