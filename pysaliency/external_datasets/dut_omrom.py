@@ -1,24 +1,23 @@
-from __future__ import absolute_import, print_function, division
+from __future__ import absolute_import, division, print_function
 
-import zipfile
-import os
 import glob
+import os
+import zipfile
 
 import numpy as np
 from scipy.io import loadmat
 from tqdm import tqdm
 
-from ..datasets import FixationTrains
+from ..datasets import ScanpathFixations, Scanpaths, Stimuli
 from ..utils import (
     TemporaryDirectory,
-    download_and_check,
     atomic_directory_setup,
+    download_and_check,
 )
+from .utils import _load, create_stimuli
 
-from .utils import create_stimuli, _load
 
-
-def get_DUT_OMRON(location=None):
+def get_DUT_OMRON(location=None) -> tuple[Stimuli, ScanpathFixations]:
     """
     Loads or downloads the DUT-OMRON fixation dataset.
     The dataset consists of 5168 natural images with
@@ -108,7 +107,13 @@ def get_DUT_OMRON(location=None):
                     train_ns.append(n)
                     train_subjects.append(subject_index)
 
-        fixations = FixationTrains.from_fixation_trains(train_xs, train_ys, train_ts, train_ns, train_subjects)
+        fixations = ScanpathFixations(Scanpaths(
+            xs=train_xs,
+            ys=train_ys,
+            ts=train_ts,
+            n=train_ns,
+            subject=train_subjects,
+        ))
 
         assert len(fixations) == n_fixations
 
