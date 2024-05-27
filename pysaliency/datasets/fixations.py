@@ -278,7 +278,7 @@ class Fixations(object):
 
     @property
     def subject_count(self):
-        return self.subject.max()+1
+        return int(self.subject.max())+1
 
     def copy(self):
         cfix = Fixations(self.x.copy(), self.y.copy(), self.t.copy(),
