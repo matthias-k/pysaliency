@@ -113,6 +113,9 @@ class ContextAwareSaliency(ExternalModelMixin, MatlabSaliencyMapModel):
         Stas Goferman, Lihi Zelnik-Manor, Ayellet Tal. Context-Aware Saliency Detection [CVPR 2010] [PAMI 2012]
 
         http://webee.technion.ac.il/labs/cgm/Computer-Graphics-Multimedia/Software/Saliency/Saliency.html
+
+        (this URL is down as of 2024-06. Ther doesn't seem to be a new version, but you can check an old version
+        at https://web.archive.org/web/20230106184636/https://cgm.technion.ac.il/Computer-Graphics-Multimedia/Software/Saliency/Saliency.html)
     """
     __modelname__ = 'ContextAwareSaliency'
 
@@ -124,7 +127,10 @@ class ContextAwareSaliency(ExternalModelMixin, MatlabSaliencyMapModel):
         with TemporaryDirectory() as temp_dir:
             if not os.path.isdir(temp_dir):
                 os.makedirs(self.location)
-            download_and_check('http://webee.technion.ac.il/labs/cgm/Computer-Graphics-Multimedia/Software/Saliency/Saliency.zip',
+            # url = 'http://webee.technion.ac.il/labs/cgm/Computer-Graphics-Multimedia/Software/Saliency/Saliency.zip'
+            # The original URL is not available anymore. We use the webarchive version
+            url = 'https://web.archive.org/web/20230106184636/https://cgm.technion.ac.il/Computer-Graphics-Multimedia/Software/Saliency/Saliency.zip'
+            download_and_check(url,
                                os.path.join(temp_dir, 'Saliency.zip'),
                                'c3c6768ef26e95def76000f51e8aad7c')
 
