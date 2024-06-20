@@ -11,7 +11,7 @@ from pysaliency import (
     SaliencyMapModelFromDirectory,
     UniformModel
 )
-from pysaliency.torch_datasets import ImageDataset, ImageDatasetSampler, FixationMaskTransform
+from pysaliency.torch_datasets import ImageDataset, ImageDatasetSampler, FixationMaskTransform, collate_fn
 import torch
 
 
@@ -71,6 +71,7 @@ def test_dataset(stimuli, fixations, png_saliency_map_model):
         batch_sampler=ImageDatasetSampler(dataset, batch_size=4, shuffle=False),
         pin_memory=False,
         num_workers=0,  # doesn't work for sparse tensors yet. Might work soon.
+        collate_fn=collate_fn,
     )
 
     count = 0

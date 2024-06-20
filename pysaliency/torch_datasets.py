@@ -3,6 +3,7 @@ import random
 import numpy as np
 import torch
 from boltons.iterutils import chunked
+from torch.utils.data.dataloader import default_collate
 from tqdm import tqdm
 
 from .models import Model
@@ -167,3 +168,14 @@ class ImageDatasetSampler(torch.utils.data.Sampler):
 
     def __len__(self):
         return int(self.ratio_used * len(self.batches))
+
+
+# we need to extend the defaut collate fn to handle sparse coo tensors
+def collate_fn(batch):
+    result = {}
+    for key in batch[0]:
+        if isinstance(batch[0][key], torch.sparse.Tensor):
+            result[key] = torch.stack([item[key] for item in batch], 0)
+        else:
+            result[key] = default_collate([item[key] for item in batch])
+    return result

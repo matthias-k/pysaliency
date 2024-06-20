@@ -7,7 +7,7 @@ from .models import Model
 from .optpy import minimize
 from .saliency_map_models import SaliencyMapModel
 from .torch_utils import GaussianFilterNd, Nonlinearity, zero_grad, log_likelihood
-from .torch_datasets import ImageDataset, ImageDatasetSampler, FixationMaskTransform
+from .torch_datasets import ImageDataset, ImageDatasetSampler, FixationMaskTransform, collate_fn
 
 
 class CenterBias(nn.Module):
@@ -275,6 +275,7 @@ def _optimize_saliency_map_conversion_over_multiple_models_and_datasets(
         batch_sampler=ImageDatasetSampler(dataset, batch_size=batch_size, shuffle=False),
         pin_memory=False,
         num_workers=0,  # doesn't work for sparse tensors yet. Might work soon.
+        collate_fn=collate_fn,
     )
 
     saliency_map_processing = SaliencyMapProcessing(
