@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 import glob
 import os
 import zipfile
+from typing import Tuple
 
 import numpy as np
 from scipy.io import loadmat
@@ -17,7 +18,7 @@ from ..utils import (
 from .utils import _load, create_stimuli
 
 
-def get_DUT_OMRON(location=None) -> tuple[Stimuli, ScanpathFixations]:
+def get_DUT_OMRON(location=None) -> Tuple[Stimuli, ScanpathFixations]:
     """
     Loads or downloads the DUT-OMRON fixation dataset.
     The dataset consists of 5168 natural images with
