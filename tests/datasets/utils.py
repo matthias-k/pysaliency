@@ -60,6 +60,7 @@ def assert_fixations_equal(f1, f2, crop_length=False):
     np.testing.assert_array_equal(f1.x, f2.x)
     np.testing.assert_array_equal(f1.y, f2.y)
     np.testing.assert_array_equal(f1.t, f2.t)
+    np.testing.assert_array_equal(f1.n, f2.n)
     assert_variable_length_array_equal(f1.x_hist, f2.x_hist)
     assert_variable_length_array_equal(f1.y_hist, f2.y_hist)
     assert_variable_length_array_equal(f1.t_hist, f2.t_hist)

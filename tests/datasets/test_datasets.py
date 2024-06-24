@@ -117,8 +117,10 @@ def test_create_subset_scanpath_fixations(file_stimuli_with_attributes, scanpath
     sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, scanpath_fixations, stimulus_indices)
 
     expected_sub_fixations = scanpath_fixations.filter_scanpaths(scanpath_indices).copy()
-    expected_sub_fixations.scanpaths.n = sub_fixations.scanpaths.n
-    expected_sub_fixations.n = sub_fixations.n
+    expected_scanpath_n = np.array([stimulus_indices.index(n) for n in expected_sub_fixations.scanpaths.n])
+    expected_sub_fixations.scanpaths.n = expected_scanpath_n
+    expected_fixation_n = np.array([stimulus_indices.index(n) for n in expected_sub_fixations.n])
+    expected_sub_fixations.n = expected_fixation_n
 
     assert_scanpath_fixations_equal(sub_fixations, expected_sub_fixations)
 
@@ -132,8 +134,10 @@ def test_create_subset_fixation_trains(file_stimuli_with_attributes, fixation_tr
     sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixation_trains, stimulus_indices)
 
     expected_sub_fixations= fixation_trains.filter_scanpaths(scanpath_indices).copy()
-    expected_sub_fixations.scanpaths.n = sub_fixations.scanpaths.n
-    expected_sub_fixations.n = sub_fixations.n
+    expected_scanpath_n = np.array([stimulus_indices.index(n) for n in expected_sub_fixations.scanpaths.n])
+    expected_sub_fixations.scanpaths.n = expected_scanpath_n
+    expected_fixation_n = np.array([stimulus_indices.index(n) for n in expected_sub_fixations.n])
+    expected_sub_fixations.n = expected_fixation_n
 
     assert_fixation_trains_equal(sub_fixations, expected_sub_fixations)
 
@@ -148,8 +152,8 @@ def test_create_subset_fixations(file_stimuli_with_attributes, fixation_trains, 
     sub_stimuli, sub_fixations = pysaliency.datasets.create_subset(file_stimuli_with_attributes, fixations, stimulus_indices)
 
     expected_sub_fixations= fixations[fixation_indices].copy()
-    expected_sub_fixations.n = sub_fixations.n
-
+    expected_fixation_n = np.array([stimulus_indices.index(n) for n in expected_sub_fixations.n])
+    expected_sub_fixations.n = expected_fixation_n
     assert not isinstance(sub_fixations, pysaliency.FixationTrains)
     assert_fixations_equal(sub_fixations, expected_sub_fixations)
 

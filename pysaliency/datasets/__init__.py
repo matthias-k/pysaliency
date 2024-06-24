@@ -73,6 +73,7 @@ def create_subset(stimuli, fixations, stimuli_indices):
         new_image_indices = [new_pos[i] for i in fixations.scanpaths.n[scanpath_inds]]
 
         new_scanpaths = fixations.scanpaths[scanpath_inds]
+        new_scanpaths.n = np.array(new_image_indices)
 
         new_fixations = ScanpathFixations(
             scanpaths=new_scanpaths,
