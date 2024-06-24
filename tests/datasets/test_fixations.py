@@ -316,6 +316,18 @@ def test_scanpath_fixations_scanpath_attributes(scanpath_fixations):
     np.testing.assert_array_equal(scanpath_fixations.multi_dim_attribute[2], [0, 1])
 
 
+def test_scanpath_fixations_scanpath_attributes_zero_values(scanpath_fixations):
+    scanpaths = scanpath_fixations.scanpaths
+    scanpaths.scanpath_attributes['task'] = np.zeros((len(scanpaths), 2))
+    scanpath_fixations = ScanpathFixations(scanpaths=scanpaths)
+
+    assert "task" in scanpath_fixations.scanpaths.scanpath_attributes
+    assert "task" in scanpath_fixations.__attributes__
+
+    np.testing.assert_array_equal(scanpath_fixations.scanpaths.scanpath_attributes['multi_dim_attribute'][0], [0, 1])
+    np.testing.assert_array_equal(scanpath_fixations.multi_dim_attribute[2], [0, 1])
+
+
 def test_fixation_trains_scanpath_attributes(fixation_trains):
     assert "task" in fixation_trains.scanpath_attributes
     assert "task" in fixation_trains.__attributes__
