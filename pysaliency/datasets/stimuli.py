@@ -170,8 +170,8 @@ class Stimuli(Sequence):
         """ Write stimuli to hdf5 file or hdf5 group
         """
 
-        target.attrs['type'] = np.string_('Stimuli')
-        target.attrs['version'] = np.string_('1.1')
+        target.attrs['type'] = np.bytes_('Stimuli')
+        target.attrs['version'] = np.bytes_('1.1')
 
         for n, stimulus in enumerate(tqdm(self.stimuli, disable=not verbose)):
             target.create_dataset(str(n), data=stimulus, compression=compression, compression_opts=compression_opts)
@@ -209,7 +209,7 @@ class Stimuli(Sequence):
     def _attributes_to_hdf5(self, target):
         for attribute_name, attribute_value in self.attributes.items():
             create_hdf5_dataset(target, attribute_name, attribute_value)
-        target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
+        target.attrs['__attributes__'] = np.bytes_(json.dumps(self.__attributes__))
 
     @classmethod
     def _get_attributes_from_hdf5(cls, source, data_version, data_version_for_attribute_list):
@@ -352,8 +352,8 @@ class FileStimuli(Stimuli):
         """ Write FileStimuli to hdf5 file or hdf5 group
         """
 
-        target.attrs['type'] = np.string_('FileStimuli')
-        target.attrs['version'] = np.string_('2.1')
+        target.attrs['type'] = np.bytes_('FileStimuli')
+        target.attrs['version'] = np.bytes_('2.1')
 
         import h5py
         # make sure everything is unicode
