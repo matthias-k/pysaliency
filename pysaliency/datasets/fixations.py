@@ -309,8 +309,8 @@ class Fixations(object):
         """ Write fixations to hdf5 file or hdf5 group
         """
 
-        target.attrs['type'] = np.string_('Fixations')
-        target.attrs['version'] = np.string_('1.2')
+        target.attrs['type'] = np.bytes_('Fixations')
+        target.attrs['version'] = np.bytes_('1.2')
 
         variable_length_arrays = []
 
@@ -324,8 +324,8 @@ class Fixations(object):
                 data = data._data
             target.create_dataset(attribute, data=data)
 
-        target.attrs['__attributes__'] = np.string_(json.dumps(self.__attributes__))
-        target.attrs['__variable_length_arrays__'] = np.string_(json.dumps(sorted(variable_length_arrays)))
+        target.attrs['__attributes__'] = np.bytes_(json.dumps(self.__attributes__))
+        target.attrs['__variable_length_arrays__'] = np.bytes_(json.dumps(sorted(variable_length_arrays)))
 
     @classmethod
     @hdf5_wrapper(mode='r')
@@ -503,8 +503,8 @@ class ScanpathFixations(Fixations):
         """ Write ScanpathFixations to hdf5 file or hdf5 group
         """
 
-        target.attrs['type'] = np.string_('ScanpathFixations')
-        target.attrs['version'] = np.string_('1.0')
+        target.attrs['type'] = np.bytes_('ScanpathFixations')
+        target.attrs['version'] = np.bytes_('1.0')
 
         self.scanpaths.to_hdf5(target.create_group('scanpaths'))
 
@@ -1000,8 +1000,8 @@ class FixationTrains(ScanpathFixations):
         """ Write fixationtrains to hdf5 file or hdf5 group
         """
 
-        target.attrs['type'] = np.string_('FixationTrains')
-        target.attrs['version'] = np.string_('1.3')
+        target.attrs['type'] = np.bytes_('FixationTrains')
+        target.attrs['version'] = np.bytes_('1.3')
 
         variable_length_arrays = []
 
@@ -1016,19 +1016,19 @@ class FixationTrains(ScanpathFixations):
             target.create_dataset(attribute, data=data)
 
         saved_attributes = [attribute_name for attribute_name in self.__attributes__ if attribute_name not in self.auto_attributes]
-        target.attrs['__attributes__'] = np.string_(json.dumps(saved_attributes))
+        target.attrs['__attributes__'] = np.bytes_(json.dumps(saved_attributes))
 
-        target.attrs['scanpath_attribute_mapping'] = np.string_(json.dumps(self.scanpath_attribute_mapping))
+        target.attrs['scanpath_attribute_mapping'] = np.bytes_(json.dumps(self.scanpath_attribute_mapping))
 
         scanpath_attributes_group = target.create_group('scanpath_attributes')
         for attribute_name, attribute_value in self.scanpath_attributes.items():
             scanpath_attributes_group.create_dataset(attribute_name, data=attribute_value)
-        scanpath_attributes_group.attrs['__attributes__'] = np.string_(json.dumps(sorted(self.scanpath_attributes.keys())))
+        scanpath_attributes_group.attrs['__attributes__'] = np.bytes_(json.dumps(sorted(self.scanpath_attributes.keys())))
 
         scanpath_fixation_attributes_group = target.create_group('scanpath_fixation_attributes')
         for attribute_name, attribute_value in self.scanpath_fixation_attributes.items():
             scanpath_fixation_attributes_group.create_dataset(attribute_name, data=attribute_value._data)
-        scanpath_fixation_attributes_group.attrs['__attributes__'] = np.string_(json.dumps(sorted(self.scanpath_fixation_attributes.keys())))
+        scanpath_fixation_attributes_group.attrs['__attributes__'] = np.bytes_(json.dumps(sorted(self.scanpath_fixation_attributes.keys())))
 
 
     @classmethod
