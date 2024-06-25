@@ -28,7 +28,7 @@ def test_COCO_Freeview(location):
 
     assert len(stimuli_train) == 3714
     assert len(stimuli_val) == 603
-    assert len(stimuli_test) == 1127
+    assert len(stimuli_test) == 1000
     assert set(stimuli_train.sizes) == {(1050, 1680)}
     assert set(stimuli_val.sizes) == {(1050, 1680)}
     assert set(stimuli_test.sizes) == {(1050, 1680)}

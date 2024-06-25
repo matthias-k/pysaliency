@@ -1,26 +1,14 @@
-import glob
-from hashlib import md5
 import json
 import os
-import shutil
-from subprocess import check_call
 import zipfile
 
-
 import numpy as np
-from PIL import Image
 from tqdm import tqdm
 
-from ..datasets import FixationTrains, create_subset
-from ..utils import (
-    TemporaryDirectory,
-    filter_files,
-    download_and_check,
-    atomic_directory_setup)
-
-from .utils import create_stimuli, _load
+from ..datasets import ScanpathFixations, Scanpaths, create_subset
+from ..utils import TemporaryDirectory, atomic_directory_setup, download_and_check, filter_files
 from .coco_search18 import _prepare_stimuli
-
+from .utils import _load, create_stimuli
 
 TEST_STIMULUS_INDICES = [
     1, 5, 10, 11, 12, 17, 24, 31, 35, 41,
@@ -216,18 +204,17 @@ def get_COCO_Freeview(location=None, test_data=None):
 
             all_scanpaths = _get_COCO_Freeview_fixations(json_data, filenames)
 
-            scanpaths_train = all_scanpaths.filter_fixation_trains(all_scanpaths.scanpath_attributes['split'] == 'train')
-            scanpaths_validation = all_scanpaths.filter_fixation_trains(all_scanpaths.scanpath_attributes['split'] == 'valid')
+            scanpaths_train = all_scanpaths.filter_scanpaths(all_scanpaths.scanpaths.scanpath_attributes['split'] == 'train')
+            scanpaths_validation = all_scanpaths.filter_scanpaths(all_scanpaths.scanpaths.scanpath_attributes['split'] == 'valid')
 
-            del scanpaths_train.scanpath_attributes['split']
-            del scanpaths_validation.scanpath_attributes['split']
+            del scanpaths_train.scanpaths.scanpath_attributes['split']
+            del scanpaths_validation.scanpaths.scanpath_attributes['split']
 
             ns_train = sorted(set(scanpaths_train.n))
             stimuli_train, fixations_train = create_subset(stimuli, scanpaths_train, ns_train)
 
             ns_val = sorted(set(scanpaths_validation.n))
             stimuli_val, fixations_val = create_subset(stimuli, scanpaths_validation, ns_val)
-
 
             if test_data:
                 with open(test_data) as f:
@@ -293,21 +280,21 @@ def _get_COCO_Freeview_fixations(json_data, filenames):
     scanpath_attributes = {
         'split': split,
     }
-    scanpath_fixation_attributes = {
+    fixation_attributes = {
         'durations': train_durations,
     }
     scanpath_attribute_mapping = {
         'durations': 'duration'
     }
-    fixations = FixationTrains.from_fixation_trains(
-        train_xs,
-        train_ys,
-        train_ts,
-        train_ns,
-        train_subjects,
+    fixations = ScanpathFixations(Scanpaths(
+        xs=train_xs,
+        ys=train_ys,
+        ts=train_ts,
+        n=train_ns,
+        subject=train_subjects,
         scanpath_attributes=scanpath_attributes,
-        scanpath_fixation_attributes=scanpath_fixation_attributes,
-        scanpath_attribute_mapping=scanpath_attribute_mapping,
-    )
+        fixation_attributes=fixation_attributes,
+        attribute_mapping=scanpath_attribute_mapping,
+    ))
 
     return fixations
