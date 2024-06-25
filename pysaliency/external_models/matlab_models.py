@@ -460,12 +460,19 @@ class RARE2012(ExternalModelMixin, MatlabSaliencyMapModel):
     The original matlab code is used.
 
     .. note::
-        The original code is patched to work from other directories.
 
-        The model makes use of the [SaliencyToolbox](http://www.saliencytoolbox.net/). Due
-        to licence restrictions the Toolbox cannot be downloaded automatically. You have to
-        download it yourself and provide the location of the zipfile via the
-        `saliency_toolbox_archive`-keyword to the constructor.
+
+        This page is not available anymore, the RARE models are now hosted
+        at https://numediart.github.io/VisualAttention-RareFamily/, the RARE2012
+        model is published at https://github.com/numediart/VisualAttention-Rare2012.
+        This model is a wrapper around the published (compiled) matlab code.
+
+        The model used to be hosted at
+        http://www.tcts.fpms.ac.be/attention/?categorie16/what-and-why.
+        This page is not available anymore, the RARE models are now hosted
+        at https://numediart.github.io/VisualAttention-RareFamily/ and GitHub.
+        With this change, the behaviour of RARE2012 changed slightly
+        compared to the earlier version (e.g., saliency maps look a bit smoother).
 
         This model does not work with octave due to incompabilities
         of octave with matlab (RARE2012 comes as precompiled matlab file).
@@ -477,7 +484,7 @@ class RARE2012(ExternalModelMixin, MatlabSaliencyMapModel):
         saliency detection with its comparative statistical analysis
         [Signal Processing: Image Communication, 2013]
 
-        http://www.tcts.fpms.ac.be/attention/?categorie16/what-and-why
+        https://numediart.github.io/VisualAttention-RareFamily/
     """
     __modelname__ = 'RARE2012'
 
@@ -487,18 +494,12 @@ class RARE2012(ExternalModelMixin, MatlabSaliencyMapModel):
 
     def _setup(self):
         source_location = os.path.join(self.location, 'source')
+        directory = 'VisualAttention-Rare2012-55ba7414b971429e5e899ddfa574e4235fc806e6'
         print('Downloading RARE2012 Model...')
-        #download_extract_patch('http://www.tcts.fpms.ac.be/attention/data/documents/data/rare2012.zip',
-        download_extract_patch('http://tcts.fpms.ac.be/attention/data/medias/documents/models/rare2012.zip',
-                               '5a0a0de83e82b46fa70cea8b0a6bae55',
-                               os.path.join(source_location, 'Rare2012'),
-                               location_in_archive=True,
-                               patches=None)
-
-        print('Downloading simplegabortb-v1.0.0')
-        download_extract_patch('http://www2.it.lut.fi/project/simplegabor/downloads/src/simplegabortb/simplegabortb-v1.0.0.tar.gz',
-                               '92bc6ae7178a7b1301fad52489f5d677',
-                               os.path.join(source_location, 'simplegabortb-v1.0.0'),
+        url = 'https://github.com/numediart/VisualAttention-Rare2012/archive/55ba7414b971429e5e899ddfa574e4235fc806e6.zip'
+        download_extract_patch(url,
+                               'a5bbd8a42c231530834659acfd0d2b64.',
+                               os.path.join(source_location, directory),
                                location_in_archive=True,
                                patches=None)
 

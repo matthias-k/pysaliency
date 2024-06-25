@@ -1,9 +1,8 @@
 function [ ] =  RARE2012(filename, outname)
 
-    addpath('source/simplegabortb-v1.0.0')
-    addpath('source/Rare2012')
+    addpath('source/VisualAttention-Rare2012-55ba7414b971429e5e899ddfa574e4235fc806e6')
 
 	I = im2double(imread(filename));
-    saliency_map = RARE2012(I);
+    saliency_map = rare2012(I);
     save(outname, 'saliency_map');
-    
+
