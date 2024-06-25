@@ -454,6 +454,42 @@ class IttiKoch(ExternalModelMixin, MatlabSaliencyMapModel):
             f.write(resource_string(__name__, 'scripts/IttiKoch_wrapper.m'))
 
 
+class RARE2007(ExternalModelMixin, MatlabSaliencyMapModel):
+    """
+    RARE2007 by Mancas.
+    The original matlab code is used.
+
+    .. note::
+        The source code published by the authors is used without modifications.
+
+    .. seealso::
+        Matei Mancas. Relative influence of bottom-up and top-down attention.
+        [International Workshop on Attention in Cognitive Systems 2008]
+
+        https://numediart.github.io/VisualAttention-RareFamily/
+        https://github.com/numediart/VisualAttention-Rare2007
+    """
+    __modelname__ = 'RARE2007'
+
+    def __init__(self, location=None, **kwargs):
+        self.setup(location)
+        super(RARE2007, self).__init__(os.path.join(self.location, 'RARE2007_wrapper.m'), only_color_stimuli=True, **kwargs)
+
+    def _setup(self):
+        source_location = os.path.join(self.location, 'source')
+        directory = 'VisualAttention-Rare2007-ee7ef25c9b6cc7e96837091e868d03bd97b4b131'
+        print('Downloading RARE2007 Model...')
+        url = 'https://github.com/numediart/VisualAttention-Rare2007/archive/ee7ef25c9b6cc7e96837091e868d03bd97b4b131.zip'
+        download_extract_patch(url,
+                               '7ee05ae059dac10478b5cabc8ee066dc',
+                               os.path.join(source_location, directory),
+                               location_in_archive=True,
+                               patches=None)
+
+        with open(os.path.join(self.location, 'RARE2007_wrapper.m'), 'wb') as f:
+            f.write(resource_string(__name__, 'scripts/RARE2007_wrapper.m'))
+
+
 class RARE2012(ExternalModelMixin, MatlabSaliencyMapModel):
     """
     RARE2012 by Margolin et al.

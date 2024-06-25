@@ -20,6 +20,7 @@
     renaming `Fixations.subjects` to `Fixations.subject`. The old name is now a deprecated alias.
   * Bugfix: Compatibility with torch 2.2 and numpy 2.0
   * Bugfix!: The download location of the RARE2012 model changed. The new source code results in slightly different predictions.
+  * Feature: The RARE2007 model is now available as `pysaliency.external_models.RARE2007`. It's execution requires MATLAB.
 
 
 * 0.2.22:
