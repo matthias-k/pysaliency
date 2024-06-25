@@ -18,6 +18,9 @@
   * In general, naming convention for attriutes has been changed to use the plural form if the attribute is a list of values for each
     element (i.e., `Scanpaths.xs`) and the singular form if the attribute is a single value (i.e., `Scanpaths.length`,  `Fixations.x`). This resulted in
     renaming `Fixations.subjects` to `Fixations.subject`. The old name is now a deprecated alias.
+  * Bugfix: Compatibility with torch 2.2 and numpy 2.0
+  * Bugfix!: The download location of the RARE2012 model changed. The new source code results in slightly different predictions.
+
 
 * 0.2.22:
   * Enhancement: New [Tutorial](notebooks/Tutorial.ipynb).
