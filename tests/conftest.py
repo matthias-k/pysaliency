@@ -49,19 +49,13 @@ def matlab(request, pytestconfig):
         pysaliency.utils.MatlabOptions.octave_names = []
     elif request.param == 'octave':
         if pytestconfig.getoption("--nooctave"):
-            pytest.skip("skipped octave")
+            pytest.skip("skipped octave due to command line option")
+        elif any([marker.name == 'skip_octave' for marker in request.node.own_markers]):
+            pytest.skip("skipped octave due to test marker")
         pysaliency.utils.MatlabOptions.matlab_names = []
         pysaliency.utils.MatlabOptions.octave_names = ['octave', 'octave.exe']
 
     return request.param
-
-
-@pytest.fixture()
-def skip_by_matlab(request, matlab):
-    if request.node.get_marker('skip_octave'):
-        if matlab == 'octave':
-            pytest.skip('skipped octave')
-
 
 #@pytest.fixture(params=["no_location", "with_location"])
 #def location(tmpdir, request):
