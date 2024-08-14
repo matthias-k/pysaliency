@@ -364,6 +364,8 @@ def download_file(url, target, verify_ssl=True):
             for data in r.iter_content(32*1024):
                 f.write(data)
                 progress_bar.update(32*1024)
+    if r.status_code in [403, 404, 500, 503]:
+        raise ValueError("Error downloading file from {}. Status code: {}".format(url, r.status_code))
 
 
 def download_and_check(url, target, md5_hash, verify_ssl=True):

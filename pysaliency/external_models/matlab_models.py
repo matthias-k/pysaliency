@@ -270,7 +270,9 @@ class GBVS(ExternalModelMixin, MatlabSaliencyMapModel):
 
     def _setup(self):
         source_location = os.path.join(self.location, 'gbvs')
-        download_extract_patch('http://www.vision.caltech.edu/~harel/share/gbvs.zip',
+        url = "http://www.vision.caltech.edu/~harel/share/gbvs.zip"
+
+        download_extract_patch(url,
                                'c5a86b9549c2c0bbd1b7f7e5b663b031',
                                source_location,
                                location_in_archive=True,
