@@ -330,9 +330,9 @@ def run_matlab_cmd(cmd, cwd=None):
     matlab = get_matlab_or_octave()
     args = []
     if os.path.basename(matlab).startswith('matlab'):
-        #args += ['-nodesktop', '-nosplash', '-r']
-        #args.append("try;{};catch exc;disp(getReport(exc));disp('__ERROR__');exit(1);end;quit".format(cmd))
-        args += ['-batch', cmd]
+        # args += ['-nodesktop', '-nosplash', '-r']
+        args += ['-batch']
+        args.append("try;{};catch exc;disp(getReport(exc));disp('__ERROR__');exit(1);end;quit".format(cmd))
     else:
         args += ['--traditional', '--eval']
         args.append("try;{};catch exc;struct_levels_to_print(10);print_struct_array_contents(true);disp(lasterror);for i=1:size(lasterror.stack);disp(lasterror.stack(i));end;disp('__ERROR__');exit(1);end;quit".format(cmd))
