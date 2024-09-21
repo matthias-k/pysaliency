@@ -292,3 +292,22 @@ def test_check_prediction_shape():
     with pytest.raises(ValueError) as excinfo:
         check_prediction_shape(prediction, stimulus)
     assert str(excinfo.value) == "Prediction shape (10, 10) does not match stimulus shape (10, 11)"
+
+
+@pytest.mark.parametrize(
+        'stimuli',
+        ['stimuli_with_attributes', 'file_stimuli_with_attributes']
+)
+def test_substimuli_inherit_cachedstimulus_ids(stimuli, request):
+    _stimuli = request.getfixturevalue(stimuli)
+    # load some stimulus ids
+    cache_stimulus_indices = [1, 2, 5]
+    # make sure the ids are cached
+    for i in cache_stimulus_indices:
+        _stimuli.stimulus_ids[i]
+
+    assert len(_stimuli.stimulus_ids._cache) == len(cache_stimulus_indices)
+
+    sub_stimuli = _stimuli[1:5]
+    assert set(sub_stimuli.stimulus_ids._cache.keys()) == {0, 1}
+

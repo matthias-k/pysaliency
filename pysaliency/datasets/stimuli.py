@@ -2,7 +2,7 @@ import json
 import os
 from collections.abc import Sequence
 from hashlib import sha1
-from typing import Union
+from typing import List, Union
 
 import numpy as np
 
@@ -152,7 +152,12 @@ class Stimuli(Sequence):
     def __getitem__(self, index):
         if isinstance(index, slice):
             attributes = self._get_attribute_for_stimulus_subset(index)
-            return ObjectStimuli([self.stimulus_objects[i] for i in range(len(self))[index]], attributes=attributes)
+            sub_stimuli = ObjectStimuli([self.stimulus_objects[i] for i in range(len(self))[index]], attributes=attributes)
+
+            # populate stimulus_id cache with existing entries
+            self._propagate_stimulus_ids(sub_stimuli, range(len(self))[index])
+
+            return sub_stimuli
         elif isinstance(index, (list, np.ndarray)):
             index = np.asarray(index)
             if index.dtype == bool:
@@ -161,9 +166,19 @@ class Stimuli(Sequence):
                 index = np.nonzero(index)[0]
 
             attributes = self._get_attribute_for_stimulus_subset(index)
-            return ObjectStimuli([self.stimulus_objects[i] for i in index], attributes=attributes)
+            sub_stimuli = ObjectStimuli([self.stimulus_objects[i] for i in index], attributes=attributes)
+
+            # populate stimulus_id cache with existing entries
+            self._propagate_stimulus_ids(sub_stimuli, index)
+
+            return sub_stimuli
         else:
             return self.stimulus_objects[index]
+
+    def _propagate_stimulus_ids(self, sub_stimuli: "Stimuli", index: List[int]):
+        for new_index, old_index in enumerate(index):
+            if old_index in self.stimulus_ids._cache:
+                sub_stimuli.stimulus_ids._cache[new_index] = self.stimulus_ids._cache[old_index]
 
     @hdf5_wrapper(mode='w')
     def to_hdf5(self, target, verbose=False, compression='gzip', compression_opts=9):
@@ -343,7 +358,12 @@ class FileStimuli(Stimuli):
             filenames = [self.filenames[i] for i in index]
             shapes = [self.shapes[i] for i in index]
             attributes = self._get_attribute_for_stimulus_subset(index)
-            return type(self)(filenames=filenames, shapes=shapes, attributes=attributes, cached=self.cached)
+            sub_stimuli = type(self)(filenames=filenames, shapes=shapes, attributes=attributes, cached=self.cached)
+
+            # populate stimulus_id cache with existing entries
+            self._propagate_stimulus_ids(sub_stimuli, index)
+
+            return sub_stimuli
         else:
             return self.stimulus_objects[index]
 

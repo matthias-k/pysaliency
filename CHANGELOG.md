@@ -22,6 +22,7 @@
   * Bugfix!: The download location of the RARE2012 model changed. The new source code results in slightly different predictions.
   * Feature: The RARE2007 model is now available as `pysaliency.external_models.RARE2007`. It's execution requires MATLAB.
   * matlab scripts are now called with the `-batch` option instead of `-nodisplay -nosplash -r`, which should behave better.
+  * Enhancement: preloaded stimulus ids are passed on to subsets of Stimuli and FileStimuli.
 
 
 * 0.2.22:
