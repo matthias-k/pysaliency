@@ -23,6 +23,7 @@
   * Feature: The RARE2007 model is now available as `pysaliency.external_models.RARE2007`. It's execution requires MATLAB.
   * matlab scripts are now called with the `-batch` option instead of `-nodisplay -nosplash -r`, which should behave better.
   * Enhancement: preloaded stimulus ids are passed on to subsets of Stimuli and FileStimuli.
+  * Feature: `pysaliency.read_hdf5` now takes additional keyword arguments which are passed to the respective class methods. This allows, e.g., to load `FileStimuli` with caching disabled.
 
 
 * 0.2.22:

@@ -243,6 +243,19 @@ def test_file_stimuli_attributes(file_stimuli_with_attributes, tmp_path):
     assert list(np.array(file_stimuli_with_attributes.attributes['some_strings'])[mask]) == partial_stimuli.attributes['some_strings']
 
 
+def test_file_stimuli_readhdf5_cached(file_stimuli_with_attributes, tmp_path):
+    filename = tmp_path / 'stimuli.hdf5'
+    file_stimuli_with_attributes.to_hdf5(str(filename))
+
+    new_stimuli = pysaliency.read_hdf5(str(filename))
+
+    assert new_stimuli.cached
+
+    new_stimuli2 = pysaliency.read_hdf5(str(filename), cached=False)
+
+    assert not new_stimuli2.cached
+
+
 def test_concatenate_stimuli_with_attributes(stimuli_with_attributes, file_stimuli_with_attributes):
     concatenated_stimuli = pysaliency.datasets.concatenate_stimuli([stimuli_with_attributes, file_stimuli_with_attributes])
 

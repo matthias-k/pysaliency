@@ -12,30 +12,30 @@ from .utils import concatenate_attributes, decode_string, get_merged_attribute_l
 
 
 @cached(WeakValueDictionary())
-def _read_hdf5_from_file(source):
+def _read_hdf5_from_file(source, **kwargs):
     import h5py
     with h5py.File(source, 'r') as hdf5_file:
-        return read_hdf5(hdf5_file)
+        return read_hdf5(hdf5_file, **kwargs)
 
 
-def read_hdf5(source):
+def read_hdf5(source, **kwargs):
     if isinstance(source, (str, pathlib.Path)):
-        return _read_hdf5_from_file(source)
+        return _read_hdf5_from_file(source, **kwargs)
 
     data_type = decode_string(source.attrs['type'])
 
     if data_type == 'Fixations':
-        return Fixations.read_hdf5(source)
+        return Fixations.read_hdf5(source, **kwargs)
     elif data_type == 'ScanpathFixations':
-        return ScanpathFixations.read_hdf5(source)
+        return ScanpathFixations.read_hdf5(source, **kwargs)
     elif data_type == 'FixationTrains':
-        return FixationTrains.read_hdf5(source)
+        return FixationTrains.read_hdf5(source, **kwargs)
     elif data_type == 'Scanpaths':
-        return Scanpaths.read_hdf5(source)
+        return Scanpaths.read_hdf5(source, **kwargs)
     elif data_type == 'Stimuli':
-        return Stimuli.read_hdf5(source)
+        return Stimuli.read_hdf5(source, **kwargs)
     elif data_type == 'FileStimuli':
-        return FileStimuli.read_hdf5(source)
+        return FileStimuli.read_hdf5(source, **kwargs)
     else:
         raise ValueError("Invalid HDF content type:", data_type)
 
