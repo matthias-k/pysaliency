@@ -259,7 +259,7 @@ def get_mit1003(location=None):
     @return: Stimuli, FixationTrains
 
     .. note::
-        This code needs a working matlab or octave installation as the original
+        This code needs a working matlab installation including the Statistics and Machinelearning Toolbox as the original
         matlab code by Judd et al. is used to extract the fixation from the
         eyetracking data.
 
