@@ -58,8 +58,9 @@ jobs:
       run: conda list
     - name: Test with pytest
       shell: bash -el {0}
+      # hypothesis=6.113.0 is the last version with python 3.8 support
       run: |
-        conda install pytest hypothesis
+        conda install pytest hypothesis=6.113.0
         python setup.py build_ext --inplace
         python -m pytest --nomatlab --notheano --nodownload tests
     - name: test build and install
