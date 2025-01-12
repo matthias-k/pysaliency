@@ -12,7 +12,7 @@ from pkg_resources import resource_string
 from scipy.io import loadmat
 
 from ..datasets import ScanpathFixations, Scanpaths
-from ..utils import atomic_directory_setup, download_and_check, filter_files, run_matlab_cmd
+from ..utils import atomic_directory_setup, download_and_check, filter_files, run_matlab_cmd, get_matlab_or_octave
 from .utils import _load, create_stimuli
 
 
@@ -84,6 +84,33 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
             namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
             f.extractall(temp_dir, namelist)
 
+
+            print("Patching checkFixations.m to work with octave")
+            check_fixation_file = os.path.join(temp_dir, 'DatabaseCode', 'checkFixations.m')
+            with open(check_fixation_file) as f:
+                check_fixation_code = f.read()
+
+            # nanmedian is not available in new octave statistics packages and deprecated in matlab
+            # we replace it with median(data, 'omitnan') as suggested in the matlab documentation
+            check_fixation_code = check_fixation_code.replace(
+                'Fix.medianXY(1,1) = nanmedian(data(:,1));  Fix.medianXY(1,2) = nanmedian(data(:,2));',
+                'Fix.medianXY(1,1) = median(data(:,1), "omitnan");  Fix.medianXY(1,2) = median(data(:,2), "omitnan");'
+            )
+
+            # same for nanvar
+            check_fixation_code = check_fixation_code.replace(
+                'Fix.driftXY(1,1) = nanvar(data(:,1));',
+                'Fix.driftXY(1,1) = var(data(:,1), "omitnan");'
+            )
+
+            check_fixation_code = check_fixation_code.replace(
+                'Fix.driftXY(1,2) = nanvar(data(:,2));',
+                'Fix.driftXY(1,2) = var(data(:,2), "omitnan");'
+            )
+
+            with open(check_fixation_file, 'w') as f:
+                f.write(check_fixation_code)
+
             subjects = glob.glob(os.path.join(temp_dir, 'DATA', '*'))
             # Exclude files
             subjects = [s for s in subjects if not os.path.splitext(s)[1]]
@@ -116,7 +143,14 @@ def _get_mit1003(dataset_name, location=None, include_initial_fixation=False, on
                 for cmd in cmds:
                     f.write('{}\n'.format(cmd))
 
-            run_matlab_cmd('extract_all_fixations;', cwd=temp_dir)
+            command = 'extract_all_fixations;'
+
+            is_octave = 'octave' in get_matlab_or_octave().lower()
+            if is_octave:
+                # in octave, the statistics package has to be loaded explicitly
+                command = "pkg load statistics; {}".format(command)
+
+            run_matlab_cmd(command, cwd=temp_dir)
             xs = []
             ys = []
             ts = []
@@ -263,6 +297,8 @@ def get_mit1003(location=None):
         This code needs a working matlab installation including the Statistics and Machinelearning Toolbox as the original
         matlab code by Judd et al. is used to extract the fixation from the
         eyetracking data.
+
+        Alternatively, the code should work with octave if the statistics package is in installed.
 
         The first fixation of each fixation train is discarded as stated in the
         paper (Judd et al. 2009).
