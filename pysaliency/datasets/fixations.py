@@ -83,7 +83,6 @@ class Fixations(object):
         self.x_hist = x_hist
         self.y_hist = y_hist
         self.t_hist = t_hist
-        self.n = n
         self.subject = subject
 
         if not len(self.x) == len(self.y) == len(self.t) == len(self.x_hist) == len(self.y_hist) == len(self.t_hist) == len(self.n):
