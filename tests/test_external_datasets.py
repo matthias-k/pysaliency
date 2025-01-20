@@ -59,12 +59,8 @@ def test_toronto(location):
 
     assert skew(fixations.x) == approx(-0.09509166105451604)
     assert skew(fixations.y) == approx(-0.08674038899319877)
-    # assert skew(fixations.t) == approx(0.0)
-    # assert skew(fixations.scanpath_history_length) == approx(0.0)
 
     assert entropy(fixations.n) == approx(6.8939709237615405)
-    print(fixations.n)
-    print(type(fixations.n))
     assert (np.array(fixations.n) == 0).sum() == 130
 
     assert len(fixations) == len(pysaliency.datasets.remove_out_of_stimulus_fixations(stimuli, fixations))
