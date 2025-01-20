@@ -1,7 +1,11 @@
 import os
 import sys
+from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
+import requests
+from tqdm import tqdm
 
 # make sure that package can be found when running `pytest` instead of `python -m pytest`
 sys.path.insert(0, os.getcwd())
@@ -73,3 +77,49 @@ def matlab(request, pytestconfig):
 @pytest.fixture()
 def location(tmpdir):
     return tmpdir
+
+
+@pytest.fixture(autouse=True)
+def cache_requests(monkeypatch):
+    """This fixture caches requests to avoid downloading the same file multiple times.
+
+    TODO: There should be an option to disable this fixture, e.g. when we want to test downloading.
+    """
+    original_get = requests.get
+
+    def mock_get(url, *args, **kwargs):
+        cache_dir = Path("download_cache")
+        cache_dir.mkdir(exist_ok=True)
+
+        cache_filename = (
+            url.replace("http://", "")
+            .replace("https://", "")
+            .replace("/", "_")
+            .replace("?", "_")
+            .replace("=", "_")
+            .replace("&", "_")
+            .replace(":", "_")
+            .replace(".", "_")
+        )
+        cache_file = cache_dir / cache_filename
+
+        print("caching", url, "to", cache_file)
+
+        if not cache_file.exists():
+            response = original_get(url, *args, **kwargs)
+            total_size = int(response.headers.get('content-length', 0))
+            with open(cache_file, 'wb') as f:
+                with tqdm(total=total_size, unit='B', unit_scale=True, desc='Downloading file') as progress_bar:
+                    for chunk in response.iter_content(32*1024):
+                        f.write(chunk)
+                        progress_bar.update(len(chunk))
+
+        with open(cache_file, 'rb') as f:
+            content = f.read()
+        mock_response = MagicMock()
+        mock_response.iter_content = lambda chunk_size: [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
+        mock_response.headers = {'content-length': str(len(content))}
+        mock_response.status_code = 200
+        return mock_response
+
+    monkeypatch.setattr(requests, "get", mock_get)
