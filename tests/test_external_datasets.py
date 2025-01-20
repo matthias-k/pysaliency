@@ -54,16 +54,18 @@ def test_toronto(location):
 
     assert kurtosis(fixations.x) == approx(-0.40985986581959066)
     assert kurtosis(fixations.y) == approx(0.2748036777667475)
-    assert kurtosis(fixations.t) == approx(-3.0)
-    assert kurtosis(fixations.scanpath_history_length) == approx(-3.0)
+    assert fixations.t.std() == approx(0)
+    assert fixations.scanpath_history_length.std() == approx(0)
 
     assert skew(fixations.x) == approx(-0.09509166105451604)
     assert skew(fixations.y) == approx(-0.08674038899319877)
-    assert skew(fixations.t) == approx(0.0)
-    assert skew(fixations.scanpath_history_length) == approx(0.0)
+    # assert skew(fixations.t) == approx(0.0)
+    # assert skew(fixations.scanpath_history_length) == approx(0.0)
 
     assert entropy(fixations.n) == approx(6.8939709237615405)
-    assert (fixations.n == 0).sum() == 130
+    print(fixations.n)
+    print(type(fixations.n))
+    assert (np.array(fixations.n) == 0).sum() == 130
 
     assert len(fixations) == len(pysaliency.datasets.remove_out_of_stimulus_fixations(stimuli, fixations))
 
