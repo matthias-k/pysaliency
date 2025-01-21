@@ -9,7 +9,7 @@
     It is intended to replace the old `FixationTrains` class. `ScanpathFixations` has a `scanpaths: Scanpaths`
     attribute storing the source scanpaths (what used to be stored manually as `train_xs` etc in `FixationTrains`).
     Unlike `FixationTrains`, `ScanpathFixations` does not have any attributes that are not derived from the scanpaths.
-    `FixationTrains` is now a deprecated subclass of `ScanpathFixations` which adds the old properties and constructorNonUniqueFilenamesError
+    `FixationTrains` is now a deprecated subclass of `ScanpathFixations` which adds the old properties and constructor.
     and allows for attributes which are neither scanpath attributes nor scanpath fixation attributes.
   * Feature: `VariableLengthArray` for inuititively handling data like scanpaths where each row can have a different length.
     `Fixations.x_Hist`, `Fixations.y_hist`, `Scanpaths.xs` etc are now instances of `VariableLengthArray`.
