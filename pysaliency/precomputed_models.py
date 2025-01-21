@@ -29,7 +29,14 @@ def get_stimuli_filenames(stimuli):
         return stimuli.filenames
 
 
-def get_keys_from_filenames(filenames, keys):
+class NonUniqueKeysError(ValueError):
+    pass
+
+class NoCommonPrefixError(ValueError):
+    pass
+
+
+def get_keys_from_filenames(filenames, keys, verbose_error=True):
     """checks how much filenames have to be shorted to get the correct hdf5 or other keys"""
     if not filenames:
         return []
@@ -37,18 +44,20 @@ def get_keys_from_filenames(filenames, keys):
     first_filename_parts = full_split(filenames[0])
     for part_index in range(len(first_filename_parts)):
         remaining_filename = os.path.join(*first_filename_parts[part_index:])
+        logging.debug(f"Checking for {remaining_filename}")
         if remaining_filename in keys:
             break
     else:
-        print("No common prefix found!")
-        print(f"  filename: {filenames[0]}")
-        print("  keys:")
-        for key in keys[:5]:
-            print(f"    {key}")
-        for key in keys[-5:]:
-            print(f"    {key}")
+        if verbose_error:
+            print("No common prefix found!")
+            print(f"  filename: {filenames[0]}")
+            print("  keys:")
+            for key in keys[:5]:
+                print(f"    {key}")
+            for key in keys[-5:]:
+                print(f"    {key}")
 
-        raise ValueError('No common prefix found!')
+        raise NoCommonPrefixError('No common prefix found!')
 
     filename_keys = []
     for filename in filenames:
@@ -59,23 +68,62 @@ def get_keys_from_filenames(filenames, keys):
     return filename_keys
 
 
-def get_keys_from_filenames_with_prefix(filenames, keys):
-    """checks how much filenames have to be shorted to get the correct hdf5 or other keys, where the keys might have a prefix"""
-    first_key_parts = full_split(keys[0])
 
-    for key_part_index in range(len(first_key_parts)):
-        remaining_keys = [os.path.join(*full_split(key)[key_part_index:]) for key in keys]
+
+
+def get_keys_from_filenames_with_prefix(filenames, keys):
+    """checks how much filenames have to be shorted to get the correct hdf5 or other keys,
+    where the entries might correspond to the keys with a prefix that is shared across all
+    filenames (but not necessarily all keys).
+    """
+    key_part_index = 0
+
+    while True:
+        logging.debug(f"Checking with removing {key_part_index} initial key parts")
+
+        remaining_keys = remove_initial_key_parts(keys, key_part_index)
+
+        if not any(remaining_keys):
+            print("No common prefix found!")
+            print(f"  filename: {filenames[0]}")
+            print("  keys:")
+            for key in keys[:5]:
+                print(f"    {key}")
+            for key in keys[-5:]:
+                print(f"    {key}")
+            raise NoCommonPrefixError('No common prefix found from {} and {}'.format(filenames[0], keys[0]))
         try:
-            filename_keys = get_keys_from_filenames(filenames, remaining_keys)
-        except ValueError:
+            filename_keys = get_keys_from_filenames(filenames, remaining_keys, verbose_error=False)
+        except NoCommonPrefixError:
+            key_part_index += 1
             continue
         else:
+            logging.debug(f"Found common prefix with removing {key_part_index} initial key parts")
+            matching_keys = [key for key in remaining_keys if key in filename_keys]
+
+            if len(matching_keys) > len(filename_keys):
+                for key in filename_keys:
+                    full_keys = [full_key for full_key, partial_key in zip(keys, remaining_keys) if partial_key == key]
+                    if len(full_keys) > 1:
+                        raise NonUniqueKeysError(f"Multiple keys for {key}: {full_keys}")
+
             full_filename_keys = []
-            for key, filename_key in zip(keys, filename_keys):
+            for filename_key in filename_keys:
+                key = keys[remaining_keys.index(filename_key)]
                 full_filename_keys.append(os.path.join(*full_split(key)[:key_part_index], filename_key))
             return full_filename_keys
 
-    raise ValueError('No common prefix found from {} and {}'.format(filenames[0], keys[0]))
+
+def remove_initial_key_parts(keys, key_part_index):
+    remaining_keys = []
+    for key in keys:
+        key_parts = full_split(key)
+        selected_key_parts = key_parts[key_part_index:]
+        if not selected_key_parts:
+            remaining_keys.append(None)
+        else:
+            remaining_keys.append(os.path.join(*selected_key_parts))
+    return remaining_keys
 
 
 def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True, flush=False):
@@ -273,7 +321,7 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
         self.hdf5_file = h5py.File(self.filename, 'r')
         self.all_keys = get_keys_recursive(self.hdf5_file)
 
-        self.names = get_keys_from_filenames(get_stimuli_filenames(stimuli), self.all_keys)
+        self.names = get_keys_from_filenames_with_prefix(get_stimuli_filenames(stimuli), self.all_keys)
 
     def _saliency_map(self, stimulus):
         stimulus_id = get_image_hash(stimulus)

@@ -9,7 +9,7 @@
     It is intended to replace the old `FixationTrains` class. `ScanpathFixations` has a `scanpaths: Scanpaths`
     attribute storing the source scanpaths (what used to be stored manually as `train_xs` etc in `FixationTrains`).
     Unlike `FixationTrains`, `ScanpathFixations` does not have any attributes that are not derived from the scanpaths.
-    `FixationTrains` is now a deprecated subclass of `ScanpathFixations` which adds the old properties and constructor
+    `FixationTrains` is now a deprecated subclass of `ScanpathFixations` which adds the old properties and constructorNonUniqueFilenamesError
     and allows for attributes which are neither scanpath attributes nor scanpath fixation attributes.
   * Feature: `VariableLengthArray` for inuititively handling data like scanpaths where each row can have a different length.
     `Fixations.x_Hist`, `Fixations.y_hist`, `Scanpaths.xs` etc are now instances of `VariableLengthArray`.
@@ -24,6 +24,7 @@
   * matlab scripts are now called with the `-batch` option instead of `-nodisplay -nosplash -r`, which should behave better.
   * Enhancement: preloaded stimulus ids are passed on to subsets of Stimuli and FileStimuli.
   * Feature: `pysaliency.read_hdf5` now takes additional keyword arguments which are passed to the respective class methods. This allows, e.g., to load `FileStimuli` with caching disabled.
+  * Enhancement: `pysaliency.HDF5Model` and `pysaliency.HDF5SaliencyMapModel` now better handle the case of loading a model for a subset of entries in the HDF5 file which might be saved under a certain common prefix.
 
 
 * 0.2.22:

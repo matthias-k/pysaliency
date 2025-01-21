@@ -158,6 +158,119 @@ def test_export_model_no_overwrite(file_stimuli, tmpdir):
             np.testing.assert_allclose(model2.saliency_map(s), model3.saliency_map(s))
 
 
+def test_hdf5_model_sub_stimuli_different_prefix(tmpdir):
+    rst = np.random.RandomState(seed=42)
+    filenames = []
+    for i in range(3):
+        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
+        imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+        filenames.append(str(filename))
+
+    for sub_directory_index in range(3):
+        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
+        sub_directory.mkdir()
+        for i in range(5):
+            filename = sub_directory.join('stimulus_{}_{:04d}.png'.format(sub_directory_index, i))
+            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+            filenames.append(str(filename))
+    stimuli = pysaliency.FileStimuli(filenames=filenames)
+
+    rst = np.random.RandomState(seed=42)
+    filenames = []
+    for i in range(3):
+        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
+        imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+        filenames.append(str(filename))
+
+    for sub_directory_index in range(3):
+        sub_directory = tmpdir.join('sub_prefix_directory_{:04d}'.format(sub_directory_index))
+        sub_directory.mkdir()
+        for i in range(5):
+            filename = sub_directory.join('stimulus_{}_{:04d}.png'.format(sub_directory_index, i))
+            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+            filenames.append(str(filename))
+
+    stimuli_different_prefix = pysaliency.FileStimuli(filenames=filenames)
+    sub_stimuli = stimuli_different_prefix[[i for i, f in enumerate(stimuli_different_prefix.filenames) if 'sub_prefix_directory_0001' in f]]
+
+    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, stimuli, filename)
+
+    model2 = pysaliency.HDF5Model(sub_stimuli, filename)
+    for s in sub_stimuli:
+        np.testing.assert_allclose(model.log_density(s), model2.log_density(s))
+
+
+def test_hdf5_model_wrong_keys(tmpdir):
+    rst = np.random.RandomState(seed=42)
+    filenames = []
+
+    for sub_directory_index in range(3):
+        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
+        sub_directory.mkdir()
+        for i in range(5):
+            filename = sub_directory.join('stimulus_{}_{:04d}.png'.format(sub_directory_index, i))
+            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+            filenames.append(str(filename))
+    stimuli = pysaliency.FileStimuli(filenames=filenames)
+
+    rst = np.random.RandomState(seed=42)
+    filenames = []
+
+    for sub_directory_index in range(3):
+        sub_directory = tmpdir.join('sub_prefix_directory_{:04d}'.format(sub_directory_index))
+        sub_directory.mkdir()
+        for i in range(5):
+            filename = sub_directory.join('other_stimulus_{}_{:04d}.png'.format(sub_directory_index, i))
+            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+            filenames.append(str(filename))
+
+    stimuli_different_names = pysaliency.FileStimuli(filenames=filenames)
+
+    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, stimuli, filename)
+
+    with pytest.raises(pysaliency.precomputed_models.NoCommonPrefixError):
+        pysaliency.HDF5Model(stimuli_different_names, filename)
+
+
+def test_hdf5_model_sub_stimuli_different_prefix_nonunique(tmpdir):
+    rst = np.random.RandomState(seed=42)
+    filenames = []
+
+    for sub_directory_index in range(3):
+        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
+        sub_directory.mkdir()
+        for i in range(5):
+            filename = sub_directory.join('stimulus_{:04d}.png'.format(i))
+            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+            filenames.append(str(filename))
+    stimuli = pysaliency.FileStimuli(filenames=filenames)
+
+    rst = np.random.RandomState(seed=42)
+    filenames = []
+
+    for sub_directory_index in range(3):
+        sub_directory = tmpdir.join('sub_prefix_directory_{:04d}'.format(sub_directory_index))
+        sub_directory.mkdir()
+        for i in range(5):
+            filename = sub_directory.join('stimulus_{:04d}.png'.format(i))
+            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
+            filenames.append(str(filename))
+
+    stimuli_different_prefix = pysaliency.FileStimuli(filenames=filenames)
+    sub_stimuli = stimuli_different_prefix[[i for i, f in enumerate(stimuli_different_prefix.filenames) if 'sub_prefix_directory_0001' in f]]
+
+    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, stimuli, filename)
+
+    with pytest.raises(pysaliency.precomputed_models.NonUniqueKeysError):
+        pysaliency.HDF5Model(sub_stimuli, filename)
+
+
 def test_saliency_map_model_from_directory(stimuli, saliency_maps_in_directory):
     directory, predictions = saliency_maps_in_directory
     model = pysaliency.SaliencyMapModelFromDirectory(stimuli, directory)
