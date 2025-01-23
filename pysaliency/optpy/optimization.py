@@ -13,6 +13,15 @@ import scipy.optimize
 from .jacobian import FunctionWithApproxJacobian
 
 
+class LinearConstraint(object):
+    """Allows to build a linear constraint over the parameters by specifying one matrix for each parameter which will be concatenated as needed"""
+    def __init__(self, A_dict, lb=-np.inf, ub=np.inf, keep_feasible=False):
+        self.A_dict = A_dict
+        self.lb = lb
+        self.ub = ub
+        self.keep_feasible = keep_feasible
+
+
 # TODO: Remove, once https://github.com/scipy/scipy/pull/11872 is merged and published
 class MemoizeJac(object):
     """ Decorator that caches the value and gradient of function each time it
@@ -93,6 +102,8 @@ class ParameterManager(object):
             shape = self.param_values[param_name].shape
             if len(shape) > 1:
                 raise ValueError('Arrays with more than one dimension are not yet supported!')
+            if len(shape) == 0:
+                return 1
             return shape[0]
 
 
@@ -127,6 +138,47 @@ def wrap_parameter_manager(f, parameter_manager, additional_kwargs=None):
                 kwargs.update(additional_kwargs)
             return f(*params, **kwargs)
         return new_f
+
+
+
+def wrap_linear_constraint(constraint: LinearConstraint, parameter_manager: 'ParameterManager') -> scipy.optimize.LinearConstraint:
+    """Wraps a LinearConstraint object into a scipy.optimize.LinearConstraint object"""
+    # TODO: hande case that all relevant parameters are not being optimized
+
+    # get output dimension
+    output_dims = []
+    for A in constraint.A_dict.values():
+        if A is not None:
+            output_dims.append(A.shape[0])
+
+    if len(set(output_dims)) > 1:
+        raise ValueError(f'All A matrices must have the same number of rows! Got {output_dims}')
+
+    output_dim = output_dims[0]
+
+    A_dict = dict(constraint.A_dict)
+
+    lb = constraint.lb
+    ub = constraint.ub
+    for param_name in parameter_manager.parameters:
+        A = constraint.A_dict.get(param_name, None)
+        if param_name in parameter_manager.optimize:
+            if A is None:
+                length = parameter_manager.get_length(param_name)
+                A = np.zeros((output_dim, length))
+                A_dict[param_name] = A
+        else:
+            if A is not None:
+                param_value = np.atleast_1d(parameter_manager.param_values[param_name])
+                constraint_value = np.dot(A, param_value)
+                if np.isfinite(lb):
+                    lb = lb - constraint_value
+                if np.isfinite(ub):
+                    ub = ub - constraint_value
+
+    A_list = [A_dict[param_name] for param_name in parameter_manager.optimize]
+    A = np.concatenate(A_list, axis=1)
+    return scipy.optimize.LinearConstraint(A=A, lb=lb, ub=ub, keep_feasible=constraint.keep_feasible)
 
 
 def minimize(f, parameter_manager_or_x0, optimize=None, args=(), kwargs=None, method='BFGS',
@@ -188,9 +240,14 @@ def minimize(f, parameter_manager_or_x0, optimize=None, args=(), kwargs=None, me
         constraints = [constraints]
     new_constraints = []
     for constraint in constraints:
-        new_constraint = constraint.copy()
-        new_constraint['fun'] = wrap_parameter_manager(constraint['fun'], parameter_manager)
-        new_constraints.append(new_constraint)
+        if isinstance(constraint, dict):
+            new_constraint = constraint.copy()
+            new_constraint['fun'] = wrap_parameter_manager(constraint['fun'], parameter_manager)
+            new_constraints.append(new_constraint)
+        elif isinstance(constraint, LinearConstraint):
+            new_constraints.append(wrap_linear_constraint(constraint, parameter_manager))
+        else:
+            raise NotImplementedError('Only dictionaries and LinearConstraints are supported as constraints')
 
     #Adapt bounds:
     if bounds is not None:
