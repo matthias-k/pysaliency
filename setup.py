@@ -57,7 +57,6 @@ setup(
     install_requires=[
         'boltons',
         'deprecation',
-        'dill',
         'imageio',
         'natsort',
         'numba',

@@ -2,8 +2,7 @@ from __future__ import absolute_import, print_function, division
 
 import os
 import shutil
-
-import dill
+import warnings
 
 from ..datasets import FileStimuli, Stimuli, read_hdf5
 
@@ -61,4 +60,10 @@ def _load(filename):
     stem, ext = os.path.splitext(filename)
     pydat_filename = stem + '.pydat'
 
-    return dill.load(open(pydat_filename, 'rb'))
+    if os.path.isfile(pydat_filename):
+        import dill
+        # raise deprecation warning
+        warnings.warn("Using pickle files is deprecated. Please convert to hdf5 files instead. Pickle support will be removed in pysaliency 0.4", DeprecationWarning, stacklevel=2)
+        return dill.load(open(pydat_filename, 'rb'))
+    else:
+        raise FileNotFoundError(f"Neither {filename} nor {pydat_filename} exist.")
