@@ -4,7 +4,7 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from .models import Model
-from .optpy import minimize
+from .optpy import minimize, LinearConstraint
 from .saliency_map_models import SaliencyMapModel
 from .torch_utils import GaussianFilterNd, Nonlinearity, zero_grad, log_likelihood
 from .torch_datasets import ImageDataset, ImageDatasetSampler, FixationMaskTransform, collate_fn
@@ -377,41 +377,67 @@ def _optimize_saliency_map_processing(
 
     if 'nonlinearity' in optimize:
         # mononotic nonlinearity
+        rows = []
         for i in range(1, num_nonlinearity):
-            constraints.append({
-                'type': 'ineq',
-                'fun': lambda blur_radius, nonlinearity, centerbias, alpha, i=i: nonlinearity[i] - nonlinearity[i - 1]
-            })
+            row = np.zeros(num_nonlinearity)
+            row[i] = 1
+            row[i - 1] = -1
+            rows.append(row)
+        A = np.array(rows)
+        constraints.append(LinearConstraint(
+            A_dict={
+                'nonlinearity': A,
+            },
+            lb=np.zeros(num_nonlinearity - 1),
+            ub=np.inf,
+            keep_feasible=True,
+        ))
 
     if nonlinearity_target == 'density':
         bounds['centerbias'] = [(1e-6, 1000) for i in range(len(saliency_map_processing.centerbias.nonlinearity.ys))]
         if 'centerbias' in optimize:
-            constraints.append({
-                'type': 'eq',
-                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias.sum() - initial_params['centerbias'].sum()
-            })
+            # make the center bias not overparametrized
+            constraints.append(LinearConstraint(
+                A_dict={
+                    'centerbias': np.ones((1, len(initial_params['centerbias'])))
+                },
+                lb=initial_params['centerbias'].sum(),
+                ub=initial_params['centerbias'].sum(),
+                keep_feasible=True,
+            ))
 
     elif nonlinearity_target == 'logdensity':
         bounds['centerbias'] = [(None, None) for i in range(len(saliency_map_processing.centerbias.nonlinearity.ys))]
         if 'centerbias' in optimize:
-            constraints.append({
-                'type': 'eq',
-                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: centerbias[0]
-            })
+            # make the center bias not overparametrized
+            row = np.zeros(len(initial_params['centerbias']))
+            row[0] = 1
+            constraints.append(LinearConstraint(
+                A_dict={
+                    'centerbias': np.array([row])
+                },
+                lb=0,
+                ub=0,
+            ))
     else:
         raise ValueError(nonlinearity_target)
 
     if (nonlinearity_target == 'density') and (nonlinearity_values == 'linear'):
         bounds['nonlinearity'] = [(1e-6, 1e7) for i in range(num_nonlinearity)]
         if 'nonlinearity' in optimize:
-            constraints.append({
-                'type': 'eq',
-                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity.sum() - initial_params['nonlinearity'].sum()
-            })
+
+            constraints.append(LinearConstraint(
+                A_dict={
+                    'nonlinearity': np.ones((1, len(initial_params['nonlinearity'])))
+                },
+                lb=initial_params['nonlinearity'].sum(),
+                ub=initial_params['nonlinearity'].sum()
+            ))
 
     elif (nonlinearity_target == 'density') and (nonlinearity_values == 'log'):
         bounds['nonlinearity'] = [(-100, 100) for i in range(num_nonlinearity)]
         if 'nonlinearity' in optimize:
+            # this is a nonlinear constraint, so we have to specify it as a function
             constraints.append({
                 'type': 'eq',
                 'fun': lambda blur_radius, nonlinearity, centerbias, alpha: np.exp(nonlinearity).sum() - np.exp(initial_params['nonlinearity']).sum()
@@ -420,11 +446,15 @@ def _optimize_saliency_map_processing(
     elif (nonlinearity_target == 'logdensity') and (nonlinearity_values == 'linear'):
         bounds['nonlinearity'] = [(None, None) for i in range(num_nonlinearity)]
         if 'nonlinearity' in optimize:
-            constraints.append({
-                'type': 'eq',
-                'fun': lambda blur_radius, nonlinearity, centerbias, alpha: nonlinearity[0]
-            })
-
+            row = np.zeros(len(initial_params['nonlinearity']))
+            row[0] = 1
+            constraints.append(LinearConstraint(
+                A_dict={
+                    'nonlinearity': np.array([row])
+                },
+                lb=0,
+                ub=0,
+            ))
     else:
         raise ValueError(nonlinearity_target, nonlinearity_values)
 

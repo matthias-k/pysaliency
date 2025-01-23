@@ -138,7 +138,7 @@ def test_optimize_for_information_gain(stimuli, fixations, saliency_model, proba
         verbose=2,
         batch_size=10,
         minimize_options={'verbose': 10},
-        maxiter=500,
+        maxiter=100,
         num_nonlinearity=num_nonlinearity,
         num_centerbias=num_centerbias,
         blur_radius=blur_radius,

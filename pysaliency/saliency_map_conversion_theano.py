@@ -215,6 +215,7 @@ def optimize_saliency_map_conversion(saliency_map_processing, saliency_maps, x_i
 
     centerbias_value = smp.centerbias_ys.get_value()
 
+    # TODO: move to LinearConstraints in the torch implementation
     if isinstance(saliency_map_processing, SaliencyMapProcessing):
         print("Using density constraints")
         bounds = {'nonlinearity': [(nonlinearity_min, 1e7) for i in range(num_nonlinearity)],
