@@ -220,7 +220,27 @@ def advanced_arrow(x, y, dx, dy, linewidth=1, headwidth=3, headlength=None, line
     ax.add_patch(arrow)
 
 
-def plot_scanpath(stimuli, fixations, index, ax=None, show_history=True, show_current_fixation=True, visualize_next_saccade=False, include_next_saccade=False, history_color='red', next_saccade_color='cyan', current_fixation_size=3, fixation_color='blue',  history_alpha=1.0, history_linestyle='-', saccade_width=2, fixation_size=10):
+def plot_scanpath(
+        stimuli,
+        fixations,
+        index,
+        ax=None,
+        show_history=True,
+        show_current_fixation=True,
+        visualize_next_saccade=False,
+        include_next_saccade=False,
+        history_color='red',
+        next_saccade_color='cyan',
+        current_fixation_size=3,
+        fixation_color='blue',
+        current_fixation_color=None,
+        history_alpha=1.0,
+        history_alpha_decay=1.0,
+        history_alpha_minimum=0.0,
+        history_linestyle='-',
+        saccade_width=2,
+        fixation_size=10,
+        next_saccade_linestyle=None):
     if ax is None:
         ax = plt.gca()
     x_hist = list(remove_trailing_nans(fixations.x_hist[index]))
@@ -235,7 +255,8 @@ def plot_scanpath(stimuli, fixations, index, ax=None, show_history=True, show_cu
     headlength = 3 * saccade_width
 
     if show_history:
-        for (x1, x2), (y1, y2) in zip(windowed(x_hist, 2), windowed(y_hist, 2)):
+        for saccade_index, ((x1, x2), (y1, y2)) in enumerate(zip(windowed(x_hist, 2), windowed(y_hist, 2))):
+            inverse_saccade_index = len(x_hist) - saccade_index - 1
             advanced_arrow(x1, y1, x2-x1, y2-y1,
                 linewidth=saccade_width,
                 headwidth=headwidth,
@@ -243,17 +264,17 @@ def plot_scanpath(stimuli, fixations, index, ax=None, show_history=True, show_cu
                 color=history_color,
                 linestyle=history_linestyle,
                 zorder=10,
-                alpha=history_alpha,
+                alpha=(history_alpha - history_alpha_minimum) * (history_alpha_decay ** inverse_saccade_index) + history_alpha_minimum,
                 ax=ax,
             )
 
-        ax.scatter(x_hist, y_hist, fixation_size, color=fixation_color, zorder=40)
+            ax.scatter([x1], [y1], fixation_size, color=fixation_color, alpha=(history_alpha - history_alpha_minimum) * (history_alpha_decay ** inverse_saccade_index) + history_alpha_minimum, zorder=40)
 
 
     if show_current_fixation:
         x1 = x_hist[-1]
         y1 = y_hist[-1]
-        ax.scatter([x1], [y1], 3, color='red', zorder=10,)
+        ax.scatter([x1], [y1], current_fixation_size, color=current_fixation_color or 'red', zorder=70,)
 
     if visualize_next_saccade:
         x1 = x_hist[-1]
@@ -268,9 +289,9 @@ def plot_scanpath(stimuli, fixations, index, ax=None, show_history=True, show_cu
             headwidth=headwidth,
             headlength=headlength,
             color=next_saccade_color,
-            linestyle=(0, (2,1)),
-            zorder=10,
+            linestyle=next_saccade_linestyle or (0, (2,1)),
+            zorder=60,
             ax=ax,
         )
 
-        ax.scatter([x2], [y2], fixation_size, color=fixation_color, zorder=40)
+        ax.scatter([x2], [y2], fixation_size, color=next_saccade_color or 'red', zorder=70)
