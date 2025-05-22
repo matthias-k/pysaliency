@@ -514,7 +514,7 @@ def test_subject_specific_saliency_map_model(stimuli, scanpath_fixations):
 def test_conditional_saliency_maps(stimuli, scanpath_fixations):
     model = pysaliency.FixationMap(stimuli, scanpath_fixations, kernel_size=10)
 
-    saliency_maps_1 = model.conditional_saliency_maps(stimuli, scanpath_fixations)
+    saliency_maps_1 = list(model.conditional_saliency_maps(stimuli, scanpath_fixations))
     saliency_maps_2 = [model.conditional_saliency_map_for_fixation(stimuli, scanpath_fixations, i) for i in range(len(scanpath_fixations))]
 
     np.testing.assert_allclose(saliency_maps_1, saliency_maps_2)

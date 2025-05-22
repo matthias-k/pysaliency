@@ -67,8 +67,6 @@ def test_log_likelihood_gauss(stimuli, scanpath_fixations):
 
 
 
-
-
 def test_sampling(stimuli):
     model = GaussianSaliencyModel()
     fixations = model.sample(stimuli, train_counts=10, lengths=3)
@@ -183,3 +181,12 @@ def test_shuffled_baseline_model(long_stimuli, test_model, library):
     average_log_density = pysaliency.models.average_predictions(log_densities, library=library)
 
     np.testing.assert_allclose(shuffled_model.log_density(long_stimuli[0]), average_log_density, rtol=1e-6)
+
+
+def test_conditional_log_densities(long_stimuli, test_model, scanpath_fixations):
+
+    log_densities_1 = list(test_model.conditional_log_densities(long_stimuli, scanpath_fixations))
+    log_densities_2 = [test_model.conditional_log_density_for_fixation(long_stimuli, scanpath_fixations, i) for i in range(len(scanpath_fixations))]
+
+    np.testing.assert_allclose(log_densities_1, log_densities_2)
+
