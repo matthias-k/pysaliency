@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
+import warnings
 from abc import ABCMeta, abstractmethod
 from itertools import combinations
 from tempfile import TemporaryDirectory
@@ -109,8 +110,10 @@ class ScanpathSaliencyMapModel(object, metaclass=ABCMeta):
         )
 
     def conditional_saliency_maps(self, stimuli, fixations, verbose=False, **kwargs):
-        """ returns conditional log density predictions for each fixation """
-        return [self.conditional_saliency_map_for_fixation(stimuli, fixations, fixation_index) for fixation_index in tqdm(range(len(fixations)), disable=not verbose)]
+        """ returns iterator over conditional log density predictions for each fixation """
+        if verbose:
+            warnings.warn("Verbose mode is deprecated, use the iterator instead.", DeprecationWarning, stacklevel=2)
+        return (self.conditional_saliency_map_for_fixation(stimuli, fixations, fixation_index) for fixation_index in tqdm(range(len(fixations)), disable=not verbose))
 
     def AUCs(self, stimuli, fixations, nonfixations='uniform', verbose=False):
         """

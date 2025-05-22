@@ -1,25 +1,27 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import warnings
 from abc import ABCMeta, abstractmethod
-
 from itertools import combinations
 
-from boltons.cacheutils import LRU
 import numpy as np
 from scipy.ndimage import zoom
 from scipy.special import logsumexp
 from tqdm import tqdm
 
-from .saliency_map_models import (SaliencyMapModel, ScanpathSaliencyMapModel, handle_stimulus,
-                                  SubjectDependentSaliencyMapModel,
-                                  DensitySaliencyMapModel,
-                                  DisjointUnionMixin,
-                                  GaussianSaliencyMapModel,
-                                  )
-from .datasets import Scanpaths, ScanpathFixations, check_prediction_shape, get_image_hash, as_stimulus
-from .metrics import probabilistic_image_based_kl_divergence, convert_saliency_map_to_density
+from .datasets import ScanpathFixations, Scanpaths, as_stimulus, check_prediction_shape, get_image_hash
+from .metrics import convert_saliency_map_to_density, probabilistic_image_based_kl_divergence
+from .saliency_map_models import (
+    DensitySaliencyMapModel,
+    DisjointUnionMixin,
+    GaussianSaliencyMapModel,
+    SaliencyMapModel,
+    ScanpathSaliencyMapModel,
+    SubjectDependentSaliencyMapModel,
+    handle_stimulus,
+)
 from .sampling_models import SamplingModelMixin
-from .utils import Cache, average_values, deprecated_class, remove_trailing_nans, iterator_chunks
+from .utils import Cache, average_values, deprecated_class, iterator_chunks, remove_trailing_nans
 
 
 def _prepare_logprobabilities_for_sampling(log_probabilities):
@@ -148,8 +150,10 @@ class ScanpathModel(SamplingModelMixin, object, metaclass=ABCMeta):
         )
 
     def conditional_log_densities(self, stimuli, fixations, verbose=False, **kwargs):
-        """ returns conditional log density predictions for each fixation """
-        return [self.conditional_log_density_for_fixation(stimuli, fixations, fixation_index) for fixation_index in tqdm(range(len(fixations)), disable=not verbose)]
+        """ returns iterator over conditional log density predictions for each fixation """
+        if verbose is True:
+            warnings.warn("Verbose mode is deprecated, use the iterator instead.", DeprecationWarning, stacklevel=2)
+        return (self.conditional_log_density_for_fixation(stimuli, fixations, fixation_index) for fixation_index in tqdm(range(len(fixations)), disable=not verbose))
 
     def log_likelihoods(self, stimuli, fixations, verbose=False):
         log_likelihoods = np.empty(len(fixations.x))
