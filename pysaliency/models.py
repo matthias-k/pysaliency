@@ -157,8 +157,7 @@ class ScanpathModel(SamplingModelMixin, object, metaclass=ABCMeta):
 
     def log_likelihoods(self, stimuli, fixations, verbose=False):
         log_likelihoods = np.empty(len(fixations.x))
-        for i in tqdm(range(len(fixations.x)), disable=not verbose):
-            conditional_log_density = self.conditional_log_density_for_fixation(stimuli, fixations, i)
+        for i, conditional_log_density in tqdm(enumerate(self.conditional_log_densities(stimuli, fixations, verbose=False)), disable=not verbose, total=len(fixations.x)):
             check_prediction_shape(conditional_log_density, stimuli[fixations.n[i]])
             log_likelihoods[i] = conditional_log_density[fixations.y_int[i], fixations.x_int[i]]
 

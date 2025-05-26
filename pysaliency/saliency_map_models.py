@@ -155,24 +155,23 @@ class ScanpathSaliencyMapModel(object, metaclass=ABCMeta):
         if nonfixations == 'shuffled':
             nonfixations = FullShuffledNonfixationProvider(stimuli, fixations)
 
-        for i in tqdm(range(len(fixations.x)), total=len(fixations.x), disable=not verbose):
-            out = self.conditional_saliency_map_for_fixation(stimuli, fixations, i, out=out)
-            check_prediction_shape(out, stimuli[fixations.n[i]])
+        for i, conditional_saliency_map in tqdm(enumerate(self.conditional_saliency_maps(stimuli, fixations, verbose=False)), total=len(fixations.x), disable=not verbose):
+            check_prediction_shape(conditional_saliency_map, stimuli[fixations.n[i]])
 
-            positive = out[fixations.y_int[i], fixations.x_int[i]]
+            positive = conditional_saliency_map[fixations.y_int[i], fixations.x_int[i]]
             if nonfixations == 'uniform':
-                negatives = out.flatten()
+                negatives = conditional_saliency_map.flatten()
             elif nonfixations == 'unfixated':
                 negatives = _get_unfixated_values(
-                    out,
+                    conditional_saliency_map,
                     [fixations.y_int[i]], [fixations.x_int[i]]
                 )
             elif nonfix_xs is not None:
                 n = fixations.n[i]
-                negatives = out[nonfix_ys[n], nonfix_xs[n]]
+                negatives = conditional_saliency_map[nonfix_ys[n], nonfix_xs[n]]
             elif callable(nonfixations):
                 _nonfix_xs, _nonfix_ys = nonfixations(stimuli, fixations, i)
-                negatives = out[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
+                negatives = conditional_saliency_map[_nonfix_ys.astype(int), _nonfix_xs.astype(int)]
             else:
                 raise ValueError("Don't know how to handle nonfixations {}".format(nonfixations))
 
@@ -220,12 +219,10 @@ class ScanpathSaliencyMapModel(object, metaclass=ABCMeta):
 
     def NSSs(self, stimuli, fixations, verbose=False):
         values = np.empty(len(fixations.x))
-        out = None
 
-        for i in tqdm(range(len(fixations.x)), disable=not verbose, total=len(fixations.x)):
-            out = self.conditional_saliency_map_for_fixation(stimuli, fixations, i, out=out)
-            check_prediction_shape(out, stimuli[fixations.n[i]])
-            values[i] = NSS(out, fixations.x_int[i], fixations.y_int[i])
+        for i, conditional_saliency_map in tqdm(enumerate(self.conditional_saliency_maps(stimuli, fixations, verbose=False)), total=len(fixations.x), disable=not verbose):
+            check_prediction_shape(conditional_saliency_map, stimuli[fixations.n[i]])
+            values[i] = NSS(conditional_saliency_map, fixations.x_int[i], fixations.y_int[i])
         return values
 
     def NSS(self, stimuli, fixations, average='fixation', verbose=False):
