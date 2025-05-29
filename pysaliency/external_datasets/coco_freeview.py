@@ -221,7 +221,6 @@ def get_COCO_Freeview(location=None, test_data=None):
                 with open(test_data) as f:
                     json_test_data = json.load(f)
                     scanpaths_test = _get_COCO_Freeview_fixations(json_test_data, filenames)
-                    del scanpaths_test.scanpath_attributes['split']
                     ns_test = sorted(set(scanpaths_test.n))
 
                     assert len(ns_test) == len(TEST_STIMULUS_INDICES)
