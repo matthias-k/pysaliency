@@ -1,6 +1,0 @@
-cython
-flask
-gunicorn
-numpy
-
-# Add additional dependencies here

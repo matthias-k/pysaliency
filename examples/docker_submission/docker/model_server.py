@@ -1,19 +1,21 @@
 from flask import Flask, request, jsonify
+from flask_orjson import OrjsonProvider
 import numpy as np
 import json
 from PIL import Image
 from io import BytesIO
-# import pickle
+import orjson
+
 
 # Import your model here
 from sample_submission import MySimpleScanpathModel
 
 app = Flask("saliency-model-server")
+app.json_provider = OrjsonProvider(app)
 app.logger.setLevel("DEBUG")
 
 # # TODO - replace this with your model
 model = MySimpleScanpathModel()
-
 
 @app.route('/conditional_log_density', methods=['POST'])
 def conditional_log_density():
@@ -28,14 +30,16 @@ def conditional_log_density():
     stimulus = np.array(image)
 
     log_density = model.conditional_log_density(stimulus, x_hist, y_hist, t_hist, attributes)
-    return jsonify({'log_density': log_density.tolist()})
+    log_density_list = log_density.tolist()
+    response = orjson.dumps({'log_density': log_density_list})
+    return response
 
 
 @app.route('/type', methods=['GET'])
 def type():
     type = "ScanpathModel"
     version = "v1.0.0"
-    return jsonify({'type': type, 'version': version})
+    return orjson.dumps({'type': type, 'version': version})
    
 
 def main():

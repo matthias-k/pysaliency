@@ -2,7 +2,6 @@ import numpy as np
 import sys
 from typing import Union
 from scipy.ndimage import gaussian_filter
-sys.path.insert(0, '../..')
 import pysaliency
 
 

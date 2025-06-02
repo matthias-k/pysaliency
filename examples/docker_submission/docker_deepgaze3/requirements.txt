@@ -1,0 +1,11 @@
+cython
+flask
+gunicorn
+numpy
+
+# Add additional dependencies here
+pysaliency
+scipy
+torch
+flask_orjson
+git+https://github.com/matthias-k/deepgaze
