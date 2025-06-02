@@ -1,6 +1,5 @@
 import numpy as np
 import sys
-from sample_submission import MySimpleScanpathModel
 from pysaliency.http_models import HTTPScanpathModel
 sys.path.insert(0, '..')
 import pysaliency
@@ -42,19 +41,18 @@ if __name__ == "__main__":
 
         # get server response for one stimulus
         server_density = http_model.conditional_log_density(
-            stimulus=stimuli.stimuli[eval_fixations.n[fixation_index]], 
-            x_hist=eval_fixations.x_hist[fixation_index], 
-            y_hist=eval_fixations.y_hist[fixation_index], 
+            stimulus=stimuli.stimuli[eval_fixations.n[fixation_index]],
+            x_hist=eval_fixations.x_hist[fixation_index],
+            y_hist=eval_fixations.y_hist[fixation_index],
             t_hist=eval_fixations.t_hist[fixation_index]
         )
         # get test model response
         # test_model_density = test_model(
-        #     stimulus=stimuli.stimuli[eval_fixations.n[fixation_index]], 
-        #     x_hist=eval_fixations.x_hist[fixation_index], 
-        #     y_hist=eval_fixations.y_hist[fixation_index], 
-        #     t_hist=eval_fixations.t_hist[fixation_index]   
+        #     stimulus=stimuli.stimuli[eval_fixations.n[fixation_index]],
+        #     x_hist=eval_fixations.x_hist[fixation_index],
+        #     y_hist=eval_fixations.y_hist[fixation_index],
+        #     t_hist=eval_fixations.t_hist[fixation_index]
         # )
 
-        # Testing 
+        # Testing
         # test = np.testing.assert_allclose(server_density, test_model_density)
-        
