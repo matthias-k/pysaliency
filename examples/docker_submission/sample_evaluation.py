@@ -34,18 +34,18 @@ if __name__ == "__main__":
     eval_fixations = fixations[fixations.scanpath_history_length > 0][:1000] # error if no history
 
 
-    # information_gain = http_model.information_gain(stimuli, eval_fixations, average="image", verbose=True)
-    # print("IG:", information_gain)
+    information_gain = http_model.information_gain(stimuli, eval_fixations, average="image", verbose=True)
+    print("IG:", information_gain)
 
-    for fixation_index in tqdm(range(len(eval_fixations))):
+    # for fixation_index in tqdm(range(len(eval_fixations))):
 
         # get server response for one stimulus
-        server_density = http_model.conditional_log_density(
-            stimulus=stimuli.stimuli[eval_fixations.n[fixation_index]],
-            x_hist=eval_fixations.x_hist[fixation_index],
-            y_hist=eval_fixations.y_hist[fixation_index],
-            t_hist=eval_fixations.t_hist[fixation_index]
-        )
+        # server_density = http_model.conditional_log_density(
+        #     stimulus=stimuli.stimuli[eval_fixations.n[fixation_index]],
+        #     x_hist=eval_fixations.x_hist[fixation_index],
+        #     y_hist=eval_fixations.y_hist[fixation_index],
+        #     t_hist=eval_fixations.t_hist[fixation_index]
+        # )
         # get test model response
         # test_model_density = test_model(
         #     stimulus=stimuli.stimuli[eval_fixations.n[fixation_index]],
