@@ -19,13 +19,12 @@ app.logger.setLevel("DEBUG")
 model = deepgaze_pytorch.DeepGazeIII(pretrained=True)
 
 def get_fixation_history(fixation_coordinates, model):
-    print('hello')
     history = []
     for index in model.included_fixations:
         try:
             history.append(fixation_coordinates[index])
         except IndexError:
-            print("IndexError")
+            # for early fixations, not all previous fixations exist
             history.append(np.nan)
     return np.array(history)
 
@@ -52,18 +51,18 @@ def conditional_log_density():
 
     # centerbias for deepgaze3 model
     centerbias_template = np.zeros((1024, 1024))
-    centerbias = zoom(centerbias_template, 
-                        (stimulus.shape[0]/centerbias_template.shape[0], 
-                         stimulus.shape[1]/centerbias_template.shape[1]), 
+    centerbias = zoom(centerbias_template,
+                        (stimulus.shape[0]/centerbias_template.shape[0],
+                         stimulus.shape[1]/centerbias_template.shape[1]),
                         order=0,
                         mode='nearest'
-    )  
+    )
     centerbias -= logsumexp(centerbias)
 
     # make tensors for deepgaze3 model
     image_tensor = torch.tensor([stimulus.transpose(2, 0, 1)])
     centerbias_tensor = torch.tensor([centerbias])
-    x_hist_tensor = torch.tensor([x_hist[model.included_fixations]]) 
+    x_hist_tensor = torch.tensor([x_hist[model.included_fixations]])
     y_hist_tensor = torch.tensor([y_hist[model.included_fixations]])
 
     # return model response
@@ -80,7 +79,7 @@ def type():
     return orjson.dumps({'type': type, 'version': version})
 
 
-   
+
 
 def main():
     app.run(host="localhost", port="4000", debug="True", threaded=True)
