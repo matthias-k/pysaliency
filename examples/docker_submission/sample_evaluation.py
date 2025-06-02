@@ -30,14 +30,14 @@ if __name__ == "__main__":
     # get MIT1003 dataset
     stimuli, fixations = pysaliency.get_mit1003(location='pysaliency_datasets')
 
-    # only use first 10 fixations for testing
-    eval_fixations = fixations[fixations.scanpath_history_length > 0][:10] # error if no history
+    # only use first 1000 fixations for testing
+    eval_fixations = fixations[fixations.scanpath_history_length > 0][:1000] # error if no history
 
 
     # information_gain = http_model.information_gain(stimuli, eval_fixations, average="image", verbose=True)
     # print("IG:", information_gain)
 
-    for fixation_index in tqdm(range(10)):
+    for fixation_index in tqdm(range(len(eval_fixations))):
 
         # get server response for one stimulus
         server_density = http_model.conditional_log_density(
