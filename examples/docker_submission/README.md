@@ -2,11 +2,10 @@
 
 This directory contains an example of how to create a Docker container for submitting a scanpath model to the MIT/Tübingen Saliency Benchmark. You'll need to build a docker or singularity container that offers a json API for requesting model predictions. The benchmark will use `pysaliency.http_models.HTTPScanpathModel` to interact with your model.
 
-
 ## Preparing the submission
 
 1. Create a docker or singularity container that exposes your model as an API compatible with `pysaliency.http_models.HTTPScanpathModel`. There are two different examples contained here:
-    - `docker_pysaliency`: A docker container exposing a pysaliency model. Use this if you already have a pysaliency implementation of your model.
+    - `docker_pysaliency`: A docker container exposing a pysaliency model (which is implemented in `sample_submission.py`). Use this if you already have a pysaliency implementation of your model.
     - `docker_deepgaze`: A docker container exposing the DeepGaze model. It demonstrates how to implement the API for an arbitrary model.
 
 2. Build the Docker container as described in the "Launching the submission container" section.

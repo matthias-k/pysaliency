@@ -1,3 +1,7 @@
+"""
+This file implements a very simple scanpath model using local constrast and a saccadic prior.
+"""
+
 import numpy as np
 import sys
 from typing import Union
@@ -9,9 +13,9 @@ class LocalContrastModel(pysaliency.Model):
     def __init__(self, bandwidth=0.05, **kwargs):
         super().__init__(**kwargs)
         self.bandwidth = bandwidth
-        
+
     def _log_density(self, stimulus: Union[pysaliency.datasets.Stimulus, np.ndarray]):
-        
+
         # _log_density can either take pysaliency Stimulus objects, or, for convenience, simply numpy arrays
         # `as_stimulus` ensures that we have a Stimulus object
         stimulus_object = pysaliency.datasets.as_stimulus(stimulus)
@@ -25,7 +29,7 @@ class LocalContrastModel(pysaliency.Model):
         # define kernel size based on image size
         kernel_size = np.round(self.bandwidth * max(width, height)).astype(int)
         sigma = (kernel_size - 1) / 6
-            
+
         # apply Gausian blur and calculate squared difference between blurred and original image
         blurred_stimulus = gaussian_filter(gray_stimulus, sigma)
 
@@ -35,9 +39,9 @@ class LocalContrastModel(pysaliency.Model):
         prediction = (254 * (prediction / prediction.max())).astype(int) + 1
 
         density = prediction / prediction.sum()
-        
+
         return np.log(density)
-    
+
 class MySimpleScanpathModel(pysaliency.ScanpathModel):
     def __init__(self, spatial_model_bandwidth: float=0.05, saccade_width: float=0.1):
         self.spatial_model_bandwidth = spatial_model_bandwidth
@@ -58,14 +62,14 @@ class MySimpleScanpathModel(pysaliency.ScanpathModel):
         # compute saccade bias
         last_x = x_hist[-1]
         last_y = y_hist[-1]
-        
+
         xs = np.arange(width, dtype=float)
         ys = np.arange(height, dtype=float)
         XS, YS = np.meshgrid(xs, ys)
 
         XS -= last_x
         YS -= last_y
-        
+
         # compute prior
         max_size = max(width, height)
         actual_kernel_size = self.saccade_width * max_size
@@ -73,7 +77,7 @@ class MySimpleScanpathModel(pysaliency.ScanpathModel):
         saccade_bias = np.exp(-0.5 * (XS ** 2 + YS ** 2) / actual_kernel_size ** 2)
 
         prediction = spatial_prior_density * saccade_bias
-        
+
         density = prediction / prediction.sum()
         return np.log(density)
 
