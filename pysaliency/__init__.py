@@ -6,6 +6,7 @@ from . import models
 from . import external_models
 from . import external_datasets
 from . import utils
+from . import http_models
 
 from .datasets import (
     Fixations,
@@ -102,3 +103,8 @@ from .external_datasets import (
 )
 
 from .metric_optimization import SIMSaliencyMapModel
+
+from .http_models import (
+    HTTPScanpathModel,
+    HTTPScanpathSaliencyMapModel,
+)
