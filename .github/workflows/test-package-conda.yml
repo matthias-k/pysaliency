@@ -39,6 +39,7 @@ jobs:
           numba \
           numpy \
           numpydoc \
+          orjson \
           pandas \
           piexif \
           pillow \
