@@ -6,7 +6,6 @@ from . import models
 from . import external_models
 from . import external_datasets
 from . import utils
-from . import http_models
 
 from .datasets import (
     Fixations,
