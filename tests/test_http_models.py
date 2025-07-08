@@ -33,6 +33,41 @@ class TestHTTPScanpathModel(unittest.TestCase):
             
             with self.assertRaises(ValueError):
                 HTTPScanpathModel('http://example.com')
+    
+    def test_conditional_log_density(self):
+        """Test conditional_log_density method"""
+        with patch('pysaliency.http_models.requests.get') as mock_get:
+            mock_response = MagicMock()
+            mock_response.json.return_value = {'type': 'ScanpathModel', 'version': 'v1.0.0'}
+            mock_get.return_value = mock_response
+            
+            model = HTTPScanpathModel('http://example.com')
+        
+        # Mock the POST request for log density
+        with patch('pysaliency.http_models.requests.post') as mock_post:
+            mock_post_response = MagicMock()
+            mock_post_response.status_code = 200
+            expected_log_density = [-2.1, -1.8, -2.5, -1.2]
+            mock_post_response.text = json.dumps({'log_density': expected_log_density})
+            mock_post.return_value = mock_post_response
+            
+            # Create test stimulus
+            stimulus = np.random.randint(0, 255, size=(10, 10, 3), dtype=np.uint8)
+            x_hist = np.array([1, 2, 3, 4])
+            y_hist = np.array([4, 5, 6, 7])
+            t_hist = np.array([0.1, 0.2, 0.3, 0.4])
+            
+            result = model.conditional_log_density(stimulus, x_hist, y_hist, t_hist)
+            
+            self.assertIsInstance(result, np.ndarray)
+            np.testing.assert_array_equal(result, expected_log_density)
+            
+            # Verify the POST request was called correctly
+            mock_post.assert_called_once()
+            call_args = mock_post.call_args
+            self.assertEqual(call_args[0][0], 'http://example.com/conditional_log_density')
+            self.assertIn('data', call_args[1])
+            self.assertIn('files', call_args[1])
 
 
 class TestHTTPScanpathSaliencyMapModel(unittest.TestCase):

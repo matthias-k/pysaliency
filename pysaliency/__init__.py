@@ -103,8 +103,3 @@ from .external_datasets import (
 )
 
 from .metric_optimization import SIMSaliencyMapModel
-
-from .http_models import (
-    HTTPScanpathModel,
-    HTTPScanpathSaliencyMapModel,
-)
