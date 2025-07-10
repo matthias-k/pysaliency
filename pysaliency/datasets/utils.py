@@ -61,6 +61,18 @@ def create_hdf5_dataset(target, name, data):
     else:
         target.create_dataset(name, data=data)
 
+def load_hdf5_dataset(source, name):
+    import h5py
+
+    if name not in source:
+        raise KeyError(f"Dataset '{name}' not found in HDF5 file.")
+
+    dataset = source[name]
+    if isinstance(dataset, h5py.Dataset) and dataset.dtype == h5py.special_dtype(vlen=str):
+        return [decode_string(item) for item in dataset[...]]
+    else:
+        return dataset[...]
+
 
 def get_merged_attribute_list(attributes):
     all_attributes = set(attributes[0])
@@ -82,7 +94,7 @@ def _load_attribute_dict_from_hdf5(attribute_group):
         json_attributes = json_attributes.decode('utf8')
     __attributes__ = json.loads(json_attributes)
 
-    attributes = {attribute: attribute_group[attribute][...] for attribute in __attributes__}
+    attributes = {attribute: load_hdf5_dataset(attribute_group, attribute) for attribute in __attributes__}
     return attributes
 
 

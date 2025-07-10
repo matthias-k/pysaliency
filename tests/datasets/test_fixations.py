@@ -55,6 +55,7 @@ class TestFixations(TestWithData):
         ns = [0, 0, 1]
         subject = [0, 1, 1]
         tasks = [0, 1, 0]
+        string_attribute = ['train', 'train', 'test']
         some_attribute = np.arange(len(sum(xs_trains, [])))
         # Create Fixations
         f = pysaliency.FixationTrains.from_fixation_trains(
@@ -64,7 +65,7 @@ class TestFixations(TestWithData):
             ns,
             subject,
             attributes={'some_attribute': some_attribute},
-            scanpath_attributes={'task': tasks},
+            scanpath_attributes={'task': tasks, 'string_attribute': string_attribute},
         )
 
         # Test fixation trains
@@ -179,6 +180,7 @@ def scanpath_fixations() -> ScanpathFixations:
     ns = [0, 0, 1]
     subject = [0, 1, 1]
     tasks = [0, 1, 0]
+    string_attribute = ['train', 'train', 'test']
     multi_dim_attribute = [[0.0, 1],[2, 3], [4, 5.5]]
     durations_train = [
         [42, 25, 100],
@@ -193,6 +195,7 @@ def scanpath_fixations() -> ScanpathFixations:
             'task': tasks,
             'multi_dim_attribute': multi_dim_attribute,
             'subject': subject,
+            'string_attribute': string_attribute,
         },
         fixation_attributes={'durations': durations_train, 'ts': ts_trains},
         attribute_mapping={'durations': 'duration', 'ts': 't'},
@@ -517,7 +520,7 @@ def test_concatenate_scanpath_fixations(scanpath_fixations):
         np.concatenate((scanpath_fixations.n, scanpath_fixations.n))
     )
 
-    assert set(new_scanpath_fixations.__attributes__) == {'subject', 'duration', 'duration_hist', 'multi_dim_attribute', 'scanpath_index', 'task'}
+    assert set(new_scanpath_fixations.__attributes__) == {'subject', 'duration', 'duration_hist', 'multi_dim_attribute', 'scanpath_index', 'task', 'string_attribute'}
 
 
 def test_concatenate_scanpath_fixations_partial_attributes(scanpath_fixations):
@@ -540,7 +543,7 @@ def test_concatenate_scanpath_fixations_partial_attributes(scanpath_fixations):
         np.concatenate((scanpath_fixations.n, scanpath_fixations2.n))
     )
 
-    assert set(new_fixation_trains.__attributes__) == {'subject', 'duration', 'duration_hist', 'multi_dim_attribute', 'scanpath_index'}
+    assert set(new_fixation_trains.__attributes__) == {'subject', 'duration', 'duration_hist', 'multi_dim_attribute', 'scanpath_index', 'string_attribute'}
 
 
 def test_concatenate_fixation_trains_partial_attributes(fixation_trains):
