@@ -1,4 +1,5 @@
 from __future__ import absolute_import, print_function, division, unicode_literals
+from typing import List, Union
 
 try:
     import matplotlib.pyplot as plt
@@ -11,6 +12,8 @@ from boltons.iterutils import windowed
 import numpy as np
 from scipy.ndimage import zoom
 
+from .datasets.fixations import Fixations
+from .datasets.scanpaths import Scanpaths
 from .utils import remove_trailing_nans
 
 
@@ -163,7 +166,7 @@ def visualize_distribution(log_densities, ax=None, levels=None, level_colors='bl
     return img, cs
 
 
-def advanced_arrow(x, y, dx, dy, linewidth=1, headwidth=3, headlength=None, linestyle='-', ax=None, color=None, zorder=None, alpha=1.0, arrow_style='-|>'):
+def advanced_arrow(x, y, dx, dy, linewidth=1.0, headwidth=3.0, headlength=None, linestyle='-', ax=None, color=None, zorder=None, alpha=1.0, arrow_style='-|>'):
     """careful: this uses axes data and figure inches coordinates. They can change if the axes limits are changed, which
     makes the arrow look strange"""
 
@@ -220,10 +223,104 @@ def advanced_arrow(x, y, dx, dy, linewidth=1, headwidth=3, headlength=None, line
     ax.add_patch(arrow)
 
 
+def plot_fixation(
+        fixations: Fixations,
+        index: int,
+        ax=None,
+        show_history=True,
+        show_current_fixation=True,
+        visualize_next_saccade=True,
+        history_color='red',
+        next_saccade_color='cyan',
+        current_fixation_size=3,
+        fixation_color='blue',
+        current_fixation_color=None,
+        history_alpha=1.0,
+        history_alpha_decay=1.0,
+        history_alpha_minimum=0.0,
+        history_linestyle='-',
+        saccade_width=2,
+        fixation_size=10,
+        next_saccade_linestyle=None
+        ):
+
+    x_hist = list(fixations.x_hist[index])
+    y_hist = list(fixations.y_hist[index])
+
+    x_next = fixations.x[index]
+    y_next = fixations.y[index]
+
+    _plot_fixation(
+        x_hist=x_hist,
+        y_hist=y_hist,
+        x_next=x_next,
+        y_next=y_next,
+        ax=ax,
+        show_history=show_history,
+        show_current_fixation=show_current_fixation,
+        visualize_next_saccade=visualize_next_saccade,
+        include_next_saccade=False,
+        history_color=history_color,
+        next_saccade_color=next_saccade_color,
+        current_fixation_size=current_fixation_size,
+        fixation_color=fixation_color,
+        current_fixation_color=current_fixation_color,
+        history_alpha=history_alpha,
+        history_alpha_decay=history_alpha_decay,
+        history_alpha_minimum=history_alpha_minimum,
+        history_linestyle=history_linestyle,
+        saccade_width=saccade_width,
+        fixation_size=fixation_size,
+        next_saccade_linestyle=next_saccade_linestyle
+    )
+
 def plot_scanpath(
-        stimuli,
-        fixations,
-        index,
+        scanpaths: Scanpaths,
+        index: int,
+        ax=None,
+        show_history=True,
+        history_color='red',
+        fixation_color='blue',
+        history_alpha=1.0,
+        history_alpha_decay=1.0,
+        history_alpha_minimum=0.0,
+        history_linestyle='-',
+        saccade_width=2,
+        fixation_size=10,
+        next_saccade_linestyle=None
+        ) -> None:
+    x_hist = list(scanpaths.xs[index])
+    y_hist = list(scanpaths.ys[index])
+    x_next = None
+    y_next = None
+
+    _plot_fixation(
+        x_hist=x_hist,
+        y_hist=y_hist,
+        x_next=x_next,
+        y_next=y_next,
+        ax=ax,
+        show_history=show_history,
+        show_current_fixation=False,
+        visualize_next_saccade=False,
+        include_next_saccade=False,
+        history_color=history_color,
+        fixation_color=fixation_color,
+        history_alpha=history_alpha,
+        history_alpha_decay=history_alpha_decay,
+        history_alpha_minimum=history_alpha_minimum,
+        history_linestyle=history_linestyle,
+        saccade_width=saccade_width,
+        fixation_size=fixation_size,
+        next_saccade_linestyle=next_saccade_linestyle
+    )
+
+
+def _plot_fixation(
+        x_hist: List[Union[float, int]],
+        y_hist: List[Union[float, int]],
+        x_next: Union[float, int, None],
+        y_next: Union[float, int, None],
         ax=None,
         show_history=True,
         show_current_fixation=True,
@@ -243,13 +340,20 @@ def plot_scanpath(
         next_saccade_linestyle=None):
     if ax is None:
         ax = plt.gca()
-    x_hist = list(remove_trailing_nans(fixations.x_hist[index]))
-    y_hist = list(remove_trailing_nans(fixations.y_hist[index]))
+
+    x_hist = list(x_hist)
+    y_hist = list(y_hist)
+
+    if include_next_saccade or visualize_next_saccade:
+        if x_next is None or y_next is None:
+            raise ValueError("x_next and y_next must be provided if include_next_saccade or visualize_next_saccade is True")
+
 
     if include_next_saccade:
         assert visualize_next_saccade is False
-        x_hist.append(fixations.x[index])
-        y_hist.append(fixations.y[index])
+        assert x_next is not None and y_next is not None
+        x_hist.append(x_next)
+        y_hist.append(y_next)
 
     headwidth = 1.5 * saccade_width
     headlength = 3 * saccade_width
@@ -280,8 +384,10 @@ def plot_scanpath(
         x1 = x_hist[-1]
         y1 = y_hist[-1]
 
-        x2 = fixations.x[index]
-        y2 = fixations.y[index]
+        assert x_next is not None and y_next is not None  # just for type checking
+
+        x2 = x_next
+        y2 = y_next
 
         advanced_arrow(
             x1, y1, x2-x1, y2-y1,
