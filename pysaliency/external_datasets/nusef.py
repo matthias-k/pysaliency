@@ -104,8 +104,8 @@ def get_NUSEF_public(location=None):
 
             # Stimuli
             print('Creating stimuli')
-            f = zipfile.ZipFile(source_file)
-            f.extractall(temp_dir)
+            with zipfile.ZipFile(source_file) as f:
+                f.extractall(temp_dir)
 
             stimuli_src_location = os.path.join(temp_dir, 'NUSEF_database', 'stimuli')
             images = glob.glob(os.path.join(stimuli_src_location, '*.jpg'))
