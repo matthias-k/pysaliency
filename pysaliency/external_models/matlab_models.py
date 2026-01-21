@@ -42,11 +42,10 @@ class AIM(ExternalModelMixin, MatlabSaliencyMapModel):
                                '6d52bc2c0cb15bc186d3d6de32751351',
                                verify_ssl=False)
 
-            z = zipfile.ZipFile(os.path.join(temp_dir, 'AIM.zip'))
-            namelist = z.namelist()
-            namelist = [n for n in namelist if n.endswith('.m') or n.endswith('.mat')]
-
-            z.extractall(self.location, namelist)
+            with zipfile.ZipFile(os.path.join(temp_dir, 'AIM.zip')) as z:
+                namelist = z.namelist()
+                namelist = [n for n in namelist if n.endswith('.m') or n.endswith('.mat')]
+                z.extractall(self.location, namelist)
             with open(os.path.join(self.location, 'AIM_wrapper.m'), 'wb') as f:
                 f.write(resource_string(__name__, 'scripts/AIM_wrapper.m'))
 
@@ -94,11 +93,10 @@ class SUN(ExternalModelMixin, MatlabSaliencyMapModel):
                                os.path.join(temp_dir, 'SUN.zip'),
                                'df69e6c34b2e9e5ddd7a051d98e880d0')
 
-            z = zipfile.ZipFile(os.path.join(temp_dir, 'SUN.zip'))
-            namelist = z.namelist()
-            namelist = [n for n in namelist if n.endswith('.m') or n.endswith('.mat')]
-
-            z.extractall(self.location, namelist)
+            with zipfile.ZipFile(os.path.join(temp_dir, 'SUN.zip')) as z:
+                namelist = z.namelist()
+                namelist = [n for n in namelist if n.endswith('.m') or n.endswith('.mat')]
+                z.extractall(self.location, namelist)
             with open(os.path.join(self.location, 'SUN_wrapper.m'), 'wb') as f:
                 f.write(resource_string(__name__, 'scripts/SUN_wrapper.m'))
             with open(os.path.join(self.location, 'ensure_image_is_color_image.m'), 'wb') as f:
@@ -135,10 +133,10 @@ class ContextAwareSaliency(ExternalModelMixin, MatlabSaliencyMapModel):
                                os.path.join(temp_dir, 'Saliency.zip'),
                                'c3c6768ef26e95def76000f51e8aad7c')
 
-            z = zipfile.ZipFile(os.path.join(temp_dir, 'Saliency.zip'))
-            source_location = os.path.join(self.location, 'source')
-            os.makedirs(source_location)
-            z.extractall(source_location)
+            with zipfile.ZipFile(os.path.join(temp_dir, 'Saliency.zip')) as z:
+                source_location = os.path.join(self.location, 'source')
+                os.makedirs(source_location)
+                z.extractall(source_location)
 
             with open(os.path.join(self.location, 'ContextAwareSaliency_wrapper.m'), 'wb') as f:
                 f.write(resource_string(__name__, 'scripts/ContextAwareSaliency_wrapper.m'))

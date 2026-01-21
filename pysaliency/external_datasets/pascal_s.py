@@ -65,8 +65,8 @@ def get_PASCAL_S(location=None):
 
             # Stimuli
             print('Creating stimuli')
-            f = zipfile.ZipFile(os.path.join(temp_dir, 'salObj.zip'))
-            f.extractall(temp_dir)
+            with zipfile.ZipFile(os.path.join(temp_dir, 'salObj.zip')) as f:
+                f.extractall(temp_dir)
 
             stimuli_src_location = os.path.join(temp_dir, 'datasets', 'imgs', 'pascal')
             stimuli_filenames = ['{}.jpg'.format(i + 1) for i in range(n_stimuli)]

@@ -20,9 +20,9 @@ def write_file(filename, contents):
 
 def extract_zipfile(filename, extract_to):
     if zipfile.is_zipfile(filename):
-        z = zipfile.ZipFile(filename)
-        #os.makedirs(extract_to)
-        z.extractall(extract_to)
+        with zipfile.ZipFile(filename) as z:
+            #os.makedirs(extract_to)
+            z.extractall(extract_to)
     elif tarfile.is_tarfile(filename):
         t = tarfile.open(filename)
         t.extractall(extract_to)

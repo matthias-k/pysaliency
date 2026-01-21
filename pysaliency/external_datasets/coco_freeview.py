@@ -176,15 +176,15 @@ def get_COCO_Freeview(location=None, test_data=None):
 
             # Stimuli
             print('Creating stimuli')
-            f = zipfile.ZipFile(os.path.join(temp_dir, 'COCOSearch18-images-TP.zip'))
-            namelist = f.namelist()
-            namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
-            f.extractall(temp_dir, namelist)
+            with zipfile.ZipFile(os.path.join(temp_dir, 'COCOSearch18-images-TP.zip')) as f:
+                namelist = f.namelist()
+                namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
+                f.extractall(temp_dir, namelist)
 
-            f = zipfile.ZipFile(os.path.join(temp_dir, 'COCOSearch18-images-TA.zip'))
-            namelist = f.namelist()
-            namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
-            f.extractall(temp_dir, namelist)
+            with zipfile.ZipFile(os.path.join(temp_dir, 'COCOSearch18-images-TA.zip')) as f:
+                namelist = f.namelist()
+                namelist = filter_files(namelist, ['.svn', '__MACOSX', '.DS_Store'])
+                f.extractall(temp_dir, namelist)
 
             # unifying images for different tasks
 

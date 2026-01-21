@@ -105,8 +105,8 @@ def _get_SALICON_stimuli(location, name, edition='2015', fixation_type='mouse'):
 
             print("Extracting stimuli")
 
-            f = zipfile.ZipFile(stimuli_file)
-            f.extractall(temp_dir)
+            with zipfile.ZipFile(stimuli_file) as f:
+                f.extractall(temp_dir)
 
             stimuli_train = create_stimuli(
                 stimuli_location=os.path.join(temp_dir, 'images', 'train'),
@@ -161,8 +161,8 @@ def _get_SALICON_fixations(location, name, edition='2015', fixation_type='mouse'
                 download_file_from_google_drive('1P-jeZXCsjoKO79OhFUgnj6FGcyvmLDPj', fixations_file)
                 check_file_hash(fixations_file, '462b70f4f9e8ea446ac628e46cea8d3d')
 
-            f = zipfile.ZipFile(fixations_file)
-            f.extractall(os.path.join(temp_dir, 'fixations'))
+            with zipfile.ZipFile(fixations_file) as f:
+                f.extractall(os.path.join(temp_dir, 'fixations'))
 
             fixations = []
 

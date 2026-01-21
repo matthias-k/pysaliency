@@ -50,9 +50,9 @@ def get_toronto(location=None):
             target = os.path.join(temp_dir, 'eyetrackingdata.zip')
             md5_sum = '38d5c02217060d4d2d1a4649cc632af1'
             download_and_check(src, target, md5_sum)
-            z = zipfile.ZipFile(target)
-            print('Extracting')
-            z.extractall(temp_dir)
+            with zipfile.ZipFile(target) as z:
+                print('Extracting')
+                z.extractall(temp_dir)
 
             # Stimuli
             stimuli_src_location = os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'Original Image Set')
@@ -114,9 +114,9 @@ def get_toronto_with_subjects(location=None):
             target = os.path.join(temp_dir, 'eyetrackingdata.zip')
             md5_sum = '38d5c02217060d4d2d1a4649cc632af1'
             download_and_check(src, target, md5_sum)
-            z = zipfile.ZipFile(target)
-            print('Extracting')
-            z.extractall(temp_dir)
+            with zipfile.ZipFile(target) as z:
+                print('Extracting')
+                z.extractall(temp_dir)
 
             # Stimuli
             stimuli_src_location = os.path.join(temp_dir, 'eyetrackingdata', 'fixdens', 'Original Image Set')
