@@ -370,6 +370,75 @@ def test_scanpath_fixations_scanpath_fixation_attributes(scanpath_fixations):
     np.testing.assert_array_equal(scanpath_fixations.duration_hist[7], [200, 150])
 
 
+def test_scanpath_fixations_values(scanpath_fixations):
+    """Regression test: exact values produced by ScanpathFixations.__init__"""
+    # x, y, t from the 3 scanpaths: [0,1,2], [2,2], [1,5,3]
+    np.testing.assert_array_equal(scanpath_fixations.x, [0, 1, 2, 2, 2, 1, 5, 3])
+    np.testing.assert_array_equal(scanpath_fixations.y, [10, 11, 12, 12, 12, 21, 25, 33])
+    np.testing.assert_array_equal(scanpath_fixations.t, [0, 200, 600, 100, 400, 50, 500, 900])
+    np.testing.assert_array_equal(scanpath_fixations.n, [0, 0, 0, 0, 0, 1, 1, 1])
+    np.testing.assert_array_equal(scanpath_fixations.scanpath_index, [0, 0, 0, 1, 1, 2, 2, 2])
+
+    # x_hist
+    np.testing.assert_array_equal(scanpath_fixations.x_hist[0], [])
+    np.testing.assert_array_equal(scanpath_fixations.x_hist[1], [0])
+    np.testing.assert_array_equal(scanpath_fixations.x_hist[2], [0, 1])
+    np.testing.assert_array_equal(scanpath_fixations.x_hist[3], [])
+    np.testing.assert_array_equal(scanpath_fixations.x_hist[4], [2])
+    np.testing.assert_array_equal(scanpath_fixations.x_hist[5], [])
+    np.testing.assert_array_equal(scanpath_fixations.x_hist[6], [1])
+    np.testing.assert_array_equal(scanpath_fixations.x_hist[7], [1, 5])
+
+    # y_hist
+    np.testing.assert_array_equal(scanpath_fixations.y_hist[0], [])
+    np.testing.assert_array_equal(scanpath_fixations.y_hist[1], [10])
+    np.testing.assert_array_equal(scanpath_fixations.y_hist[2], [10, 11])
+    np.testing.assert_array_equal(scanpath_fixations.y_hist[5], [])
+    np.testing.assert_array_equal(scanpath_fixations.y_hist[7], [21, 25])
+
+    # t_hist
+    np.testing.assert_array_equal(scanpath_fixations.t_hist[0], [])
+    np.testing.assert_array_equal(scanpath_fixations.t_hist[2], [0, 200])
+    np.testing.assert_array_equal(scanpath_fixations.t_hist[7], [50, 500])
+
+    # scanpath_history_length
+    np.testing.assert_array_equal(scanpath_fixations.scanpath_history_length, [0, 1, 2, 0, 1, 0, 1, 2])
+
+    # task (scanpath attribute)
+    np.testing.assert_array_equal(scanpath_fixations.task, [0, 0, 0, 1, 1, 0, 0, 0])
+
+    # multi_dim_attribute (scanpath attribute with shape)
+    np.testing.assert_array_equal(scanpath_fixations.multi_dim_attribute[0], [0, 1])
+    np.testing.assert_array_equal(scanpath_fixations.multi_dim_attribute[3], [2, 3])
+    np.testing.assert_array_equal(scanpath_fixations.multi_dim_attribute[5], [4, 5.5])
+
+    # duration (fixation attribute) and duration_hist
+    np.testing.assert_array_equal(scanpath_fixations.duration, [42, 25, 100, 99, 98, 200, 150, 120])
+    np.testing.assert_array_equal(scanpath_fixations.duration_hist[0], [])
+    np.testing.assert_array_equal(scanpath_fixations.duration_hist[1], [42])
+    np.testing.assert_array_equal(scanpath_fixations.duration_hist[2], [42, 25])
+    np.testing.assert_array_equal(scanpath_fixations.duration_hist[4], [99])
+    np.testing.assert_array_equal(scanpath_fixations.duration_hist[7], [200, 150])
+
+
+def test_scanpath_fixations_empty():
+    """ScanpathFixations should handle empty Scanpaths without errors."""
+    scanpaths = Scanpaths(
+        xs=[],
+        ys=[],
+        n=[],
+        length=[],
+        scanpath_attributes={},
+        fixation_attributes={},
+    )
+    sf = ScanpathFixations(scanpaths=scanpaths)
+    assert len(sf.x) == 0
+    assert len(sf.y) == 0
+    assert len(sf.t) == 0
+    assert len(sf.n) == 0
+    assert len(sf.x_hist) == 0
+
+
 def test_fixation_trains_scanpath_fixation_attributes(fixation_trains):
     # test attribute itself
     assert "durations" in fixation_trains.scanpath_fixation_attributes
