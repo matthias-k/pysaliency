@@ -392,38 +392,55 @@ class ScanpathFixations(Fixations):
         max_scanpath_length = scanpaths.length.max() if len(scanpaths) else 0
         max_history_length = max(max_scanpath_length - 1, 0)
 
-        # Create conditional fixations
-        x = np.empty(N_fixations)
-        y = np.empty(N_fixations)
-        t = np.empty(N_fixations)
+        if N_fixations == 0:
+            # Edge case: no fixations at all
+            x = np.empty(0)
+            y = np.empty(0)
+            t = np.empty(0)
+            n = np.empty(0, dtype=int)
+            scanpath_index = np.empty(0, dtype=int)
+            x_hist = VariableLengthArray(np.empty((0, 0)), np.empty(0, dtype=int))
+            y_hist = VariableLengthArray(np.empty((0, 0)), np.empty(0, dtype=int))
+            t_hist = VariableLengthArray(np.empty((0, 0)), np.empty(0, dtype=int))
+            hist_lengths = np.empty(0, dtype=int)
+            mask = np.empty((0, 0), dtype=bool)
+            row_src = np.empty(0, dtype=int)
+            col_src = np.empty(0, dtype=int)
+            scanpath_indices = np.empty(0, dtype=int)
+            fix_indices = np.empty(0, dtype=int)
+        else:
+            # Precompute index arrays
+            scanpath_indices = np.repeat(np.arange(len(scanpaths)), scanpaths.length)
+            fix_indices = np.concatenate([np.arange(length) for length in scanpaths.length])
 
-        x_hist = []
-        y_hist = []
-        t_hist = []
-        n = np.empty(N_fixations, dtype=int)
-        subject = np.empty(N_fixations, dtype=int)
-        scanpath_index = np.empty(N_fixations, dtype=int)
+            # Direct values via advanced indexing
+            x = scanpaths.xs._data[scanpath_indices, fix_indices]
+            y = scanpaths.ys._data[scanpath_indices, fix_indices]
+            t = scanpaths.ts._data[scanpath_indices, fix_indices]
+            n = scanpaths.n[scanpath_indices]
+            scanpath_index = scanpath_indices.copy()
 
-        out_index = 0
-        # TODO: maybe implement in numba?
-        # probably best: have function fill_fixation_data(scanpath_data, fixation_data, hist_data=None)
-        for train_index in range(len(scanpaths)):
-            for fix_index in range(scanpaths.length[train_index]):
-                x[out_index] = scanpaths.xs[train_index][fix_index]
-                y[out_index] = scanpaths.ys[train_index][fix_index]
-                t[out_index] = scanpaths.ts[train_index][fix_index]
-                n[out_index] = scanpaths.n[train_index]
-                # subject[out_index] = scanpaths.scanpath_attributes['subject'][train_index]
-                scanpath_index[out_index] = train_index
-                x_hist.append(scanpaths.xs[train_index][:fix_index])
-                y_hist.append(scanpaths.ys[train_index][:fix_index])
-                t_hist.append(scanpaths.ts[train_index][:fix_index])
-                out_index += 1
+            # History arrays
+            hist_lengths = fix_indices
+            col_indices = np.arange(max_history_length)
+            mask = col_indices[None, :] < hist_lengths[:, None]
 
-        x_hist = VariableLengthArray(x_hist)
-        y_hist = VariableLengthArray(y_hist)
-        t_hist = VariableLengthArray(t_hist)
+            row_src = np.broadcast_to(scanpath_indices[:, None], mask.shape)[mask]
+            col_src = np.broadcast_to(col_indices[None, :], mask.shape)[mask]
 
+            x_hist_data = np.full((N_fixations, max_history_length), np.nan)
+            x_hist_data[mask] = scanpaths.xs._data[row_src, col_src]
+            x_hist = VariableLengthArray(x_hist_data, hist_lengths)
+
+            y_hist_data = np.full((N_fixations, max_history_length), np.nan)
+            y_hist_data[mask] = scanpaths.ys._data[row_src, col_src]
+            y_hist = VariableLengthArray(y_hist_data, hist_lengths)
+
+            t_hist_data = np.full((N_fixations, max_history_length), np.nan)
+            t_hist_data[mask] = scanpaths.ts._data[row_src, col_src]
+            t_hist = VariableLengthArray(t_hist_data, hist_lengths)
+
+        # Scanpath attributes
         auto_attributes = []
         attributes = {
             'scanpath_index': scanpath_index,
@@ -433,40 +450,36 @@ class ScanpathFixations(Fixations):
             new_attribute_name = scanpaths.attribute_mapping.get(attribute_name, attribute_name)
             if new_attribute_name in attributes:
                 raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
-            attribute_shape = [] if not len(value) else np.asarray(value[0]).shape
-            attributes[new_attribute_name] = np.empty([N_fixations] + list(attribute_shape), dtype=value.dtype)
+            attributes[new_attribute_name] = np.repeat(value, scanpaths.length, axis=0)
             auto_attributes.append(new_attribute_name)
 
-            out_index = 0
-            for train_index in range(len(scanpaths)):
-                for _ in range(scanpaths.length[train_index]):
-                    attributes[new_attribute_name][out_index] = value[train_index]
-                    out_index += 1
-
-
+        # Fixation attributes + histories
         for attribute_name, value in scanpaths.fixation_attributes.items():
             if attribute_name == 'ts':
                 continue
             new_attribute_name = scanpaths.attribute_mapping.get(attribute_name, attribute_name)
             if new_attribute_name in attributes:
                 raise ValueError("attribute name clash: {new_attribute_name}".format(new_attribute_name=new_attribute_name))
-            attributes[new_attribute_name] = np.empty(N_fixations)
+
+            if N_fixations == 0:
+                attributes[new_attribute_name] = np.empty(0)
+            else:
+                attributes[new_attribute_name] = value._data[scanpath_indices, fix_indices]
             auto_attributes.append(new_attribute_name)
 
             hist_attribute_name = new_attribute_name + '_hist'
             if hist_attribute_name in attributes:
                 raise ValueError("attribute name clash: {hist_attribute_name}".format(hist_attribute_name=hist_attribute_name))
-            attributes[hist_attribute_name] = np.full((N_fixations, max_history_length), fill_value=np.nan)
+
+            if N_fixations == 0:
+                attributes[hist_attribute_name] = VariableLengthArray(np.empty((0, 0)), np.empty(0, dtype=int))
+            else:
+                hist_data = np.full((N_fixations, max_history_length), fill_value=np.nan)
+                hist_data[mask] = value._data[row_src, col_src]
+                attributes[hist_attribute_name] = VariableLengthArray(hist_data, hist_lengths)
             auto_attributes.append(hist_attribute_name)
 
-            out_index = 0
-            for train_index in range(len(scanpaths)):
-                for fix_index in range(scanpaths.length[train_index]):
-                    attributes[new_attribute_name][out_index] = value[train_index, fix_index]
-                    attributes[hist_attribute_name][out_index][:fix_index] = value[train_index, :fix_index]
-                    out_index += 1
-
-            attributes[hist_attribute_name] = VariableLengthArray(attributes[hist_attribute_name], x_hist.lengths)
+        subject = np.empty(N_fixations, dtype=int)
 
         super().__init__(
             x=x,
