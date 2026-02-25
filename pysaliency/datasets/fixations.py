@@ -209,7 +209,11 @@ class Fixations(object):
         other_attributes = {}
 
         def filter_array(name):
-            kwargs[name] = getattr(self, name)[inds].copy()
+            result = getattr(self, name)[inds]
+            # Fancy/boolean indexing already returns copies; only slices return views
+            if isinstance(inds, slice):
+                result = result.copy()
+            kwargs[name] = result
 
         for name in ['x', 'y', 't', 'x_hist', 'y_hist', 't_hist', 'n']:
             filter_array(name)
