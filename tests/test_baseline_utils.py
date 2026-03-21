@@ -7,6 +7,8 @@ import pytest
 
 import pysaliency
 from pysaliency.baseline_utils import (
+    BaselineModel,
+    CrossvalidatedBaselineModel,
     CrossvalMultipleRegularizations,
     GeneralMixtureKernelDensityEstimator,
     KDEGoldModel,
@@ -156,3 +158,56 @@ def test_crossval_multiple_regularizations(stimuli, scanpath_fixations):
     score = estimator.score(log_bandwidth, *log_regularizations)
     assert isinstance(score, float)
     np.testing.assert_allclose(score, -1.4673831679692528e-10)
+
+
+def test_baseline_model_does_not_store_stimuli_and_fixations(stimuli, scanpath_fixations):
+    model = BaselineModel(stimuli, scanpath_fixations, bandwidth=0.1)
+    assert not hasattr(model, 'stimuli')
+    assert not hasattr(model, 'fixations')
+
+
+def test_baseline_model_hdf5_roundtrip_with_shape_cache(tmp_path, stimuli, scanpath_fixations):
+    model = BaselineModel(stimuli, scanpath_fixations, bandwidth=0.1, keep_aspect=True)
+    first_prediction = model.log_density(stimuli[0]).copy()
+    assert stimuli[0].shape[:2] in model.shape_cache
+
+    path = tmp_path / 'baseline_model.hdf5'
+    model.to_hdf5(path, include_shape_cache=True)
+
+    reloaded = BaselineModel.read_hdf5(path)
+    np.testing.assert_allclose(reloaded.log_density(stimuli[0]), first_prediction)
+    assert stimuli[0].shape[:2] in reloaded.shape_cache
+
+
+def test_baseline_model_hdf5_roundtrip_without_shape_cache(tmp_path, stimuli, scanpath_fixations):
+    model = BaselineModel(stimuli, scanpath_fixations, bandwidth=0.2)
+    first_prediction = model.log_density(stimuli[1]).copy()
+
+    path = tmp_path / 'baseline_model_no_cache.hdf5'
+    model.to_hdf5(path, include_shape_cache=False)
+
+    reloaded = BaselineModel.read_hdf5(path)
+    assert reloaded.shape_cache == {}
+    np.testing.assert_allclose(reloaded.log_density(stimuli[1]), first_prediction)
+
+
+def test_baseline_model_hdf5_type(tmp_path, stimuli, scanpath_fixations):
+    model = BaselineModel(stimuli, scanpath_fixations, bandwidth=0.1)
+    path = tmp_path / 'baseline_type.hdf5'
+    model.to_hdf5(path)
+
+    import h5py
+
+    with h5py.File(path, 'r') as hdf5_file:
+        value = hdf5_file.attrs['type']
+        if not isinstance(value, str):
+            value = value.decode('utf8')
+        assert value == 'pysaliency.baseline_utils.BaselineModel'
+
+
+def test_crossvalidated_baseline_model_stores_fixations_n(stimuli, scanpath_fixations):
+    model = CrossvalidatedBaselineModel(stimuli, scanpath_fixations, bandwidth=0.1)
+    assert hasattr(model, 'fixations_n')
+    assert not hasattr(model, 'fixations')
+    assert not hasattr(model, 'shape_cache')
+    np.testing.assert_array_equal(model.fixations_n, scanpath_fixations.n)
