@@ -600,6 +600,45 @@ class CrossvalidatedBaselineModel(Model):
             stimuli_group = target.create_group('stimuli')
             self.stimuli.to_hdf5(stimuli_group)
 
+    @classmethod
+    @hdf5_wrapper(mode='r')
+    def read_hdf5(
+        cls,
+        source,
+        *,
+        stimuli=None,
+        caching=True,
+        memory_cache_size=None,
+        cache_location=None,
+    ):
+        from .hdf5 import read_hdf5 as _read_hdf5
+
+        data_type = decode_string(source.attrs['type'])
+        data_version = decode_string(source.attrs['version'])
+
+        if data_type != 'pysaliency.baseline_utils.CrossvalidatedBaselineModel':
+            raise ValueError("Invalid type! Expected 'pysaliency.baseline_utils.CrossvalidatedBaselineModel', got", data_type)
+        if data_version != '1.0':
+            raise ValueError("Invalid version! Expected '1.0', got", data_version)
+
+        if stimuli is None:
+            if 'stimuli' not in source:
+                raise ValueError(
+                    "No stimuli found in HDF5 file. Pass stimuli= explicitly."
+                )
+            stimuli = _read_hdf5(source['stimuli'])
+
+        model = cls.__new__(cls)
+        Model.__init__(model, cache_location=cache_location, caching=caching, memory_cache_size=memory_cache_size)
+        model.bandwidth = source.attrs['bandwidth']
+        model.eps = source.attrs['eps']
+        model.xs = source['xs'][...]
+        model.ys = source['ys'][...]
+        model.fixations_n = source['fixations_n'][...]
+        model.stimuli = stimuli
+
+        return model
+
 
 class BaselineModel(Model):
     def __init__(self, stimuli, fixations, bandwidth, eps = 1e-20, keep_aspect=False, **kwargs):

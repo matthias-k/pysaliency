@@ -224,3 +224,48 @@ def test_crossvalidated_baseline_model_hdf5_type(tmp_path, stimuli, scanpath_fix
         if not isinstance(value, str):
             value = value.decode('utf8')
         assert value == 'pysaliency.baseline_utils.CrossvalidatedBaselineModel'
+
+
+def test_crossvalidated_baseline_model_hdf5_roundtrip_with_stimuli(tmp_path, stimuli, scanpath_fixations):
+    model = CrossvalidatedBaselineModel(stimuli, scanpath_fixations, bandwidth=0.1)
+    first_prediction = model.log_density(stimuli[0]).copy()
+
+    path = tmp_path / 'cv_baseline.hdf5'
+    model.to_hdf5(path)
+
+    reloaded = CrossvalidatedBaselineModel.read_hdf5(path)
+    np.testing.assert_allclose(reloaded.log_density(stimuli[0]), first_prediction)
+
+
+def test_crossvalidated_baseline_model_hdf5_roundtrip_without_stimuli(tmp_path, stimuli, scanpath_fixations):
+    model = CrossvalidatedBaselineModel(stimuli, scanpath_fixations, bandwidth=0.1)
+    first_prediction = model.log_density(stimuli[1]).copy()
+
+    path = tmp_path / 'cv_baseline_no_stimuli.hdf5'
+    model.to_hdf5(path, include_stimuli=False)
+
+    reloaded = CrossvalidatedBaselineModel.read_hdf5(path, stimuli=stimuli)
+    np.testing.assert_allclose(reloaded.log_density(stimuli[1]), first_prediction)
+
+
+def test_crossvalidated_baseline_model_hdf5_error_without_stimuli(tmp_path, stimuli, scanpath_fixations):
+    model = CrossvalidatedBaselineModel(stimuli, scanpath_fixations, bandwidth=0.1)
+    path = tmp_path / 'cv_baseline_no_stimuli.hdf5'
+    model.to_hdf5(path, include_stimuli=False)
+
+    with pytest.raises(ValueError, match='stimuli'):
+        CrossvalidatedBaselineModel.read_hdf5(path)
+
+
+def test_crossvalidated_baseline_model_hdf5_stimuli_kwarg_overrides_embedded(tmp_path, stimuli, scanpath_fixations):
+    """stimuli= kwarg takes precedence over the embedded stimuli group."""
+    model = CrossvalidatedBaselineModel(stimuli, scanpath_fixations, bandwidth=0.1)
+    first_prediction = model.log_density(stimuli[0]).copy()
+
+    path = tmp_path / 'cv_baseline_with_stimuli.hdf5'
+    model.to_hdf5(path, include_stimuli=True)
+
+    # Pass the same stimuli explicitly — should still work (kwarg wins)
+    reloaded = CrossvalidatedBaselineModel.read_hdf5(path, stimuli=stimuli)
+    assert reloaded.stimuli is stimuli
+    np.testing.assert_allclose(reloaded.log_density(stimuli[0]), first_prediction)
