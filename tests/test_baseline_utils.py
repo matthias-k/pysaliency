@@ -211,3 +211,16 @@ def test_crossvalidated_baseline_model_stores_fixations_n(stimuli, scanpath_fixa
     assert not hasattr(model, 'fixations')
     assert not hasattr(model, 'shape_cache')
     np.testing.assert_array_equal(model.fixations_n, scanpath_fixations.n)
+
+
+def test_crossvalidated_baseline_model_hdf5_type(tmp_path, stimuli, scanpath_fixations):
+    model = CrossvalidatedBaselineModel(stimuli, scanpath_fixations, bandwidth=0.1)
+    path = tmp_path / 'cv_baseline_type.hdf5'
+    model.to_hdf5(path)
+
+    import h5py
+    with h5py.File(path, 'r') as f:
+        value = f.attrs['type']
+        if not isinstance(value, str):
+            value = value.decode('utf8')
+        assert value == 'pysaliency.baseline_utils.CrossvalidatedBaselineModel'

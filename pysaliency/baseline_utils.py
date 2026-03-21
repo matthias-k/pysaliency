@@ -586,6 +586,20 @@ class CrossvalidatedBaselineModel(Model):
 
         return ZZ
 
+    @hdf5_wrapper(mode='w')
+    def to_hdf5(self, target, include_stimuli=True):
+        target.attrs['type'] = np.bytes_('pysaliency.baseline_utils.CrossvalidatedBaselineModel')
+        target.attrs['version'] = np.bytes_('1.0')
+        target.attrs['bandwidth'] = self.bandwidth
+        target.attrs['eps'] = self.eps
+        target.create_dataset('xs', data=self.xs)
+        target.create_dataset('ys', data=self.ys)
+        target.create_dataset('fixations_n', data=self.fixations_n)
+
+        if include_stimuli:
+            stimuli_group = target.create_group('stimuli')
+            self.stimuli.to_hdf5(stimuli_group)
+
 
 class BaselineModel(Model):
     def __init__(self, stimuli, fixations, bandwidth, eps = 1e-20, keep_aspect=False, **kwargs):
