@@ -5,7 +5,7 @@ import numpy as np
 
 # np.trapz was removed in NumPy 2.0, replaced by np.trapezoid.
 # This shim supports both; remove once NumPy <2.0 compatibility is dropped.
-_trapz = getattr(np, 'trapezoid', np.trapz)
+_trapz = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
 
 
 def fill_fixation_map(fixation_map, fixations, check_bounds=True):
