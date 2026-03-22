@@ -753,7 +753,7 @@ class FixationTrains(ScanpathFixations):
         filtered_scanpaths = self.scanpaths[indices]
 
         scanpath_indices = np.arange(len(self.scanpaths), dtype=int)[indices]
-        fixation_indices = np.in1d(self.scanpath_index, scanpath_indices)
+        fixation_indices = np.isin(self.scanpath_index, scanpath_indices)
 
         attributes = {
             attribute_name: getattr(self, attribute_name)[fixation_indices] for attribute_name in self.__attributes__ if attribute_name not in ['scanpath_index'] + self.auto_attributes

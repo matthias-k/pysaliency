@@ -157,9 +157,9 @@ def get_toronto_with_subjects(location=None):
                         _xs.append(int(parts[1]))
                         _ys.append(int(parts[2]))
                         _ts.append(float(parts[3]))
-                    _xs = np.array(_xs, dtype=np.float)
-                    _ys = np.array(_ys, dtype=np.float)
-                    _ts = np.array(_ts, dtype=np.float)
+                    _xs = np.array(_xs, dtype=float)
+                    _ys = np.array(_ys, dtype=float)
+                    _ts = np.array(_ts, dtype=float)
                     xs = []
                     ys = []
                     ts = []
