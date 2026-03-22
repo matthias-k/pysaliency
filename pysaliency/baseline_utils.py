@@ -11,6 +11,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KernelDensity
 
 from . import Model, UniformModel
+from .datasets.utils import decode_string, hdf5_wrapper
 from .numba_utils import fill_fixation_map
 from .precomputed_models import get_image_hash
 from .roc import general_roc
@@ -556,15 +557,13 @@ class KDEGoldModel(Model):
 
 
 class CrossvalidatedBaselineModel(Model):
-    def __init__(self, stimuli, fixations, bandwidth, eps = 1e-20, **kwargs):
+    def __init__(self, stimuli, fixations, bandwidth, eps=1e-20, **kwargs):
         super(CrossvalidatedBaselineModel, self).__init__(**kwargs)
         self.stimuli = stimuli
-        self.fixations = fixations
         self.bandwidth = bandwidth
         self.eps = eps
         self.xs, self.ys = normalize_fixations(stimuli, fixations)
-        #self.kde = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(np.vstack([self.xs, self.ys]).T)
-        self.shape_cache = {}
+        self.fixations_n = fixations.n.copy()
 
     def _log_density(self, stimulus):
         shape = stimulus.shape[0], stimulus.shape[1]
@@ -572,8 +571,7 @@ class CrossvalidatedBaselineModel(Model):
         stimulus_id = get_image_hash(stimulus)
         stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
 
-        #fixations = self.fixations[self.fixations.n == stimulus_index]
-        inds = self.fixations.n != stimulus_index
+        inds = self.fixations_n != stimulus_index
 
         ZZ = np.zeros(shape)
 
@@ -585,21 +583,123 @@ class CrossvalidatedBaselineModel(Model):
         ZZ = np.log(ZZ)
 
         ZZ -= logsumexp(ZZ)
-        #ZZ -= np.log(np.exp(ZZ).sum())
 
         return ZZ
+
+    @hdf5_wrapper(mode='w')
+    def to_hdf5(self, target, include_stimuli=True):
+        target.attrs['type'] = np.bytes_('pysaliency.baseline_utils.CrossvalidatedBaselineModel')
+        target.attrs['version'] = np.bytes_('1.0')
+        target.attrs['bandwidth'] = self.bandwidth
+        target.attrs['eps'] = self.eps
+        target.create_dataset('xs', data=self.xs)
+        target.create_dataset('ys', data=self.ys)
+        target.create_dataset('fixations_n', data=self.fixations_n)
+
+        if include_stimuli:
+            stimuli_group = target.create_group('stimuli')
+            self.stimuli.to_hdf5(stimuli_group)
+
+    @classmethod
+    @hdf5_wrapper(mode='r')
+    def read_hdf5(
+        cls,
+        source,
+        *,
+        stimuli=None,
+        caching=True,
+        memory_cache_size=None,
+        cache_location=None,
+    ):
+        from .hdf5 import read_hdf5 as _read_hdf5
+
+        data_type = decode_string(source.attrs['type'])
+        data_version = decode_string(source.attrs['version'])
+
+        if data_type != 'pysaliency.baseline_utils.CrossvalidatedBaselineModel':
+            raise ValueError("Invalid type! Expected 'pysaliency.baseline_utils.CrossvalidatedBaselineModel', got", data_type)
+        if data_version != '1.0':
+            raise ValueError("Invalid version! Expected '1.0', got", data_version)
+
+        if stimuli is None:
+            if 'stimuli' not in source:
+                raise ValueError(
+                    "No stimuli found in HDF5 file. Pass stimuli= explicitly."
+                )
+            stimuli = _read_hdf5(source['stimuli'])
+
+        model = cls.__new__(cls)
+        Model.__init__(model, cache_location=cache_location, caching=caching, memory_cache_size=memory_cache_size)
+        model.bandwidth = source.attrs['bandwidth']
+        model.eps = source.attrs['eps']
+        model.xs = source['xs'][...]
+        model.ys = source['ys'][...]
+        model.fixations_n = source['fixations_n'][...]
+        model.stimuli = stimuli
+
+        return model
 
 
 class BaselineModel(Model):
     def __init__(self, stimuli, fixations, bandwidth, eps = 1e-20, keep_aspect=False, **kwargs):
         super(BaselineModel, self).__init__(**kwargs)
-        self.stimuli = stimuli
-        self.fixations = fixations
         self.bandwidth = bandwidth
         self.eps = eps
         self.keep_aspect = keep_aspect
         self.xs, self.ys = normalize_fixations(stimuli, fixations, keep_aspect=keep_aspect)
         self.shape_cache = {}
+
+    @hdf5_wrapper(mode='w')
+    def to_hdf5(self, target, include_shape_cache=True):
+        target.attrs['type'] = np.bytes_('pysaliency.baseline_utils.BaselineModel')
+        target.attrs['version'] = np.bytes_('1.0')
+        target.attrs['bandwidth'] = self.bandwidth
+        target.attrs['eps'] = self.eps
+        target.attrs['keep_aspect'] = self.keep_aspect
+        target.create_dataset('xs', data=self.xs)
+        target.create_dataset('ys', data=self.ys)
+
+        if include_shape_cache:
+            shape_cache_group = target.create_group('shape_cache')
+            for shape, value in self.shape_cache.items():
+                shape_key = f"{shape[0]},{shape[1]}"
+                shape_cache_group.create_dataset(shape_key, data=value)
+
+    @classmethod
+    @hdf5_wrapper(mode='r')
+    def read_hdf5(
+        cls,
+        source,
+        *,
+        caching=True,
+        memory_cache_size=None,
+        cache_location=None,
+        reset_shape_cache=False,
+    ):
+        data_type = decode_string(source.attrs['type'])
+        data_version = decode_string(source.attrs['version'])
+
+        if data_type != 'pysaliency.baseline_utils.BaselineModel':
+            raise ValueError("Invalid type! Expected 'pysaliency.baseline_utils.BaselineModel', got", data_type)
+        if data_version != '1.0':
+            raise ValueError("Invalid version! Expected '1.0', got", data_version)
+
+        model = cls.__new__(cls)
+        Model.__init__(model, cache_location=cache_location, caching=caching, memory_cache_size=memory_cache_size)
+        model.bandwidth = source.attrs['bandwidth']
+        model.eps = source.attrs['eps']
+        model.keep_aspect = bool(source.attrs['keep_aspect'])
+        model.xs = source['xs'][...]
+        model.ys = source['ys'][...]
+        model.shape_cache = {}
+
+        if not reset_shape_cache and 'shape_cache' in source:
+            shape_cache_group = source['shape_cache']
+            for shape_key in shape_cache_group.keys():
+                shape = tuple(int(value) for value in shape_key.split(','))
+                model.shape_cache[shape] = shape_cache_group[shape_key][...]
+
+        return model
 
     def _log_density(self, stimulus):
         shape = stimulus.shape[0], stimulus.shape[1]

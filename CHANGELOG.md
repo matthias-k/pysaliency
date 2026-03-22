@@ -26,6 +26,9 @@
   * Feature: `pysaliency.read_hdf5` now takes additional keyword arguments which are passed to the respective class methods. This allows, e.g., to load `FileStimuli` with caching disabled.
   * Enhancement: `pysaliency.HDF5Model` and `pysaliency.HDF5SaliencyMapModel` now better handle the case of loading a model for a subset of entries in the HDF5 file which might be saved under a certain common prefix.
   * Feature: `pysaliency.saliency_map_conversation_torch` now specifies constraints, where applicable, as linear. To that end, `pysaliency.optpy` now allows specifying linear constraints. This results in better optimization performance, especially since scipy 1.15.0 fixed a bug that in our case actually helped.
+  * Feature: `pysaliency.baseline_utils.BaselineModel` now supports `to_hdf5` / `read_hdf5` model persistence using HDF5 type `pysaliency.baseline_utils.BaselineModel`.
+  * Enhancement: Introduced unified HDF5 I/O dispatch in `pysaliency.hdf5` (`read_hdf5`) and routed `pysaliency.datasets.read_hdf5` through the dataset dispatcher for compatibility.
+  * Enhancement: `BaselineModel` no longer stores `stimuli` and `fixations` after initialization; it keeps only the normalized fixation representation used for predictions.
 
 
 * 0.2.22:

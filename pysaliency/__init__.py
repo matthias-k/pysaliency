@@ -6,6 +6,7 @@ from . import models
 from . import external_models
 from . import external_datasets
 from . import utils
+from .hdf5 import read_hdf5
 
 from .datasets import (
     Fixations,
@@ -18,7 +19,6 @@ from .datasets import (
     create_subset,
     remove_out_of_stimulus_fixations,
     concatenate_datasets,
-    read_hdf5,
 )
 from .dataset_config import load_dataset_from_config
 from .saliency_map_models import (
