@@ -1,43 +1,16 @@
-import pathlib
 from typing import Dict, List, Optional, Union
-from weakref import WeakValueDictionary
 
 import numpy as np
-from boltons.cacheutils import cached
 
+from ..hdf5 import read_hdf5 as _read_hdf5
 from .fixations import Fixations, FixationTrains, ScanpathFixations, scanpaths_from_fixations
 from .scanpaths import Scanpaths, concatenate_scanpaths
 from .stimuli import FileStimuli, ObjectStimuli, Stimuli, StimuliStimulus, Stimulus, as_stimulus, check_prediction_shape, get_image_hash
-from .utils import concatenate_attributes, decode_string, get_merged_attribute_list
-
-
-@cached(WeakValueDictionary())
-def _read_hdf5_from_file(source, **kwargs):
-    import h5py
-    with h5py.File(source, 'r') as hdf5_file:
-        return read_hdf5(hdf5_file, **kwargs)
+from .utils import concatenate_attributes, get_merged_attribute_list
 
 
 def read_hdf5(source, **kwargs):
-    if isinstance(source, (str, pathlib.Path)):
-        return _read_hdf5_from_file(source, **kwargs)
-
-    data_type = decode_string(source.attrs['type'])
-
-    if data_type == 'Fixations':
-        return Fixations.read_hdf5(source, **kwargs)
-    elif data_type == 'ScanpathFixations':
-        return ScanpathFixations.read_hdf5(source, **kwargs)
-    elif data_type == 'FixationTrains':
-        return FixationTrains.read_hdf5(source, **kwargs)
-    elif data_type == 'Scanpaths':
-        return Scanpaths.read_hdf5(source, **kwargs)
-    elif data_type == 'Stimuli':
-        return Stimuli.read_hdf5(source, **kwargs)
-    elif data_type == 'FileStimuli':
-        return FileStimuli.read_hdf5(source, **kwargs)
-    else:
-        raise ValueError("Invalid HDF content type:", data_type)
+    return _read_hdf5(source, _expected_kind='dataset', **kwargs)
 
 
 def create_subset(stimuli, fixations, stimuli_indices):
