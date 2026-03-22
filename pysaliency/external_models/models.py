@@ -4,7 +4,15 @@ import os
 import tempfile
 import zipfile
 import tarfile
-from pkg_resources import resource_string,  resource_listdir
+from importlib.resources import files as _resource_files
+
+
+def resource_string(package, resource):
+    return _resource_files(package).joinpath(resource).read_bytes()
+
+
+def resource_listdir(package, resource_name):
+    return [r.name for r in _resource_files(package).joinpath(resource_name).iterdir()]
 
 from boltons.fileutils import mkdir_p
 import numpy as np
