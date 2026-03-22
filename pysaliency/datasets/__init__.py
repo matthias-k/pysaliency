@@ -51,7 +51,7 @@ def create_subset(stimuli, fixations, stimuli_indices):
 
     new_stimuli = stimuli[stimuli_indices]
     if isinstance(fixations, FixationTrains):
-        scanpath_inds = np.in1d(fixations.scanpaths.n, stimuli_indices)
+        scanpath_inds = np.isin(fixations.scanpaths.n, stimuli_indices)
 
         index_list = list(stimuli_indices)
         new_pos = {i: index_list.index(i) for i in index_list}
@@ -65,7 +65,7 @@ def create_subset(stimuli, fixations, stimuli_indices):
         new_fixations.n = np.array(new_fixation_ns)
 
     elif isinstance(fixations, ScanpathFixations):
-        scanpath_inds = np.in1d(fixations.scanpaths.n, stimuli_indices)
+        scanpath_inds = np.isin(fixations.scanpaths.n, stimuli_indices)
 
         index_list = list(stimuli_indices)
         new_pos = {i: index_list.index(i) for i in index_list}
@@ -80,7 +80,7 @@ def create_subset(stimuli, fixations, stimuli_indices):
         )
 
     else:
-        scanpath_inds = np.in1d(fixations.n, stimuli_indices)
+        scanpath_inds = np.isin(fixations.n, stimuli_indices)
         new_fixations = fixations[scanpath_inds]
 
         index_list = list(stimuli_indices)

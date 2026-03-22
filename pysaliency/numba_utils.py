@@ -3,6 +3,10 @@ from __future__ import print_function, unicode_literals, division, absolute_impo
 import numba
 import numpy as np
 
+# np.trapz was removed in NumPy 2.0, replaced by np.trapezoid.
+# This shim supports both; remove once NumPy <2.0 compatibility is dropped.
+_trapz = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
+
 
 def fill_fixation_map(fixation_map, fixations, check_bounds=True):
     if check_bounds:
@@ -65,7 +69,7 @@ def general_roc_numba(positives, negatives, judd=0):
     false_positive_rates = np.zeros(len(all_values) + 1)
     hit_rates = np.zeros(len(all_values) + 1)
     hit_rates, false_positive_rates = _general_roc_numba(all_values, sorted_positives, sorted_negatives, false_positive_rates, hit_rates)
-    auc = np.trapz(hit_rates, false_positive_rates)
+    auc = _trapz(hit_rates, false_positive_rates)
 
     return auc, hit_rates, false_positive_rates
 

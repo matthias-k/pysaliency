@@ -6,7 +6,15 @@ import tempfile
 import zipfile
 from tempfile import TemporaryDirectory
 
-from pkg_resources import resource_listdir, resource_string
+from importlib.resources import files as _resource_files
+
+
+def resource_string(package, resource):
+    return _resource_files(package).joinpath(resource).read_bytes()
+
+
+def resource_listdir(package, resource_name):
+    return [r.name for r in _resource_files(package).joinpath(resource_name).iterdir()]
 
 from ..quilt import QuiltSeries
 from ..utils import download_and_check

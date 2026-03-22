@@ -8,6 +8,10 @@ import numpy as np
 cimport numpy as np
 cimport cython
 
+# np.trapz was removed in NumPy 2.0, replaced by np.trapezoid.
+# This shim supports both; remove once NumPy <2.0 compatibility is dropped.
+_trapz = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
+
 
 #Do not check for index errors
 @cython.boundscheck(False)
@@ -64,7 +68,7 @@ def real_ROC(image, fixation_data, int judd=0):
         #print false_positives[i+1]
     precs[length-1] = 1.0
     false_positives[length-1] = 1.0
-    aoc = np.trapz(precs, false_positives)
+    aoc = _trapz(precs, false_positives)
     return aoc, precs, false_positives
 
 
@@ -104,7 +108,7 @@ def general_roc(np.ndarray[double, ndim=1] positives, np.ndarray[double, ndim=1]
             false_positive_count += 1
         false_positive_rates[i+1] = float(false_positive_count) / negative_count
         hit_rates[i+1] = float(true_positive_count) / positive_count
-    auc = np.trapz(hit_rates, false_positive_rates)
+    auc = _trapz(hit_rates, false_positive_rates)
     return auc, hit_rates, false_positive_rates
 
 

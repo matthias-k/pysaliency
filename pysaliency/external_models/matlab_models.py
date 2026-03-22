@@ -4,7 +4,11 @@ import os
 import zipfile
 from tempfile import TemporaryDirectory
 
-from pkg_resources import resource_string
+from importlib.resources import files as _resource_files
+
+
+def resource_string(package, resource):
+    return _resource_files(package).joinpath(resource).read_bytes()
 
 from ..saliency_map_models import MatlabSaliencyMapModel
 from ..utils import download_and_check, run_matlab_cmd

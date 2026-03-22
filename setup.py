@@ -9,7 +9,7 @@ import numpy as np
 import io
 
 PACKAGE_NAME = 'pysaliency'
-VERSION = '0.2.22'
+VERSION = '0.2.23'
 DESCRIPTION = 'A Python Framework for Saliency Modeling and Evaluation'
 AUTHOR = 'Matthias Kümmerer'
 EMAIL = 'matthias.kuemmerer@bethgelab.org'
@@ -43,10 +43,11 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
-        #"Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        #"Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering",
     ],
     packages = find_packages(),
@@ -54,6 +55,7 @@ setup(
     author_email = EMAIL,
     url = URL,
     license = 'MIT',
+    python_requires='>=3.9',
     install_requires=[
         'boltons',
         'deprecation',
@@ -65,7 +67,6 @@ setup(
         'requests',
         'schema',
         'scipy',
-        'setuptools',
         'tqdm',
     ],
     include_package_data = True,

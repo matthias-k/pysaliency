@@ -9,8 +9,6 @@ jobs:
       max-parallel: 5
       matrix:
         python-version:
-        # - "3.7"  # conda takes forever to install the dependencies
-        - "3.8"
         - "3.9"
         - "3.10"
         - "3.11"
@@ -59,9 +57,8 @@ jobs:
       run: conda list
     - name: Test with pytest
       shell: bash -el {0}
-      # hypothesis=6.113.0 is the last version with python 3.8 support
       run: |
-        conda install pytest hypothesis=6.113.0
+        conda install pytest hypothesis
         python setup.py build_ext --inplace
         python -m pytest --nomatlab --notheano --nodownload tests
     - name: test build and install
