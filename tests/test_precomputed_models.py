@@ -495,6 +495,8 @@ def test_export_append_new_file_root_attrs(file_stimuli, tmpdir):
     with h5py.File(filename, 'r') as f:
         assert 'type' in f.attrs
         assert f.attrs['version'] == '1.0'
+        assert int(f.attrs['downscale_factor']) == 1
+        assert 'dtype' in f.attrs
 
 
 def test_export_append_legacy_file_no_root_attrs(file_stimuli, tmpdir):
@@ -514,6 +516,8 @@ def test_export_append_legacy_file_no_root_attrs(file_stimuli, tmpdir):
 
     with h5py.File(filename, 'r') as f:
         assert 'type' not in f.attrs  # no root attrs written into legacy file
+        all_keys = pysaliency.precomputed_models.get_keys_recursive(f)
+        assert len(all_keys) == len(file_stimuli)  # all stimuli present
 
 
 def test_export_uint8_model_downscale_warns(tmpdir):
