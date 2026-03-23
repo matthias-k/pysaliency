@@ -16,7 +16,7 @@ Both optimizations are independent and can be combined.
 
 - `export_model_to_hdf5`: two new parameters (`dtype`, `downscale_factor`)
 - `HDF5SaliencyMapModel`: transparent upsampling and upcast on load
-- `HDF5Model`: transparent upsampling, upcast, renormalization with configurable error threshold
+- `HDF5Model`: transparent upsampling and renormalization for downsampled or float16 files; strict legacy behavior preserved for float32/float64 non-downsampled files
 - New tests in `tests/test_precomputed_models.py`
 
 Out of scope: per-stimulus dtype/downscale selection; formats other than HDF5.
@@ -36,24 +36,103 @@ def export_model_to_hdf5(
 
 Both new parameters default to today's behavior — fully backward compatible.
 
-#### Export logic per stimulus
+#### Export pseudocode
 
-1. Compute `smap` as today (native dtype, full resolution).
-2. **Uint8 guard** (checked once on first stimulus): if `itemsize(effective_stored_dtype) > itemsize(native_dtype)`, emit `warnings.warn` with a message explaining the size increase and suggesting `dtype=np.uint8` or omitting compact options. If `downscale_factor > 1` and `dtype=None`, note additionally that zoom requires float conversion and casting back to uint8 is lossy.
-3. If `downscale_factor > 1`: downsample using `scipy.ndimage.zoom(smap, 1/downscale_factor, order=1, mode='nearest', grid_mode=True)` (area averaging in value/log space). **No renormalization at export** — the small residual is preserved as signal; renormalization happens at load time for log-density models.
-4. If `dtype` is not None: cast to target dtype.
-5. Store dataset. If `downscale_factor > 1`, store `original_shape` as a dataset-level attribute.
-
-#### File-level attributes (written once at file open)
+The sequencing below is normative; it resolves the ordering of root-attr writing versus stimulus processing:
 
 ```python
-f.attrs['type'] = 'pysaliency.precomputed_models.predictions'
-f.attrs['version'] = '1.0'
-f.attrs['downscale_factor'] = downscale_factor   # informational
-f.attrs['dtype'] = str(np.dtype(dtype or native_dtype))  # informational
+mode = 'w' if overwrite else 'a'
+with h5py.File(filename, mode=mode) as f:
+
+    # Determine which stimuli to process
+    if overwrite:
+        indices = list(range(len(stimuli)))
+    else:
+        if 'type' in f.attrs:
+            # Validate consistency with existing compact file
+            _validate_append_consistency(f, downscale_factor)  # raises ValueError on mismatch
+        indices = [i for i in range(len(stimuli)) if names[i] not in f]
+
+    if not indices:
+        return  # nothing to do
+
+    # Process first stimulus to determine effective_stored_dtype (needed for root attrs)
+    first_smap = _compute_smap(model, stimuli[indices[0]])
+    effective_stored_dtype = _effective_dtype(first_smap, dtype, downscale_factor)
+
+    # Emit uint8/size guard warning based on first stimulus (once only)
+    _check_size_guard(first_smap, effective_stored_dtype)
+
+    # Write root attrs if this is a new file (overwrite=True or file had no attrs)
+    if overwrite or 'type' not in f.attrs:
+        f.attrs['type'] = 'pysaliency.precomputed_models.predictions'
+        f.attrs['version'] = '1.0'
+        f.attrs['downscale_factor'] = downscale_factor
+        f.attrs['dtype'] = str(effective_stored_dtype)  # informational; based on first stimulus
+
+    # Process all stimuli (reuse already-computed first_smap)
+    for i, k in enumerate(indices):
+        smap = first_smap if i == 0 else _compute_smap(model, stimuli[k])
+        smap = _downsample(smap, downscale_factor)       # step 3; no-op if downscale_factor == 1
+        smap = smap.astype(dtype) if dtype is not None else smap  # step 4
+        ds = f.create_dataset(names[k], data=smap, compression=compression)
+        if downscale_factor > 1:
+            ds.attrs['original_shape'] = np.array([H, W], dtype=np.int64)  # pre-padding H, W from step 3
+        if flush:
+            f.flush()
 ```
 
-In `overwrite=False` (append) mode, if the file already exists, validate that its `type`, `version`, `downscale_factor`, and `dtype` attributes are consistent with the current call and raise `ValueError` if not.
+Note on the root-attrs `dtype` field: it is **purely informational**, computed from the first stimulus only. If stimuli have heterogeneous native dtypes (rare in practice), the field may not reflect later stimuli — this is acceptable given it is informational and the loader does not depend on it.
+
+#### `_effective_dtype(smap, dtype, downscale_factor)`
+
+```python
+def _effective_dtype(smap, dtype, downscale_factor):
+    if dtype is not None:
+        return np.dtype(dtype)
+    if downscale_factor > 1:
+        # numpy .mean() returns float64 for integer inputs, preserves float types
+        if np.issubdtype(smap.dtype, np.integer):
+            return np.dtype(np.float64)
+        else:
+            return smap.dtype  # float32 stays float32, float64 stays float64
+    return smap.dtype
+```
+
+#### `_downsample(smap, downscale_factor)`
+
+```python
+def _downsample(smap, k):
+    if k == 1:
+        return smap
+    H, W = smap.shape
+    H_pad = int(np.ceil(H / k)) * k
+    W_pad = int(np.ceil(W / k)) * k
+    smap = np.pad(np.ascontiguousarray(smap),
+                  ((0, H_pad - H), (0, W_pad - W)),
+                  mode='edge')
+    # np.ascontiguousarray ensures C-order before reshape; np.pad preserves C-order
+    return smap.reshape(H_pad // k, k, W_pad // k, k).mean(axis=(1, 3))
+    # Note: when H is not divisible by k, the last bin is biased toward the
+    # border value (edge-padded rows are copies). This is a minor, acceptable
+    # artefact for the 2× and 4× factors targeted by this feature.
+```
+
+#### `_validate_append_consistency(f, downscale_factor)`
+
+Checks only `int(f.attrs['downscale_factor']) == downscale_factor`. Raises `ValueError` with a descriptive message on mismatch.
+
+The `dtype` root attr is purely informational and is intentionally excluded from this check: determining `effective_stored_dtype` requires computing the first stimulus, which has not happened yet at the point the validator is called. The `downscale_factor` check is sufficient to catch the most dangerous mismatch (spatial layout of stored data).
+
+#### Uint8 / size guard
+
+Implemented in `_check_size_guard(smap, effective_stored_dtype)`:
+
+If `effective_stored_dtype.itemsize > np.dtype(smap.dtype).itemsize`, emit `warnings.warn` explaining:
+- The native dtype and its size in bytes
+- The effective stored dtype and its size in bytes
+- A suggestion to pass `dtype=np.uint8` (if native is integer) or to omit compact options
+- Additionally, if native is integer and `downscale_factor > 1` and `dtype` is None: note that casting the float result back to the original integer type would be lossy
 
 ### HDF5 File Format
 
@@ -63,22 +142,22 @@ In `overwrite=False` (append) mode, if the file already exists, validate that it
     type = 'pysaliency.precomputed_models.predictions'
     version = '1.0'
     downscale_factor = 2
-    dtype = 'float32'
+    dtype = 'float32'               # informational; from first stimulus
 
-  images/cat.jpg   (dataset shape H/2 × W/2, dtype float32)
+  images/cat.jpg   (dataset shape ceil(H/2) × ceil(W/2), dtype float32)
     attrs:
-      original_shape = (H, W)    # present only when downscale_factor > 1
+      original_shape = np.array([H, W], dtype=np.int64)   # pre-padding; present only when downscale_factor > 1
 
-  images/dog.jpg   (dataset shape H'/2 × W'/2, dtype float32)
+  images/dog.jpg   (dataset shape ceil(H'/2) × ceil(W'/2), dtype float32)
     attrs:
-      original_shape = (H', W')
+      original_shape = np.array([H', W'], dtype=np.int64)
 ```
 
 **Legacy files** (written by current code) have no root attrs and no `original_shape` on datasets. The loader handles them identically to today.
 
-**Non-compact new files** (`dtype=None`, `downscale_factor=1`) have root attrs but no `original_shape` — loader skips upsampling.
+**Non-compact new files** (`dtype=None`, `downscale_factor=1`) have root attrs but no `original_shape` on datasets — the loader skips upsampling.
 
-The `downscale_factor` and `dtype` root attrs are purely informational. The loader derives behavior from per-dataset `original_shape` (whether to upsample) and the dataset's native HDF5 dtype (whether to upcast).
+Root attrs are purely informational. The loader derives behavior entirely from per-dataset `original_shape` (whether to upsample) and the dataset's native HDF5 dtype (which normalization path to use in `HDF5Model`).
 
 ### Load Side
 
@@ -86,15 +165,32 @@ The `downscale_factor` and `dtype` root attrs are purely informational. The load
 
 `__init__` reads and stores `f.attrs.get('version')` for future compat; no other init changes.
 
+A new private helper is added:
+
+```python
+def _key_for_stimulus(self, stimulus):
+    stimulus_id = get_image_hash(stimulus)
+    stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)  # raises ValueError if not found
+    return self.names[stimulus_index]
+```
+
+`_saliency_map` is refactored to call `_key_for_stimulus` internally, replacing the inline index lookup currently at lines 328–329.
+
 `_saliency_map` updated logic:
 
-1. Load raw dataset → `smap` (native HDF5 dtype, stored resolution).
-2. If dataset has `original_shape` attr: cast to float64, then upsample via `scipy.ndimage.zoom` with bilinear interpolation (`order=1`) to `original_shape`.
-3. Otherwise: return native dtype unchanged (preserves existing behavior for uint8 and legacy files).
+1. `stimulus_key = self._key_for_stimulus(stimulus)`
+2. `dataset = self.hdf5_file[stimulus_key]`; `smap = dataset[:]`
+3. If `'original_shape'` in `dataset.attrs`: cast `smap` to float64, then upsample:
+   ```python
+   target_shape = tuple(dataset.attrs['original_shape'])
+   zoom_factors = (target_shape[0] / smap.shape[0], target_shape[1] / smap.shape[1])
+   smap = scipy.ndimage.zoom(smap.astype(np.float64), zoom_factors, order=1, mode='nearest')
+   ```
+4. Otherwise: return `smap` with native dtype unchanged.
 
-Shape check (`check_shape`) runs against the post-upsampling shape, as today.
+Shape check (`check_shape`) runs against the post-upsampling shape, as today. When using downsampled exports with resized stimuli and `check_shape=False`, upsampling targets `original_shape` (the shape at export time), not the (resized) stimulus shape.
 
-**Dtype summary:**
+**Dtype behavior:**
 
 | File type | `original_shape` present? | `_saliency_map` returns |
 |---|---|---|
@@ -102,55 +198,99 @@ Shape check (`check_shape`) runs against the post-upsampling shape, as today.
 | Compact, dtype-reduced only | no | native dtype (float16/32) |
 | Compact, downsampled | yes | float64 |
 
+The dtype-reduced-only path intentionally returns the native stored dtype. Downstream code that requires float64 (e.g. `HDF5Model`) is responsible for casting.
+
 #### `HDF5Model`
 
-Constructor gains a new parameter:
+Constructor gains a new parameter and explicitly stores it:
 
 ```python
 class HDF5Model(Model):
     def __init__(self, stimuli, filename, check_shape=True,
                  max_normalization_error=np.log(1.2), **kwargs):
+        super().__init__(**kwargs)
+        self.parent_model = HDF5SaliencyMapModel(
+            stimuli=stimuli, filename=filename,
+            caching=False, check_shape=check_shape,
+        )
+        self.max_normalization_error = max_normalization_error  # on HDF5Model, not parent_model
 ```
 
-`max_normalization_error` is stored as an instance attribute and can be updated after construction. `None` disables the check entirely.
+`max_normalization_error` can be updated after construction. Setting it to `None` disables the tolerance guard on the relaxed path only — the strict ±0.01 check on the legacy path is always applied regardless.
 
 `_log_density` updated logic:
 
-1. Get `smap` from `parent_model.saliency_map(stimulus)`.
-2. Cast to float64.
-3. If `max_normalization_error` is not None: check `abs(logsumexp(smap)) < max_normalization_error`; raise `ValueError` if violated (indicates file corruption or unsupported normalization convention — not a soft warning, since a large mass error is a real problem).
-4. Renormalize: `smap -= logsumexp(smap)`.
-5. Return.
+```python
+def _log_density(self, stimulus):
+    key = self.parent_model._key_for_stimulus(stimulus)
+    dataset = self.parent_model.hdf5_file[key]
+    use_relaxed_path = (
+        'original_shape' in dataset.attrs                                     # spatially downsampled
+        or dataset.dtype.itemsize < np.dtype(np.float32).itemsize             # float16 or narrower
+    )
+    # Note: this attr lookup is cheap (HDF5 metadata); parent_model has caching=False
+    # so the subsequent saliency_map call also reads from disk each time.
 
-For non-compact files the logsumexp is already ≈ 0, so step 4 is a near-no-op — no behavioral change.
+    smap = self.parent_model.saliency_map(stimulus).astype(np.float64)
+
+    if use_relaxed_path:
+        if self.max_normalization_error is not None:
+            if abs(logsumexp(smap)) >= self.max_normalization_error:
+                raise ValueError(
+                    f'Log density normalization error {abs(logsumexp(smap)):.4f} '
+                    f'exceeds threshold {self.max_normalization_error:.4f}'
+                )
+        smap -= logsumexp(smap)
+    else:
+        # Legacy path: strict check, no renormalization
+        if not -0.01 <= logsumexp(smap) <= 0.01:
+            raise ValueError('Not a correct log density!')
+
+    return smap
+```
 
 ### Interpolation Choices
 
-Motivated by pilot experiments:
+Motivated by pilot experiments comparing several strategies (always using bilinear upsampling in log space):
 
-- **Downsampling**: area averaging in log/value space (`scipy.ndimage.zoom` with `order=1`, `grid_mode=True`). Empirically outperforms subsampling and probability-space pooling.
-- **Upsampling**: bilinear in log/value space (`order=1`). Upsampling strategy has negligible empirical effect; bilinear is fast and avoids the overshoot risk of bicubic.
-- No renormalization at export; renormalize only at load (log-density models only), after checking the residual is small.
+- **Downsampling**: area averaging in log/value space via edge-pad then reshape + mean. Non-divisible shapes are handled by padding to the next multiple of `k` with edge values; `original_shape` stores the pre-padding shape so the padding region is implicitly removed during upsampling. Known minor limitation: the last bin in non-divisible dimensions is biased toward the border value (edge-padded rows). This is acceptable for the 2× and 4× factors targeted. Empirically outperforms subsampling and probability-space pooling.
+- **Upsampling**: bilinear interpolation in log/value space via `scipy.ndimage.zoom(order=1, mode='nearest')`. `mode='nearest'` matches the existing project convention and avoids reflect-padding edge artefacts. The upsampling strategy has negligible empirical effect on metric scores.
+- **Renormalization**: not applied at export; applied at load time only on the relaxed path in `HDF5Model`, after verifying the residual is within the configured tolerance.
 
 ## Tests
 
-All new tests in `tests/test_precomputed_models.py`. Roundtrip tests are parametrized over `(dtype, downscale_factor)` combinations: `(None, 1)`, `(np.float32, 1)`, `(np.float16, 1)`, `(np.float32, 2)`, `(np.float16, 4)` — for both `SaliencyMapModel` and `Model`.
+All new tests in `tests/test_precomputed_models.py`. Roundtrip tests are parametrized over `(dtype, downscale_factor)` combinations: `(None, 1)`, `(np.float32, 1)`, `(np.float16, 1)`, `(np.float32, 2)`, `(np.float16, 4)` for both `HDF5SaliencyMapModel` and `HDF5Model`. The `(None, 1)` case is a regression test (no new code paths). For `HDF5Model`:
+- `(np.float32, 1)` and `(None, 1)`: exercise the strict legacy path — no renormalization, strict ±0.01 check
+- `(np.float16, 1)`: exercises the relaxed path triggered by dtype (float16 itemsize < float32 itemsize)
+- `(np.float32, 2)` and `(np.float16, 4)`: exercise the relaxed path triggered by `original_shape`
 
 | Test | Description |
 |------|-------------|
-| Root attrs | Correct `type`, `version`, `dtype`, `downscale_factor` written |
-| Dataset dtype | Stored dtype matches requested `dtype` |
-| Dataset shape | Stored shape is `original_shape / downscale_factor` |
-| `original_shape` attr | Present iff `downscale_factor > 1`, correct value |
-| Append mode mismatch | `ValueError` on inconsistent `downscale_factor` or `dtype` |
-| uint8 + `downscale_factor>1` | `UserWarning` emitted |
-| uint8 + `dtype=np.float32` | `UserWarning` emitted |
+| Root attrs | Correct `type`, `version`, `dtype` (using `effective_stored_dtype`), `downscale_factor` written |
+| Dataset dtype | Stored dtype matches `effective_stored_dtype` |
+| Dataset shape | Stored shape is `ceil(original_shape / downscale_factor)` |
+| `original_shape` attr | Present iff `downscale_factor > 1`; `np.int64` array with correct pre-padding shape |
+| Non-divisible shape — stored | Stored shape is `ceil(H/k) × ceil(W/k)` |
+| Non-divisible shape — loaded | Upsampled output shape matches `original_shape` exactly |
+| Append mode — consistent | Appending with matching settings succeeds |
+| Append mode — mismatch (downscale only) | `ValueError` on mismatched `downscale_factor` |
+| Append mode — mismatch (dtype only) | `ValueError` on mismatched `dtype` |
+| Append mode — new file created | Root attrs written correctly when `overwrite=False` and file is new |
+| Append mode — legacy file | Append to legacy file succeeds; no root attrs written |
+| uint8 + `downscale_factor>1` — warning | `UserWarning` emitted |
+| uint8 + `downscale_factor>1` — stored dtype | Actual stored dtype is float64 |
+| uint8 + `dtype=np.float32` — warning | `UserWarning` emitted |
 | uint8 + `dtype=np.uint8` | No warning |
+| float32 + `downscale_factor>1` + `dtype=None` | Stored dtype is float32 (not float64); root attr `dtype` is `'float32'` |
 | Legacy file load | Native dtype returned, shape matches stimulus — no behavioral change |
 | float32 load, no downsampling | float32 returned (native dtype preserved) |
 | Downsampled load | float64 returned, shape matches `original_shape` |
-| Resized stimuli + `check_shape=False` | Upsamples to `original_shape`, not stimulus shape |
-| `HDF5Model` roundtrip | float64 output, logsumexp ≈ 0 after renorm |
+| Resized stimuli + `check_shape=False` | Stimulus presented at size S ≠ `original_shape`; upsamples to `original_shape`, not S |
+| `HDF5Model` float16 relaxed path | float16 file triggers relaxed path; output float64, logsumexp ≈ 0 |
+| `HDF5Model` float32 strict path | float32 non-downsampled file uses strict path; logsumexp outside ±0.01 raises `ValueError` |
+| `HDF5Model` non-compact no renorm | Non-compact float32/float64 output is bit-identical to stored values (cast to float64) |
+| `HDF5Model` downsampled roundtrip | float64 output, logsumexp ≈ 0 after renorm (parametrized) |
 | `HDF5Model` threshold | logsumexp before renorm within `log(1.2)` for float16+4× |
-| `HDF5Model` corrupted file | `ValueError` raised when logsumexp exceeds threshold |
-| Custom `max_normalization_error` | Tighter threshold triggers; looser does not |
+| `HDF5Model` corrupted file | `ValueError` raised when logsumexp exceeds `max_normalization_error` |
+| Custom `max_normalization_error` | Tighter threshold triggers `ValueError`; looser does not |
+| `max_normalization_error=None` | Relaxed path skips guard; output is float64, logsumexp ≈ 0 (renorm still applied) |
