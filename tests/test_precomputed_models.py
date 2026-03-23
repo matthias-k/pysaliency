@@ -469,3 +469,125 @@ def test_export_float32_downscale_dtype_is_float32(file_stimuli, tmpdir):
         assert f[keys[0]].dtype == np.float32
         assert f.attrs['dtype'] == 'float32'
         assert int(f.attrs['downscale_factor']) == 2
+
+
+# NOTE: The spec test table lists "Append mode — mismatch (dtype only)" but the spec design
+# section intentionally excludes dtype from the consistency check (it is purely informational
+# and cannot be determined before the first stimulus is computed). There is therefore no
+# ValueError raised on dtype mismatch — this is correct behavior, not a gap.
+
+
+def test_export_append_consistency_mismatch_downscale(file_stimuli, tmpdir):
+    """Appending with a different downscale_factor raises ValueError."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    partial = pysaliency.FileStimuli(filenames=file_stimuli.filenames[:3])
+    export_model_to_hdf5(model, partial, filename, downscale_factor=2)
+    with pytest.raises(ValueError, match='downscale_factor'):
+        export_model_to_hdf5(model, file_stimuli, filename, overwrite=False, downscale_factor=1)
+
+
+def test_export_append_new_file_root_attrs(file_stimuli, tmpdir):
+    """overwrite=False on a new file still writes root attrs."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename, overwrite=False)
+    with h5py.File(filename, 'r') as f:
+        assert 'type' in f.attrs
+        assert f.attrs['version'] == '1.0'
+
+
+def test_export_append_legacy_file_no_root_attrs(file_stimuli, tmpdir):
+    """Appending to a legacy file (no root attrs) succeeds without adding root attrs."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    partial = pysaliency.FileStimuli(filenames=file_stimuli.filenames[:3])
+    remaining = pysaliency.FileStimuli(filenames=file_stimuli.filenames[3:])
+
+    # Write a legacy-format file manually (no root attrs)
+    names = pysaliency.utils.get_minimal_unique_filenames(partial.filenames)
+    with h5py.File(filename, 'w') as f:
+        for k, s in enumerate(partial):
+            f.create_dataset(names[k], data=model.saliency_map(s))
+
+    export_model_to_hdf5(model, remaining, filename, overwrite=False)
+
+    with h5py.File(filename, 'r') as f:
+        assert 'type' not in f.attrs  # no root attrs written into legacy file
+
+
+def test_export_uint8_model_downscale_warns(tmpdir):
+    """Uint8 model output + downscale_factor > 1 emits a UserWarning (stored as float64 > uint8)."""
+    class Uint8SaliencyMapModel(pysaliency.SaliencyMapModel):
+        def _saliency_map(self, stimulus):
+            return np.ones((stimulus.shape[0], stimulus.shape[1]), dtype=np.uint8)
+
+    filenames = []
+    for i in range(2):
+        fname = str(tmpdir.join(f'stim_{i}.png'))
+        imsave(fname, np.random.randint(0, 255, (20, 20, 3), dtype=np.uint8))
+        filenames.append(fname)
+    stimuli = pysaliency.FileStimuli(filenames=filenames)
+
+    model = Uint8SaliencyMapModel()
+    filename = str(tmpdir.join('model.hdf5'))
+    with pytest.warns(UserWarning, match='larger'):
+        export_model_to_hdf5(model, stimuli, filename, downscale_factor=2)
+
+
+def test_export_uint8_model_downscale_stored_as_float64(tmpdir):
+    """Uint8 model output + downscale_factor > 1 is stored as float64 (area avg result)."""
+    class Uint8SaliencyMapModel(pysaliency.SaliencyMapModel):
+        def _saliency_map(self, stimulus):
+            return np.ones((stimulus.shape[0], stimulus.shape[1]), dtype=np.uint8)
+
+    filenames = []
+    for i in range(2):
+        fname = str(tmpdir.join(f'stim_{i}.png'))
+        imsave(fname, np.random.randint(0, 255, (20, 20, 3), dtype=np.uint8))
+        filenames.append(fname)
+    stimuli = pysaliency.FileStimuli(filenames=filenames)
+
+    model = Uint8SaliencyMapModel()
+    filename = str(tmpdir.join('model.hdf5'))
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        export_model_to_hdf5(model, stimuli, filename, downscale_factor=2)
+    with h5py.File(filename, 'r') as f:
+        keys = list(f.keys())
+        assert f[keys[0]].dtype == np.float64
+
+
+def test_export_uint8_model_float32_dtype_warns(tmpdir):
+    """Uint8 model + dtype=np.float32 warns (float32 > uint8)."""
+    class Uint8SaliencyMapModel(pysaliency.SaliencyMapModel):
+        def _saliency_map(self, stimulus):
+            return np.ones((stimulus.shape[0], stimulus.shape[1]), dtype=np.uint8)
+
+    filenames = [str(tmpdir.join(f'stim_{i}.png')) for i in range(2)]
+    for fname in filenames:
+        imsave(fname, np.random.randint(0, 255, (20, 20, 3), dtype=np.uint8))
+    stimuli = pysaliency.FileStimuli(filenames=filenames)
+
+    model = Uint8SaliencyMapModel()
+    filename = str(tmpdir.join('model.hdf5'))
+    with pytest.warns(UserWarning, match='larger'):
+        export_model_to_hdf5(model, stimuli, filename, dtype=np.float32)
+
+
+def test_export_uint8_model_uint8_dtype_no_warn(tmpdir):
+    """Uint8 model + dtype=np.uint8 does not warn."""
+    class Uint8SaliencyMapModel(pysaliency.SaliencyMapModel):
+        def _saliency_map(self, stimulus):
+            return np.ones((stimulus.shape[0], stimulus.shape[1]), dtype=np.uint8)
+
+    filenames = [str(tmpdir.join(f'stim_{i}.png')) for i in range(2)]
+    for fname in filenames:
+        imsave(fname, np.random.randint(0, 255, (20, 20, 3), dtype=np.uint8))
+    stimuli = pysaliency.FileStimuli(filenames=filenames)
+
+    model = Uint8SaliencyMapModel()
+    filename = str(tmpdir.join('model.hdf5'))
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')  # any warning becomes an error
+        export_model_to_hdf5(model, stimuli, filename, dtype=np.uint8)
