@@ -398,6 +398,8 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
         The stimuli have to be of type `FileStimuli`. For each
         stimulus file, the model expects a dataset with the same
         name in the dataset.
+        If the file was created with downscale_factor > 1, predictions are
+        transparently upsampled to their original resolution on load.
     """
     def __init__(self, stimuli, filename, check_shape=True, **kwargs):
         super(HDF5SaliencyMapModel, self).__init__(**kwargs)
@@ -411,15 +413,28 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
 
         import h5py
         self.hdf5_file = h5py.File(self.filename, 'r')
+        self.version = self.hdf5_file.attrs.get('version')
         self.all_keys = get_keys_recursive(self.hdf5_file)
 
         self.names = get_keys_from_filenames_with_prefix(get_stimuli_filenames(stimuli), self.all_keys)
 
-    def _saliency_map(self, stimulus):
+    def _key_for_stimulus(self, stimulus):
         stimulus_id = get_image_hash(stimulus)
         stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
-        stimulus_key = self.names[stimulus_index]
-        smap = self.hdf5_file[stimulus_key][:]
+        return self.names[stimulus_index]
+
+    def _saliency_map(self, stimulus):
+        stimulus_key = self._key_for_stimulus(stimulus)
+        dataset = self.hdf5_file[stimulus_key]
+        smap = dataset[:]
+
+        if 'original_shape' in dataset.attrs:
+            # Compact downsampled file: upsample to original resolution
+            target_shape = tuple(dataset.attrs['original_shape'])
+            zoom_factors = (target_shape[0] / smap.shape[0], target_shape[1] / smap.shape[1])
+            import scipy.ndimage
+            smap = scipy.ndimage.zoom(smap.astype(np.float64), zoom_factors, order=1, mode='nearest')
+
         if not smap.shape == (stimulus.shape[0], stimulus.shape[1]):
             if self.check_shape:
                 warnings.warn('Wrong shape for stimulus {}'.format(stimulus_key), stacklevel=4)

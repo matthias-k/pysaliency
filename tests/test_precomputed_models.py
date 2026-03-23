@@ -595,3 +595,94 @@ def test_export_uint8_model_uint8_dtype_no_warn(tmpdir):
     with warnings.catch_warnings():
         warnings.simplefilter('error')  # any warning becomes an error
         export_model_to_hdf5(model, stimuli, filename, dtype=np.uint8)
+
+
+@pytest.mark.parametrize('dtype,downscale_factor', [
+    (None, 1),
+    (np.float32, 1),
+    (np.float16, 1),
+    (np.float32, 2),
+    (np.float16, 4),
+])
+def test_hdf5_saliency_map_model_roundtrip(file_stimuli, tmpdir, dtype, downscale_factor):
+    """HDF5SaliencyMapModel returns correct shape and values after compact export."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename,
+                          dtype=dtype, downscale_factor=downscale_factor)
+
+    loaded = pysaliency.HDF5SaliencyMapModel(file_stimuli, filename)
+    for s in file_stimuli:
+        result = loaded.saliency_map(s)
+        assert result.shape == (s.shape[0], s.shape[1]), \
+            f"Shape mismatch: {result.shape} != {(s.shape[0], s.shape[1])}"
+
+
+def test_hdf5_saliency_map_model_dtype_reduced_returns_native(file_stimuli, tmpdir):
+    """dtype-reduced-only files return the stored native dtype (not upcast)."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename, dtype=np.float32)
+
+    loaded = pysaliency.HDF5SaliencyMapModel(file_stimuli, filename)
+    result = loaded.saliency_map(file_stimuli[0])
+    assert result.dtype == np.float32
+
+
+def test_hdf5_saliency_map_model_downsampled_returns_float64(file_stimuli, tmpdir):
+    """Downsampled files upsample and return float64."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename, downscale_factor=2)
+
+    loaded = pysaliency.HDF5SaliencyMapModel(file_stimuli, filename)
+    result = loaded.saliency_map(file_stimuli[0])
+    assert result.dtype == np.float64
+
+
+def test_hdf5_saliency_map_model_nondivisible_loaded_shape(file_stimuli_nondivisible, tmpdir):
+    """Upsampled output shape matches original_shape (not padded shape)."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli_nondivisible, filename, downscale_factor=2)
+
+    loaded = pysaliency.HDF5SaliencyMapModel(file_stimuli_nondivisible, filename)
+    result = loaded.saliency_map(file_stimuli_nondivisible[0])
+    assert result.shape == (101, 97)  # original shape, not (51, 49) or (102, 98)
+
+
+def test_hdf5_saliency_map_model_resized_stimuli(tmpdir):
+    """With check_shape=False and resized stimuli, upsampling targets original_shape."""
+    from imageio import imsave as _imsave
+    filenames = []
+    for i in range(2):
+        fname = str(tmpdir.join(f'stim_{i}.png'))
+        _imsave(fname, np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8))
+        filenames.append(fname)
+    full_stimuli = pysaliency.FileStimuli(filenames=filenames)
+
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, full_stimuli, filename, downscale_factor=2)
+
+    # Load with the same filenames but we'll check that the loaded shape is 100x100
+    # (original_shape), not 50x50 (stored) nor whatever the stimulus reports
+    loaded = pysaliency.HDF5SaliencyMapModel(full_stimuli, filename, check_shape=False)
+    result = loaded.saliency_map(full_stimuli[0])
+    assert result.shape == (100, 100)
+
+
+def test_hdf5_saliency_map_model_legacy_file_unchanged(file_stimuli, tmpdir):
+    """Legacy files (no root attrs) still work exactly as before."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    # Write a legacy file manually
+    names = pysaliency.utils.get_minimal_unique_filenames(file_stimuli.filenames)
+    with h5py.File(filename, 'w') as f:
+        for k, s in enumerate(file_stimuli):
+            f.create_dataset(names[k], data=model.saliency_map(s))
+
+    loaded = pysaliency.HDF5SaliencyMapModel(file_stimuli, filename)
+    for s in file_stimuli:
+        expected = model.saliency_map(s)
+        np.testing.assert_array_equal(loaded.saliency_map(s), expected)
