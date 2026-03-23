@@ -48,6 +48,8 @@ with h5py.File(filename, mode=mode) as f:
     if overwrite:
         indices = list(range(len(stimuli)))
     else:
+        # append mode is for resuming an interrupted export of the same job,
+        # not for combining data from different export runs
         if 'type' in f.attrs:
             # Validate consistency with existing compact file
             _validate_append_consistency(f, downscale_factor)  # raises ValueError on mismatch
@@ -153,7 +155,9 @@ If `effective_stored_dtype.itemsize > np.dtype(smap.dtype).itemsize`, emit `warn
       original_shape = np.array([H', W'], dtype=np.int64)
 ```
 
-**Overwritten files** (`overwrite=True`): h5py opens with `mode='w'`, which truncates the file completely before any writing begins. Any pre-existing datasets — including those from a legacy non-compact file — are discarded. The resulting file is always internally consistent.
+**Overwritten files** (`overwrite=True`): h5py opens with `mode='w'`, which truncates the file completely before writing begins. The resulting file is always internally consistent.
+
+**Append-mode files** (`overwrite=False`): intended only for resuming an interrupted export. All datasets in the file originate from the same export job with the same settings; mixing data from different jobs is not a supported use case.
 
 **Legacy files** (written by current code) have no root attrs and no `original_shape` on datasets. The loader handles them identically to today.
 
