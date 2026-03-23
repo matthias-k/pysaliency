@@ -468,3 +468,4 @@ def test_export_float32_downscale_dtype_is_float32(file_stimuli, tmpdir):
         keys = list(f.keys())
         assert f[keys[0]].dtype == np.float32
         assert f.attrs['dtype'] == 'float32'
+        assert int(f.attrs['downscale_factor']) == 2
