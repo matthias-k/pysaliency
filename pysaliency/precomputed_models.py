@@ -9,6 +9,7 @@ import zipfile
 
 import numpy as np
 from imageio import imread
+import scipy.ndimage
 from scipy.io import loadmat
 from scipy.special import logsumexp
 from tqdm import tqdm
@@ -432,7 +433,6 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
             # Compact downsampled file: upsample to original resolution
             target_shape = tuple(dataset.attrs['original_shape'])
             zoom_factors = (target_shape[0] / smap.shape[0], target_shape[1] / smap.shape[1])
-            import scipy.ndimage
             smap = scipy.ndimage.zoom(smap.astype(np.float64), zoom_factors, order=1, mode='nearest')
 
         if not smap.shape == (stimulus.shape[0], stimulus.shape[1]):
