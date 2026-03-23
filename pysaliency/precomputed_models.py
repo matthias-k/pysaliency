@@ -471,14 +471,14 @@ class HDF5Model(Model):
         smap = self.parent_model.saliency_map(stimulus).astype(np.float64)
 
         if use_relaxed_path:
+            lse = logsumexp(smap)
             if self.max_normalization_error is not None:
-                err = abs(logsumexp(smap))
-                if err >= self.max_normalization_error:
+                if abs(lse) >= self.max_normalization_error:
                     raise ValueError(
-                        f'Log density normalization error {err:.4f} exceeds '
+                        f'Log density normalization error {abs(lse):.4f} exceeds '
                         f'threshold {self.max_normalization_error:.4f}'
                     )
-            smap = smap - logsumexp(smap)
+            smap = smap - lse
         else:
             if not -0.01 <= logsumexp(smap) <= 0.01:
                 raise ValueError('Not a correct log density!')
