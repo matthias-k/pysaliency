@@ -386,3 +386,85 @@ def test_export_dtype_none_preserves_native(file_stimuli, tmpdir):
         keys = list(f.keys())
         # GaussianSaliencyMapModel returns float64
         assert f[keys[0]].dtype == np.float64
+
+
+def test_export_downscale_stored_shape(file_stimuli, tmpdir):
+    """Stored shape is ceil(H/k) x ceil(W/k) for divisible dimensions."""
+    # file_stimuli uses 100x100 images, which is divisible by 2 and 4
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename, downscale_factor=2)
+    with h5py.File(filename, 'r') as f:
+        keys = list(f.keys())
+        assert f[keys[0]].shape == (50, 50)
+
+
+def test_export_downscale_original_shape_attr(file_stimuli, tmpdir):
+    """original_shape attr is present and correct when downscale_factor > 1."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename, downscale_factor=2)
+    with h5py.File(filename, 'r') as f:
+        keys = list(f.keys())
+        ds = f[keys[0]]
+        assert 'original_shape' in ds.attrs
+        np.testing.assert_array_equal(ds.attrs['original_shape'], [100, 100])
+        assert ds.attrs['original_shape'].dtype == np.int64
+
+
+def test_export_no_downscale_no_original_shape_attr(file_stimuli, tmpdir):
+    """original_shape attr is absent when downscale_factor == 1."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename)
+    with h5py.File(filename, 'r') as f:
+        keys = list(f.keys())
+        assert 'original_shape' not in f[keys[0]].attrs
+
+
+@pytest.fixture
+def file_stimuli_nondivisible(tmpdir):
+    """Stimuli with 101x97 images — not divisible by 2 or 4."""
+    filenames = []
+    for i in range(3):
+        filename = tmpdir.join(f'stim_{i:04d}.png')
+        imsave(str(filename), np.random.randint(0, 255, (101, 97, 3), dtype=np.uint8))
+        filenames.append(str(filename))
+    return pysaliency.FileStimuli(filenames=filenames)
+
+
+def test_export_downscale_nondivisible_stored_shape(file_stimuli_nondivisible, tmpdir):
+    """Non-divisible shapes are padded: stored shape is ceil(H/k) x ceil(W/k)."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli_nondivisible, filename, downscale_factor=2)
+    with h5py.File(filename, 'r') as f:
+        keys = list(f.keys())
+        # ceil(101/2)=51, ceil(97/2)=49
+        assert f[keys[0]].shape == (51, 49)
+
+
+def test_export_downscale_nondivisible_original_shape_attr(file_stimuli_nondivisible, tmpdir):
+    """original_shape stores the pre-padding shape, not the padded or stored shape."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli_nondivisible, filename, downscale_factor=2)
+    with h5py.File(filename, 'r') as f:
+        keys = list(f.keys())
+        np.testing.assert_array_equal(f[keys[0]].attrs['original_shape'], [101, 97])
+
+
+def test_export_float32_downscale_dtype_is_float32(file_stimuli, tmpdir):
+    """float32 model output + downscale_factor > 1 stores float32, not float64."""
+    # GaussianSaliencyMapModel returns float64, so we need a float32-producing model
+    class Float32SaliencyMapModel(pysaliency.SaliencyMapModel):
+        def _saliency_map(self, stimulus):
+            return np.ones((stimulus.shape[0], stimulus.shape[1]), dtype=np.float32)
+
+    model = Float32SaliencyMapModel()
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename, downscale_factor=2)
+    with h5py.File(filename, 'r') as f:
+        keys = list(f.keys())
+        assert f[keys[0]].dtype == np.float32
+        assert f.attrs['dtype'] == 'float32'
