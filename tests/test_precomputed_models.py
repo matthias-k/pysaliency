@@ -372,6 +372,7 @@ def test_export_dtype_float16(file_stimuli, tmpdir):
     filename = str(tmpdir.join('model.hdf5'))
     export_model_to_hdf5(model, file_stimuli, filename, dtype=np.float16)
     with h5py.File(filename, 'r') as f:
+        assert f.attrs['dtype'] == 'float16'
         keys = list(f.keys())
         assert f[keys[0]].dtype == np.float16
 
