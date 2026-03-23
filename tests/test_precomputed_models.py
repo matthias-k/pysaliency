@@ -686,3 +686,135 @@ def test_hdf5_saliency_map_model_legacy_file_unchanged(file_stimuli, tmpdir):
     for s in file_stimuli:
         expected = model.saliency_map(s)
         np.testing.assert_array_equal(loaded.saliency_map(s), expected)
+
+
+@pytest.mark.parametrize('dtype,downscale_factor', [
+    (None, 1),
+    (np.float32, 1),
+    (np.float16, 1),
+    (np.float32, 2),
+    (np.float16, 4),
+])
+def test_hdf5_model_roundtrip(file_stimuli, tmpdir, dtype, downscale_factor):
+    """HDF5Model returns valid log densities after compact export."""
+    base = pysaliency.models.SaliencyMapNormalizingModel(
+        pysaliency.GaussianSaliencyMapModel(width=0.1))
+    filename = str(tmpdir.join('model.hdf5'))
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        export_model_to_hdf5(base, file_stimuli, filename,
+                              dtype=dtype, downscale_factor=downscale_factor)
+
+    loaded = pysaliency.HDF5Model(file_stimuli, filename)
+    from scipy.special import logsumexp
+    for s in file_stimuli:
+        result = loaded.log_density(s)
+        assert result.dtype == np.float64
+        assert result.shape == (s.shape[0], s.shape[1])
+        assert abs(logsumexp(result)) < 0.001, f"logsumexp={logsumexp(result):.6f}, not close to 0"
+
+
+def test_hdf5_model_strict_path_no_renorm(file_stimuli, tmpdir):
+    """Non-compact float64/float32 files use strict path: output not renormalized."""
+    from scipy.special import logsumexp
+    base = pysaliency.models.SaliencyMapNormalizingModel(
+        pysaliency.GaussianSaliencyMapModel(width=0.1))
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(base, file_stimuli, filename)
+
+    loaded = pysaliency.HDF5Model(file_stimuli, filename)
+    for s in file_stimuli:
+        result = loaded.log_density(s)
+        # Result should be bit-identical to stored (cast to float64), not renormalized
+        expected = base.log_density(s)
+        np.testing.assert_array_equal(result, expected)
+
+
+def test_hdf5_model_strict_path_raises_on_bad_density(file_stimuli, tmpdir):
+    """Non-compact file with bad log density raises ValueError (strict ±0.01 check)."""
+    filename = str(tmpdir.join('model.hdf5'))
+    names = pysaliency.utils.get_minimal_unique_filenames(file_stimuli.filenames)
+    with h5py.File(filename, 'w') as f:
+        for k, s in enumerate(file_stimuli):
+            # deliberately unnormalized: constant map, logsumexp >> 0
+            bad_map = np.zeros((s.shape[0], s.shape[1]), dtype=np.float64)
+            f.create_dataset(names[k], data=bad_map)
+
+    loaded = pysaliency.HDF5Model(file_stimuli, filename)
+    with pytest.raises(ValueError, match='correct log density'):
+        loaded.log_density(file_stimuli[0])
+
+
+def test_hdf5_model_relaxed_path_threshold_exceeded_raises(file_stimuli, tmpdir):
+    """Corrupted downsampled file raises ValueError when logsumexp > max_normalization_error."""
+    filename = str(tmpdir.join('model.hdf5'))
+    names = pysaliency.utils.get_minimal_unique_filenames(file_stimuli.filenames)
+    with h5py.File(filename, 'w') as f:
+        f.attrs['type'] = 'pysaliency.precomputed_models.predictions'
+        f.attrs['version'] = '1.0'
+        f.attrs['downscale_factor'] = 2
+        f.attrs['dtype'] = 'float64'
+        for k, s in enumerate(file_stimuli):
+            stored_shape = (s.shape[0] // 2, s.shape[1] // 2)
+            bad_map = np.zeros(stored_shape, dtype=np.float64)  # heavily unnormalized
+            ds = f.create_dataset(names[k], data=bad_map)
+            ds.attrs['original_shape'] = np.array([s.shape[0], s.shape[1]], dtype=np.int64)
+
+    loaded = pysaliency.HDF5Model(file_stimuli, filename)
+    with pytest.raises(ValueError, match='normalization error'):
+        loaded.log_density(file_stimuli[0])
+
+
+def test_hdf5_model_custom_max_normalization_error(file_stimuli, tmpdir):
+    """Custom max_normalization_error: tighter raises, looser allows."""
+    base = pysaliency.models.SaliencyMapNormalizingModel(
+        pysaliency.GaussianSaliencyMapModel(width=0.1))
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(base, file_stimuli, filename, downscale_factor=2)
+
+    # Very tight threshold should raise (there is some error after round-trip)
+    loaded_tight = pysaliency.HDF5Model(file_stimuli, filename, max_normalization_error=1e-10)
+    with pytest.raises(ValueError):
+        loaded_tight.log_density(file_stimuli[0])
+
+    # Default threshold should pass
+    loaded_default = pysaliency.HDF5Model(file_stimuli, filename)
+    loaded_default.log_density(file_stimuli[0])  # should not raise
+
+
+def test_hdf5_model_threshold_within_bounds_for_float16_4x(file_stimuli, tmpdir):
+    """Explicit check: logsumexp before renorm is within log(1.1) for float16+4x export."""
+    import scipy.ndimage
+    from scipy.special import logsumexp as _logsumexp
+    base = pysaliency.models.SaliencyMapNormalizingModel(
+        pysaliency.GaussianSaliencyMapModel(width=0.1))
+    filename = str(tmpdir.join('model.hdf5'))
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        export_model_to_hdf5(base, file_stimuli, filename, dtype=np.float16, downscale_factor=4)
+
+    # Manually load the raw stored data and upsample to measure pre-renorm logsumexp
+    names = pysaliency.utils.get_minimal_unique_filenames(file_stimuli.filenames)
+    with h5py.File(filename, 'r') as f:
+        for k, s in enumerate(file_stimuli):
+            ds = f[names[k]]
+            smap = ds[:].astype(np.float64)
+            target_shape = tuple(ds.attrs['original_shape'])
+            zoom_factors = (target_shape[0] / smap.shape[0], target_shape[1] / smap.shape[1])
+            smap = scipy.ndimage.zoom(smap, zoom_factors, order=1, mode='nearest')
+            err = abs(_logsumexp(smap))
+            assert err < np.log(1.1), f"logsumexp error {err:.4f} exceeds log(1.1)={np.log(1.1):.4f}"
+
+
+def test_hdf5_model_max_normalization_error_none(file_stimuli, tmpdir):
+    """max_normalization_error=None skips the guard; renorm is still applied."""
+    from scipy.special import logsumexp
+    base = pysaliency.models.SaliencyMapNormalizingModel(
+        pysaliency.GaussianSaliencyMapModel(width=0.1))
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(base, file_stimuli, filename, downscale_factor=2)
+
+    loaded = pysaliency.HDF5Model(file_stimuli, filename, max_normalization_error=None)
+    for s in file_stimuli:
+        result = loaded.log_density(s)
+        assert abs(logsumexp(result)) < 0.001  # renorm still runs

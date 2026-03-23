@@ -444,9 +444,13 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
 class HDF5Model(Model):
     """ exposes a HDF5 file with log densities as pysaliency model.
 
-        For more detail see HDF5SaliencyMapModel
+        For more detail see HDF5SaliencyMapModel.
+        Files created with downscale_factor > 1 or dtype=np.float16 use a
+        relaxed normalization check and automatic renormalization on load.
+        All other files use the original strict ±0.01 check.
     """
-    def __init__(self, stimuli, filename, check_shape=True, **kwargs):
+    def __init__(self, stimuli, filename, check_shape=True,
+                 max_normalization_error=np.log(1.1), **kwargs):
         super(HDF5Model, self).__init__(**kwargs)
         self.parent_model = HDF5SaliencyMapModel(
             stimuli=stimuli,
@@ -454,11 +458,31 @@ class HDF5Model(Model):
             caching=False,
             check_shape=check_shape
         )
+        self.max_normalization_error = max_normalization_error
 
     def _log_density(self, stimulus):
-        smap = self.parent_model.saliency_map(stimulus)
-        if not -0.01 <= logsumexp(smap) <= 0.01:
-            raise ValueError('Not a correct log density!')
+        key = self.parent_model._key_for_stimulus(stimulus)
+        dataset = self.parent_model.hdf5_file[key]
+        use_relaxed_path = (
+            'original_shape' in dataset.attrs
+            or dataset.dtype.itemsize < np.dtype(np.float32).itemsize
+        )
+
+        smap = self.parent_model.saliency_map(stimulus).astype(np.float64)
+
+        if use_relaxed_path:
+            if self.max_normalization_error is not None:
+                err = abs(logsumexp(smap))
+                if err >= self.max_normalization_error:
+                    raise ValueError(
+                        f'Log density normalization error {err:.4f} exceeds '
+                        f'threshold {self.max_normalization_error:.4f}'
+                    )
+            smap = smap - logsumexp(smap)
+        else:
+            if not -0.01 <= logsumexp(smap) <= 0.01:
+                raise ValueError('Not a correct log density!')
+
         return smap
 
 
