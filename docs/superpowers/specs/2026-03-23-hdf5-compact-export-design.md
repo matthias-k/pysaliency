@@ -7,8 +7,8 @@
 
 `pysaliency.export_model_to_hdf5` serializes model predictions (saliency maps or log-density maps) for every stimulus into an HDF5 file. For large stimulus sets these files reach 20–30 GB. Two independently usable optimizations can reduce this significantly with minimal impact on downstream metric scores:
 
-1. **Dtype reduction** — storing predictions as float32 or float16 instead of float64. Pilot experiments show barely any change in model performance metrics.
-2. **Spatial downsampling** — storing predictions at 1/2, 1/4, or 1/8 of the original resolution. Most saliency models produce smooth outputs. 2× and 4× downsampling have negligible metric impact; 8× shows noticeable but sometimes acceptable degradation.
+1. **Dtype reduction** — storing predictions as float32 or float16 instead of float64. Pilot experiments show float16 has essentially zero effect on average metric values and only negligible effects on worst-case per-stimulus changes. Float32 is even safer. (Sub-byte float formats such as float8 are out of scope as they are not natively supported by numpy.)
+2. **Spatial downsampling** — storing predictions at 1/2, 1/4, or 1/8 of the original resolution. Most saliency models produce smooth outputs. Even 2× downsampling has a noticeably larger effect than dtype reduction, though in practice it is often still acceptable; 4× is larger still; 8× introduces degradation that becomes clearly visible in metric scores.
 
 Both optimizations are independent and can be combined.
 
@@ -153,6 +153,8 @@ If `effective_stored_dtype.itemsize > np.dtype(smap.dtype).itemsize`, emit `warn
       original_shape = np.array([H', W'], dtype=np.int64)
 ```
 
+**Overwritten files** (`overwrite=True`): h5py opens with `mode='w'`, which truncates the file completely before any writing begins. Any pre-existing datasets — including those from a legacy non-compact file — are discarded. The resulting file is always internally consistent.
+
 **Legacy files** (written by current code) have no root attrs and no `original_shape` on datasets. The loader handles them identically to today.
 
 **Non-compact new files** (`dtype=None`, `downscale_factor=1`) have root attrs but no `original_shape` on datasets — the loader skips upsampling.
@@ -207,7 +209,7 @@ Constructor gains a new parameter and explicitly stores it:
 ```python
 class HDF5Model(Model):
     def __init__(self, stimuli, filename, check_shape=True,
-                 max_normalization_error=np.log(1.2), **kwargs):
+                 max_normalization_error=np.log(1.1), **kwargs):
         super().__init__(**kwargs)
         self.parent_model = HDF5SaliencyMapModel(
             stimuli=stimuli, filename=filename,
@@ -290,7 +292,7 @@ All new tests in `tests/test_precomputed_models.py`. Roundtrip tests are paramet
 | `HDF5Model` float32 strict path | float32 non-downsampled file uses strict path; logsumexp outside ±0.01 raises `ValueError` |
 | `HDF5Model` non-compact no renorm | Non-compact float32/float64 output is bit-identical to stored values (cast to float64) |
 | `HDF5Model` downsampled roundtrip | float64 output, logsumexp ≈ 0 after renorm (parametrized) |
-| `HDF5Model` threshold | logsumexp before renorm within `log(1.2)` for float16+4× |
+| `HDF5Model` threshold | logsumexp before renorm within `log(1.1)` for float16+4× |
 | `HDF5Model` corrupted file | `ValueError` raised when logsumexp exceeds `max_normalization_error` |
 | Custom `max_normalization_error` | Tighter threshold triggers `ValueError`; looser does not |
 | `max_normalization_error=None` | Relaxed path skips guard; output is float64, logsumexp ≈ 0 (renorm still applied) |
