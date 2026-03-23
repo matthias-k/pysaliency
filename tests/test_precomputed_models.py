@@ -2,8 +2,10 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 import pathlib
+import warnings
 import zipfile
 
+import h5py
 import numpy as np
 import pytest
 from imageio import imsave
@@ -339,3 +341,47 @@ def test_saliency_map_model_from_archive_sub_stimuli(stimuli, sub_stimuli, salie
         expected = full_model.saliency_map(stimulus)
         actual = sub_model.saliency_map(stimulus)
         np.testing.assert_equal(actual, expected)
+
+
+def test_export_root_attrs_written(file_stimuli, tmpdir):
+    """New-format files always have type/version/downscale_factor/dtype root attrs."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename)
+    with h5py.File(filename, 'r') as f:
+        assert f.attrs['type'] == 'pysaliency.precomputed_models.predictions'
+        assert f.attrs['version'] == '1.0'
+        assert int(f.attrs['downscale_factor']) == 1
+        assert f.attrs['dtype'] == 'float64'
+
+
+def test_export_dtype_float32(file_stimuli, tmpdir):
+    """dtype=np.float32 stores float32 datasets."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename, dtype=np.float32)
+    with h5py.File(filename, 'r') as f:
+        assert f.attrs['dtype'] == 'float32'
+        keys = list(f.keys())
+        assert f[keys[0]].dtype == np.float32
+
+
+def test_export_dtype_float16(file_stimuli, tmpdir):
+    """dtype=np.float16 stores float16 datasets."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename, dtype=np.float16)
+    with h5py.File(filename, 'r') as f:
+        keys = list(f.keys())
+        assert f[keys[0]].dtype == np.float16
+
+
+def test_export_dtype_none_preserves_native(file_stimuli, tmpdir):
+    """dtype=None (default) preserves the model's native output dtype."""
+    model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+    filename = str(tmpdir.join('model.hdf5'))
+    export_model_to_hdf5(model, file_stimuli, filename, dtype=None)
+    with h5py.File(filename, 'r') as f:
+        keys = list(f.keys())
+        # GaussianSaliencyMapModel returns float64
+        assert f[keys[0]].dtype == np.float64
