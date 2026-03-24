@@ -9,6 +9,7 @@ import zipfile
 
 import numpy as np
 from imageio import imread
+import scipy.ndimage
 from scipy.io import loadmat
 from scipy.special import logsumexp
 from tqdm import tqdm
@@ -126,44 +127,136 @@ def remove_initial_key_parts(keys, key_part_index):
     return remaining_keys
 
 
-def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True, flush=False):
+def _effective_dtype(smap, dtype, downscale_factor):
+    """Determine the dtype that will actually be stored in the HDF5 file."""
+    if dtype is not None:
+        return np.dtype(dtype)
+    if downscale_factor > 1:
+        # numpy .mean() returns float64 for integer inputs, preserves float types
+        if np.issubdtype(smap.dtype, np.integer):
+            return np.dtype(np.float64)
+        else:
+            return smap.dtype  # float32 stays float32, float64 stays float64
+    return smap.dtype
+
+
+def _downsample_smap(smap, k):
+    """Downsample a 2D map by integer factor k using area averaging."""
+    if k == 1:
+        return smap
+    H, W = smap.shape
+    H_pad = int(np.ceil(H / k)) * k
+    W_pad = int(np.ceil(W / k)) * k
+    smap = np.pad(np.ascontiguousarray(smap),
+                  ((0, H_pad - H), (0, W_pad - W)),
+                  mode='edge')
+    return smap.reshape(H_pad // k, k, W_pad // k, k).mean(axis=(1, 3))
+
+
+def _check_size_guard(smap, effective_stored_dtype, downscale_factor, dtype):
+    """Warn if compact settings will produce a larger-per-element file than the native dtype."""
+    native_dtype = np.dtype(smap.dtype)
+    if np.dtype(effective_stored_dtype).itemsize > native_dtype.itemsize:
+        msg = (
+            f"Model produces {native_dtype} predictions "
+            f"({native_dtype.itemsize} byte/element) but will be stored as "
+            f"{effective_stored_dtype} ({np.dtype(effective_stored_dtype).itemsize} byte/element). "
+            f"Compact export may result in a larger file than the original."
+        )
+        if np.issubdtype(native_dtype, np.integer):
+            msg += " Consider passing dtype=np.uint8 to preserve the original dtype."
+        if np.issubdtype(native_dtype, np.integer) and downscale_factor > 1 and dtype is None:
+            msg += " Note: casting area-averaging float results back to integer is lossy."
+        warnings.warn(msg)
+
+
+def _validate_append_consistency(f, downscale_factor):
+    """Check that an existing compact HDF5 file is compatible with the current export settings."""
+    existing = int(f.attrs['downscale_factor'])
+    if existing != downscale_factor:
+        raise ValueError(
+            f"Cannot append to HDF5 file: existing downscale_factor={existing} "
+            f"does not match requested downscale_factor={downscale_factor}."
+        )
+
+
+def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True, flush=False,
+                          dtype=None, downscale_factor=1):
     """Export pysaliency model predictions for stimuli into hdf5 file
 
     model: Model or SaliencyMapModel
     stimuli: instance of FileStimuli or Stimuli with filenames attribute
     filename: where to save hdf5 file to
     compression: how much to compress the data
-    overwrite: if False, an existing file will be appended to and
-      if for some stimuli predictions already exist, they will be
-      kept.
+    overwrite: if False, an existing file will be appended to (for resuming
+      interrupted exports). Stimuli already present in the file are skipped.
     flush: whether the hdf5 file should be flushed after each stimulus
+    dtype: numpy dtype for stored predictions (e.g. np.float32, np.float16).
+      None (default) preserves the model's native output dtype.
+    downscale_factor: integer >= 1. Spatially downsample predictions by this
+      factor before storing. 1 = no downsampling (default).
     """
     filenames = get_stimuli_filenames(stimuli)
     names = get_minimal_unique_filenames(filenames)
 
     import h5py
 
-    if overwrite:
-        mode = 'w'
-    else:
-        mode = 'a'
+    mode = 'w' if overwrite else 'a'
+    # Record whether the file existed before opening, to decide whether to write root attrs
+    file_existed = os.path.isfile(filename)
 
     with h5py.File(filename, mode=mode) as f:
+        # Determine which stimuli to process
         if overwrite:
-            indices = range(len(stimuli))
+            indices = list(range(len(stimuli)))
         else:
+            # append mode is for resuming an interrupted export of the same job
+            if 'type' in f.attrs:
+                _validate_append_consistency(f, downscale_factor)
             indices = [i for i in range(len(stimuli)) if names[i] not in f]
             logging.debug(f"Skipping {len(stimuli) - len(indices)} already existing entries")
-        for k in tqdm(indices):
-            stimulus = stimuli[k]
 
-            if isinstance(model, SaliencyMapModel):
-                smap = model.saliency_map(stimulus)
-            elif isinstance(model, Model):
-                smap = model.log_density(stimulus)
+        if not indices:
+            return
+
+        # Compute first smap to determine effective dtype (needed for root attrs)
+        first_stimulus = stimuli[indices[0]]
+        if isinstance(model, SaliencyMapModel):
+            first_smap = model.saliency_map(first_stimulus)
+        elif isinstance(model, Model):
+            first_smap = model.log_density(first_stimulus)
+        else:
+            raise TypeError(type(model))
+
+        effective_stored_dtype = _effective_dtype(first_smap, dtype, downscale_factor)
+        _check_size_guard(first_smap, effective_stored_dtype, downscale_factor, dtype)
+
+        # Write root attrs for new files only (overwrite=True always creates fresh;
+        # overwrite=False writes attrs only if the file is brand new, not for legacy files)
+        if overwrite or not file_existed:
+            f.attrs['type'] = 'pysaliency.precomputed_models.predictions'
+            f.attrs['version'] = '1.0'
+            f.attrs['downscale_factor'] = downscale_factor
+            f.attrs['dtype'] = str(effective_stored_dtype)
+
+        for i, k in tqdm(list(enumerate(indices))):
+            if i == 0:
+                smap = first_smap
             else:
-                raise TypeError(type(model))
-            f.create_dataset(names[k], data=smap, compression=compression)
+                stimulus = stimuli[k]
+                if isinstance(model, SaliencyMapModel):
+                    smap = model.saliency_map(stimulus)
+                elif isinstance(model, Model):
+                    smap = model.log_density(stimulus)
+
+            H, W = smap.shape[0], smap.shape[1]
+            smap = _downsample_smap(smap, downscale_factor)
+            if dtype is not None:
+                smap = smap.astype(dtype)
+
+            ds = f.create_dataset(names[k], data=smap, compression=compression)
+            if downscale_factor > 1:
+                ds.attrs['original_shape'] = np.array([H, W], dtype=np.int64)
             if flush:
                 f.flush()
 
@@ -306,6 +399,8 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
         The stimuli have to be of type `FileStimuli`. For each
         stimulus file, the model expects a dataset with the same
         name in the dataset.
+        If the file was created with downscale_factor > 1, predictions are
+        transparently upsampled to their original resolution on load.
     """
     def __init__(self, stimuli, filename, check_shape=True, **kwargs):
         super(HDF5SaliencyMapModel, self).__init__(**kwargs)
@@ -319,15 +414,27 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
 
         import h5py
         self.hdf5_file = h5py.File(self.filename, 'r')
+        self.version = self.hdf5_file.attrs.get('version')
         self.all_keys = get_keys_recursive(self.hdf5_file)
 
         self.names = get_keys_from_filenames_with_prefix(get_stimuli_filenames(stimuli), self.all_keys)
 
-    def _saliency_map(self, stimulus):
+    def _key_for_stimulus(self, stimulus):
         stimulus_id = get_image_hash(stimulus)
         stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
-        stimulus_key = self.names[stimulus_index]
-        smap = self.hdf5_file[stimulus_key][:]
+        return self.names[stimulus_index]
+
+    def _saliency_map(self, stimulus):
+        stimulus_key = self._key_for_stimulus(stimulus)
+        dataset = self.hdf5_file[stimulus_key]
+        smap = dataset[:]
+
+        if 'original_shape' in dataset.attrs:
+            # Compact downsampled file: upsample to original resolution
+            target_shape = tuple(dataset.attrs['original_shape'])
+            zoom_factors = (target_shape[0] / smap.shape[0], target_shape[1] / smap.shape[1])
+            smap = scipy.ndimage.zoom(smap.astype(np.float64), zoom_factors, order=1, mode='nearest')
+
         if not smap.shape == (stimulus.shape[0], stimulus.shape[1]):
             if self.check_shape:
                 warnings.warn('Wrong shape for stimulus {}'.format(stimulus_key), stacklevel=4)
@@ -337,9 +444,13 @@ class HDF5SaliencyMapModel(SaliencyMapModel):
 class HDF5Model(Model):
     """ exposes a HDF5 file with log densities as pysaliency model.
 
-        For more detail see HDF5SaliencyMapModel
+        For more detail see HDF5SaliencyMapModel.
+        Files created with downscale_factor > 1 or dtype=np.float16 use a
+        relaxed normalization check and automatic renormalization on load.
+        All other files use the original strict ±0.01 check.
     """
-    def __init__(self, stimuli, filename, check_shape=True, **kwargs):
+    def __init__(self, stimuli, filename, check_shape=True,
+                 max_normalization_error=np.log(1.1), **kwargs):
         super(HDF5Model, self).__init__(**kwargs)
         self.parent_model = HDF5SaliencyMapModel(
             stimuli=stimuli,
@@ -347,11 +458,31 @@ class HDF5Model(Model):
             caching=False,
             check_shape=check_shape
         )
+        self.max_normalization_error = max_normalization_error
 
     def _log_density(self, stimulus):
-        smap = self.parent_model.saliency_map(stimulus)
-        if not -0.01 <= logsumexp(smap) <= 0.01:
-            raise ValueError('Not a correct log density!')
+        key = self.parent_model._key_for_stimulus(stimulus)
+        dataset = self.parent_model.hdf5_file[key]
+        use_relaxed_path = (
+            'original_shape' in dataset.attrs
+            or dataset.dtype.itemsize < np.dtype(np.float32).itemsize
+        )
+
+        smap = self.parent_model.saliency_map(stimulus).astype(np.float64)
+
+        if use_relaxed_path:
+            lse = logsumexp(smap)
+            if self.max_normalization_error is not None:
+                if abs(lse) >= self.max_normalization_error:
+                    raise ValueError(
+                        f'Log density normalization error {abs(lse):.4f} exceeds '
+                        f'threshold {self.max_normalization_error:.4f}'
+                    )
+            smap = smap - lse
+        else:
+            if not -0.01 <= logsumexp(smap) <= 0.01:
+                raise ValueError('Not a correct log density!')
+
         return smap
 
 

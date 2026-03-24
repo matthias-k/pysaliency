@@ -1,346 +1,41 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
+# Compact HDF5 Export Implementation Plan
 
-import os
-import pathlib
-import warnings
-import zipfile
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Goal:** Add `dtype` and `downscale_factor` parameters to `export_model_to_hdf5` so large prediction files can be stored more compactly, with transparent upsampling/upcasting on load.
+
+**Architecture:** All changes live in one file (`pysaliency/precomputed_models.py`). Four private helper functions handle the new export logic. `HDF5SaliencyMapModel._saliency_map` gains transparent upsampling. `HDF5Model._log_density` gains a two-path normalization check (strict for legacy/float32/float64, configurable+renorm for downsampled/float16).
+
+**Tech Stack:** numpy, h5py, scipy.ndimage (already used in project), pytest with parametrize. No new dependencies.
+
+**Spec:** `docs/superpowers/specs/2026-03-23-hdf5-compact-export-design.md`
+
+---
+
+## File Map
+
+| File | Change |
+|------|--------|
+| `pysaliency/precomputed_models.py` | Add 4 helpers, update `export_model_to_hdf5`, `HDF5SaliencyMapModel`, `HDF5Model` |
+| `tests/test_precomputed_models.py` | Add all new tests (append to existing file) |
+
+---
+
+## Task 1: Export — dtype parameter and root attrs
+
+Add the `dtype` parameter and write versioned root attrs. No downsampling yet.
+
+**Files:**
+- Modify: `pysaliency/precomputed_models.py:129-168`
+- Test: `tests/test_precomputed_models.py`
+
+- [ ] **Step 1: Write failing tests**
+
+Add to `tests/test_precomputed_models.py`:
+
+```python
 import h5py
-import numpy as np
-import pytest
-from imageio import imsave
-
-import pysaliency
-from pysaliency import export_model_to_hdf5
-
-
-class TestSaliencyMapModel(pysaliency.SaliencyMapModel):
-    def _saliency_map(self, stimulus):
-        stimulus_data = pysaliency.datasets.as_stimulus(stimulus).stimulus_data
-        if stimulus_data.ndim == 3:
-            return stimulus_data.mean(axis=-1).astype(float)
-        else:
-            return np.array(stimulus_data, dtype=float)
-
-
-@pytest.fixture
-def file_stimuli(tmpdir):
-    filenames = []
-    for i in range(3):
-        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
-        imsave(str(filename), np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-        filenames.append(str(filename))
-
-    for sub_directory_index in range(3):
-        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
-        sub_directory.mkdir()
-        for i in range(5):
-            filename = sub_directory.join('stimulus_{:04d}.png'.format(i))
-            imsave(str(filename), np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-            filenames.append(str(filename))
-    return pysaliency.FileStimuli(filenames=filenames)
-
-
-@pytest.fixture
-def stimuli_with_filenames(tmpdir):
-    filenames = []
-    stimuli = []
-    for i in range(3):
-        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
-        stimuli.append(np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-        filenames.append(str(filename))
-
-    for sub_directory_index in range(3):
-        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
-        for i in range(5):
-            filename = sub_directory.join('stimulus_{:04d}.png'.format(i))
-            stimuli.append(np.random.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-            filenames.append(str(filename))
-    return pysaliency.Stimuli(stimuli=stimuli, attributes={'filenames': filenames})
-
-
-@pytest.fixture(params=['FileStimuli', 'attributes'])
-def stimuli(file_stimuli, stimuli_with_filenames, request):
-    if request.param == 'FileStimuli':
-        return file_stimuli
-    elif request.param == 'attributes':
-        return stimuli_with_filenames
-    else:
-        raise ValueError(request.param)
-
-
-@pytest.fixture
-def sub_stimuli(stimuli):
-    unique_filenames = pysaliency.utils.get_minimal_unique_filenames(
-        pysaliency.precomputed_models.get_stimuli_filenames(stimuli)
-    )
-    return stimuli[[i for i, f in enumerate(unique_filenames) if f.startswith('sub_directory_0001')]]
-
-
-@pytest.fixture
-def saliency_maps_in_directory(file_stimuli, tmpdir):
-    stimuli_files = pysaliency.utils.get_minimal_unique_filenames(file_stimuli.filenames)
-
-    prediction_dir = tmpdir.join('predictions')
-    prediction_dir.mkdir()
-    predictions = []
-    rst = np.random.RandomState(seed=42)
-    for filename in stimuli_files:
-        prediction = rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8)
-        target_name = prediction_dir.join(filename)
-        pathlib.Path(target_name).resolve().parent.mkdir(exist_ok=True)
-        imsave(str(target_name), prediction)
-        predictions.append(prediction)
-
-    return prediction_dir, predictions
-
-
-def test_export_model_to_hdf5(stimuli, tmpdir):
-    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
-    filename = str(tmpdir.join('model.hdf5'))
-    export_model_to_hdf5(model, stimuli, filename)
-
-    model2 = pysaliency.HDF5Model(stimuli, filename)
-    for s in stimuli:
-        np.testing.assert_allclose(model.log_density(s), model2.log_density(s))
-
-
-def test_hdf5_model_sub_stimuli(stimuli, sub_stimuli, tmpdir):
-    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
-    filename = str(tmpdir.join('model.hdf5'))
-    export_model_to_hdf5(model, stimuli, filename)
-
-    model2 = pysaliency.HDF5Model(sub_stimuli, filename)
-    for s in sub_stimuli:
-        np.testing.assert_allclose(model.log_density(s), model2.log_density(s))
-
-
-def test_hdf5_model_empty_stimuli(stimuli, tmpdir):
-    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
-    filename = str(tmpdir.join('model.hdf5'))
-    export_model_to_hdf5(model, stimuli, filename)
-
-    sub_stimuli = stimuli[[]]
-
-    pysaliency.HDF5Model(sub_stimuli, filename)
-
-
-def test_export_model_overwrite(file_stimuli, tmpdir):
-    model1 = pysaliency.GaussianSaliencyMapModel(width=0.1)
-    model2 = pysaliency.GaussianSaliencyMapModel(width=0.8)
-
-    filename = str(tmpdir.join('model.hdf5'))
-
-    partial_stimuli = pysaliency.FileStimuli(filenames=file_stimuli.filenames[:10])
-
-    export_model_to_hdf5(model1, partial_stimuli, filename)
-    export_model_to_hdf5(model2, file_stimuli, filename)
-
-    model3 = pysaliency.HDF5SaliencyMapModel(file_stimuli, filename)
-    for s in file_stimuli:
-        np.testing.assert_allclose(model2.saliency_map(s), model3.saliency_map(s))
-
-
-def test_export_model_no_overwrite(file_stimuli, tmpdir):
-    model1 = pysaliency.GaussianSaliencyMapModel(width=0.1)
-    model2 = pysaliency.GaussianSaliencyMapModel(width=0.8)
-
-    filename = str(tmpdir.join('model.hdf5'))
-
-    partial_stimuli = pysaliency.FileStimuli(filenames=file_stimuli.filenames[:5])
-
-    export_model_to_hdf5(model1, partial_stimuli, filename)
-    export_model_to_hdf5(model2, file_stimuli, filename, overwrite=False)
-
-    model3 = pysaliency.HDF5SaliencyMapModel(file_stimuli, filename)
-    for k, s in enumerate(file_stimuli):
-        if k < 5:
-            np.testing.assert_allclose(model1.saliency_map(s), model3.saliency_map(s))
-        else:
-            np.testing.assert_allclose(model2.saliency_map(s), model3.saliency_map(s))
-
-
-def test_hdf5_model_sub_stimuli_different_prefix(tmpdir):
-    rst = np.random.RandomState(seed=42)
-    filenames = []
-    for i in range(3):
-        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
-        imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-        filenames.append(str(filename))
-
-    for sub_directory_index in range(3):
-        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
-        sub_directory.mkdir()
-        for i in range(5):
-            filename = sub_directory.join('stimulus_{}_{:04d}.png'.format(sub_directory_index, i))
-            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-            filenames.append(str(filename))
-    stimuli = pysaliency.FileStimuli(filenames=filenames)
-
-    rst = np.random.RandomState(seed=42)
-    filenames = []
-    for i in range(3):
-        filename = tmpdir.join('stimulus_{:04d}.png'.format(i))
-        imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-        filenames.append(str(filename))
-
-    for sub_directory_index in range(3):
-        sub_directory = tmpdir.join('sub_prefix_directory_{:04d}'.format(sub_directory_index))
-        sub_directory.mkdir()
-        for i in range(5):
-            filename = sub_directory.join('stimulus_{}_{:04d}.png'.format(sub_directory_index, i))
-            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-            filenames.append(str(filename))
-
-    stimuli_different_prefix = pysaliency.FileStimuli(filenames=filenames)
-    sub_stimuli = stimuli_different_prefix[[i for i, f in enumerate(stimuli_different_prefix.filenames) if 'sub_prefix_directory_0001' in f]]
-
-    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
-    filename = str(tmpdir.join('model.hdf5'))
-    export_model_to_hdf5(model, stimuli, filename)
-
-    model2 = pysaliency.HDF5Model(sub_stimuli, filename)
-    for s in sub_stimuli:
-        np.testing.assert_allclose(model.log_density(s), model2.log_density(s))
-
-
-def test_hdf5_model_wrong_keys(tmpdir):
-    rst = np.random.RandomState(seed=42)
-    filenames = []
-
-    for sub_directory_index in range(3):
-        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
-        sub_directory.mkdir()
-        for i in range(5):
-            filename = sub_directory.join('stimulus_{}_{:04d}.png'.format(sub_directory_index, i))
-            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-            filenames.append(str(filename))
-    stimuli = pysaliency.FileStimuli(filenames=filenames)
-
-    rst = np.random.RandomState(seed=42)
-    filenames = []
-
-    for sub_directory_index in range(3):
-        sub_directory = tmpdir.join('sub_prefix_directory_{:04d}'.format(sub_directory_index))
-        sub_directory.mkdir()
-        for i in range(5):
-            filename = sub_directory.join('other_stimulus_{}_{:04d}.png'.format(sub_directory_index, i))
-            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-            filenames.append(str(filename))
-
-    stimuli_different_names = pysaliency.FileStimuli(filenames=filenames)
-
-    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
-    filename = str(tmpdir.join('model.hdf5'))
-    export_model_to_hdf5(model, stimuli, filename)
-
-    with pytest.raises(pysaliency.precomputed_models.NoCommonPrefixError):
-        pysaliency.HDF5Model(stimuli_different_names, filename)
-
-
-def test_hdf5_model_sub_stimuli_different_prefix_nonunique(tmpdir):
-    rst = np.random.RandomState(seed=42)
-    filenames = []
-
-    for sub_directory_index in range(3):
-        sub_directory = tmpdir.join('sub_directory_{:04d}'.format(sub_directory_index))
-        sub_directory.mkdir()
-        for i in range(5):
-            filename = sub_directory.join('stimulus_{:04d}.png'.format(i))
-            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-            filenames.append(str(filename))
-    stimuli = pysaliency.FileStimuli(filenames=filenames)
-
-    rst = np.random.RandomState(seed=42)
-    filenames = []
-
-    for sub_directory_index in range(3):
-        sub_directory = tmpdir.join('sub_prefix_directory_{:04d}'.format(sub_directory_index))
-        sub_directory.mkdir()
-        for i in range(5):
-            filename = sub_directory.join('stimulus_{:04d}.png'.format(i))
-            imsave(str(filename), rst.randint(low=0, high=255, size=(100, 100, 3), dtype=np.uint8))
-            filenames.append(str(filename))
-
-    stimuli_different_prefix = pysaliency.FileStimuli(filenames=filenames)
-    sub_stimuli = stimuli_different_prefix[[i for i, f in enumerate(stimuli_different_prefix.filenames) if 'sub_prefix_directory_0001' in f]]
-
-    model = pysaliency.models.SaliencyMapNormalizingModel(TestSaliencyMapModel())
-    filename = str(tmpdir.join('model.hdf5'))
-    export_model_to_hdf5(model, stimuli, filename)
-
-    with pytest.raises(pysaliency.precomputed_models.NonUniqueKeysError):
-        pysaliency.HDF5Model(sub_stimuli, filename)
-
-
-def test_saliency_map_model_from_directory(stimuli, saliency_maps_in_directory):
-    directory, predictions = saliency_maps_in_directory
-    model = pysaliency.SaliencyMapModelFromDirectory(stimuli, directory)
-
-    for stimulus_index, stimulus in enumerate(stimuli):
-        expected = predictions[stimulus_index]
-        actual = model.saliency_map(stimulus)
-        np.testing.assert_equal(actual, expected)
-
-
-def test_saliency_map_model_from_directory_sub_stimuli(stimuli, sub_stimuli, saliency_maps_in_directory):
-    directory, predictions = saliency_maps_in_directory
-    full_model = pysaliency.SaliencyMapModelFromDirectory(stimuli, directory)
-    sub_model = pysaliency.SaliencyMapModelFromDirectory(sub_stimuli, directory)
-
-    for stimulus in sub_stimuli:
-        expected = full_model.saliency_map(stimulus)
-        actual = sub_model.saliency_map(stimulus)
-        np.testing.assert_equal(actual, expected)
-
-
-def test_saliency_map_model_from_archive(stimuli, saliency_maps_in_directory, tmpdir):
-    directory, predictions = saliency_maps_in_directory
-
-    archive = tmpdir / 'predictions.zip'
-
-    # from https://stackoverflow.com/a/1855118
-    def zipdir(path, ziph):
-        for root, _, files in os.walk(path):
-            for file in files:
-                ziph.write(os.path.join(root, file),
-                           os.path.relpath(os.path.join(root, file),
-                                           os.path.join(path, '..')))
-
-    with zipfile.ZipFile(str(archive), 'w', zipfile.ZIP_DEFLATED) as zipf:
-        zipdir(str(directory), zipf)
-
-    model = pysaliency.precomputed_models.SaliencyMapModelFromArchive(stimuli, str(archive))
-
-    for stimulus_index, stimulus in enumerate(stimuli):
-        expected = predictions[stimulus_index]
-        actual = model.saliency_map(stimulus)
-        np.testing.assert_equal(actual, expected)
-
-
-def test_saliency_map_model_from_archive_sub_stimuli(stimuli, sub_stimuli, saliency_maps_in_directory, tmpdir):
-    directory, predictions = saliency_maps_in_directory
-
-    archive = tmpdir / 'predictions.zip'
-
-    # from https://stackoverflow.com/a/1855118
-    def zipdir(path, ziph):
-        for root, _, files in os.walk(path):
-            for file in files:
-                ziph.write(os.path.join(root, file),
-                           os.path.relpath(os.path.join(root, file),
-                                           os.path.join(path, '..')))
-
-    with zipfile.ZipFile(str(archive), 'w', zipfile.ZIP_DEFLATED) as zipf:
-        zipdir(str(directory), zipf)
-
-    full_model = pysaliency.precomputed_models.SaliencyMapModelFromArchive(stimuli, str(archive))
-    sub_model = pysaliency.precomputed_models.SaliencyMapModelFromArchive(sub_stimuli, str(archive))
-
-    for stimulus in sub_stimuli:
-        expected = full_model.saliency_map(stimulus)
-        actual = sub_model.saliency_map(stimulus)
-        np.testing.assert_equal(actual, expected)
+import warnings
 
 
 def test_export_root_attrs_written(file_stimuli, tmpdir):
@@ -362,6 +57,7 @@ def test_export_dtype_float32(file_stimuli, tmpdir):
     export_model_to_hdf5(model, file_stimuli, filename, dtype=np.float32)
     with h5py.File(filename, 'r') as f:
         assert f.attrs['dtype'] == 'float32'
+        # check one dataset
         keys = list(f.keys())
         assert f[keys[0]].dtype == np.float32
 
@@ -372,7 +68,6 @@ def test_export_dtype_float16(file_stimuli, tmpdir):
     filename = str(tmpdir.join('model.hdf5'))
     export_model_to_hdf5(model, file_stimuli, filename, dtype=np.float16)
     with h5py.File(filename, 'r') as f:
-        assert f.attrs['dtype'] == 'float16'
         keys = list(f.keys())
         assert f[keys[0]].dtype == np.float16
 
@@ -386,8 +81,199 @@ def test_export_dtype_none_preserves_native(file_stimuli, tmpdir):
         keys = list(f.keys())
         # GaussianSaliencyMapModel returns float64
         assert f[keys[0]].dtype == np.float64
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+```bash
+cd /home/matthias/Documents/Uni/Bethge/Saliency/pysaliency
+python -m pytest --nomatlab tests/test_precomputed_models.py::test_export_root_attrs_written tests/test_precomputed_models.py::test_export_dtype_float32 tests/test_precomputed_models.py::test_export_dtype_float16 tests/test_precomputed_models.py::test_export_dtype_none_preserves_native -v
+```
+
+Expected: FAIL — `export_model_to_hdf5` doesn't write root attrs yet.
+
+- [ ] **Step 3: Add `_effective_dtype` helper and update `export_model_to_hdf5`**
+
+In `pysaliency/precomputed_models.py`, add before `export_model_to_hdf5`:
+
+```python
+def _effective_dtype(smap, dtype, downscale_factor):
+    """Determine the dtype that will actually be stored in the HDF5 file."""
+    if dtype is not None:
+        return np.dtype(dtype)
+    if downscale_factor > 1:
+        # numpy .mean() returns float64 for integer inputs, preserves float types
+        if np.issubdtype(smap.dtype, np.integer):
+            return np.dtype(np.float64)
+        else:
+            return smap.dtype  # float32 stays float32, float64 stays float64
+    return smap.dtype
+```
+
+Replace the `export_model_to_hdf5` signature and body:
+
+```python
+def export_model_to_hdf5(model, stimuli, filename, compression=9, overwrite=True, flush=False,
+                          dtype=None, downscale_factor=1):
+    """Export pysaliency model predictions for stimuli into hdf5 file
+
+    model: Model or SaliencyMapModel
+    stimuli: instance of FileStimuli or Stimuli with filenames attribute
+    filename: where to save hdf5 file to
+    compression: how much to compress the data
+    overwrite: if False, an existing file will be appended to (for resuming
+      interrupted exports). Stimuli already present in the file are skipped.
+    flush: whether the hdf5 file should be flushed after each stimulus
+    dtype: numpy dtype for stored predictions (e.g. np.float32, np.float16).
+      None (default) preserves the model's native output dtype.
+    downscale_factor: integer >= 1. Spatially downsample predictions by this
+      factor before storing. 1 = no downsampling (default).
+    """
+    filenames = get_stimuli_filenames(stimuli)
+    names = get_minimal_unique_filenames(filenames)
+
+    import h5py
+
+    mode = 'w' if overwrite else 'a'
+    # Record whether the file existed before opening, to decide whether to write root attrs
+    file_existed = os.path.isfile(filename)
+
+    with h5py.File(filename, mode=mode) as f:
+        # Determine which stimuli to process
+        if overwrite:
+            indices = list(range(len(stimuli)))
+        else:
+            # append mode is for resuming an interrupted export of the same job
+            if 'type' in f.attrs:
+                _validate_append_consistency(f, downscale_factor)
+            indices = [i for i in range(len(stimuli)) if names[i] not in f]
+            logging.debug(f"Skipping {len(stimuli) - len(indices)} already existing entries")
+
+        if not indices:
+            return
+
+        # Compute first smap to determine effective dtype (needed for root attrs)
+        first_stimulus = stimuli[indices[0]]
+        if isinstance(model, SaliencyMapModel):
+            first_smap = model.saliency_map(first_stimulus)
+        elif isinstance(model, Model):
+            first_smap = model.log_density(first_stimulus)
+        else:
+            raise TypeError(type(model))
+
+        effective_stored_dtype = _effective_dtype(first_smap, dtype, downscale_factor)
+        _check_size_guard(first_smap, effective_stored_dtype, downscale_factor, dtype)
+
+        # Write root attrs for new files only (overwrite=True always creates fresh;
+        # overwrite=False writes attrs only if the file is brand new, not for legacy files)
+        if overwrite or not file_existed:
+            f.attrs['type'] = 'pysaliency.precomputed_models.predictions'
+            f.attrs['version'] = '1.0'
+            f.attrs['downscale_factor'] = downscale_factor
+            f.attrs['dtype'] = str(effective_stored_dtype)
+
+        for i, k in tqdm(list(enumerate(indices))):
+            if i == 0:
+                smap = first_smap
+            else:
+                stimulus = stimuli[k]
+                if isinstance(model, SaliencyMapModel):
+                    smap = model.saliency_map(stimulus)
+                elif isinstance(model, Model):
+                    smap = model.log_density(stimulus)
+
+            H, W = smap.shape[0], smap.shape[1]
+            smap = _downsample_smap(smap, downscale_factor)
+            if dtype is not None:
+                smap = smap.astype(dtype)
+
+            ds = f.create_dataset(names[k], data=smap, compression=compression)
+            if downscale_factor > 1:
+                ds.attrs['original_shape'] = np.array([H, W], dtype=np.int64)
+            if flush:
+                f.flush()
+```
+
+Add stub helpers (full implementation in later tasks) before `export_model_to_hdf5`:
+
+```python
+def _downsample_smap(smap, k):
+    """Downsample a 2D map by integer factor k using area averaging."""
+    if k == 1:
+        return smap
+    H, W = smap.shape
+    H_pad = int(np.ceil(H / k)) * k
+    W_pad = int(np.ceil(W / k)) * k
+    smap = np.pad(np.ascontiguousarray(smap),
+                  ((0, H_pad - H), (0, W_pad - W)),
+                  mode='edge')
+    return smap.reshape(H_pad // k, k, W_pad // k, k).mean(axis=(1, 3))
 
 
+def _check_size_guard(smap, effective_stored_dtype, downscale_factor, dtype):
+    """Warn if compact settings will produce a larger-per-element file than the native dtype."""
+    native_dtype = np.dtype(smap.dtype)
+    if np.dtype(effective_stored_dtype).itemsize > native_dtype.itemsize:
+        msg = (
+            f"Model produces {native_dtype} predictions "
+            f"({native_dtype.itemsize} byte/element) but will be stored as "
+            f"{effective_stored_dtype} ({np.dtype(effective_stored_dtype).itemsize} byte/element). "
+            f"Compact export may result in a larger file than the original."
+        )
+        if np.issubdtype(native_dtype, np.integer):
+            msg += " Consider passing dtype=np.uint8 to preserve the original dtype."
+        if np.issubdtype(native_dtype, np.integer) and downscale_factor > 1 and dtype is None:
+            msg += " Note: casting area-averaging float results back to integer is lossy."
+        warnings.warn(msg)
+
+
+def _validate_append_consistency(f, downscale_factor):
+    """Check that an existing compact HDF5 file is compatible with the current export settings."""
+    existing = int(f.attrs['downscale_factor'])
+    if existing != downscale_factor:
+        raise ValueError(
+            f"Cannot append to HDF5 file: existing downscale_factor={existing} "
+            f"does not match requested downscale_factor={downscale_factor}."
+        )
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+```bash
+python -m pytest --nomatlab tests/test_precomputed_models.py::test_export_root_attrs_written tests/test_precomputed_models.py::test_export_dtype_float32 tests/test_precomputed_models.py::test_export_dtype_float16 tests/test_precomputed_models.py::test_export_dtype_none_preserves_native -v
+```
+
+Expected: PASS
+
+- [ ] **Step 5: Verify existing tests still pass**
+
+```bash
+python -m pytest --nomatlab tests/test_precomputed_models.py -v
+```
+
+Expected: all previously passing tests still pass.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add pysaliency/precomputed_models.py tests/test_precomputed_models.py
+git commit -m "feat: add dtype parameter and versioned root attrs to export_model_to_hdf5"
+```
+
+---
+
+## Task 2: Export — downsampling parameter
+
+Add and test the `downscale_factor` parameter behaviour (stored shape, `original_shape` attr, non-divisible sizes).
+
+**Files:**
+- Modify: `tests/test_precomputed_models.py`
+
+(All implementation code was already added in Task 1 — `_downsample_smap` and the `ds.attrs['original_shape']` write are in place. This task adds the tests.)
+
+- [ ] **Step 1: Write failing tests**
+
+```python
 def test_export_downscale_stored_shape(file_stimuli, tmpdir):
     """Stored shape is ceil(H/k) x ceil(W/k) for divisible dimensions."""
     # file_stimuli uses 100x100 images, which is divisible by 2 and 4
@@ -468,9 +354,43 @@ def test_export_float32_downscale_dtype_is_float32(file_stimuli, tmpdir):
         keys = list(f.keys())
         assert f[keys[0]].dtype == np.float32
         assert f.attrs['dtype'] == 'float32'
-        assert int(f.attrs['downscale_factor']) == 2
+```
 
+- [ ] **Step 2: Run tests to verify they fail**
 
+```bash
+python -m pytest --nomatlab tests/test_precomputed_models.py::test_export_downscale_stored_shape tests/test_precomputed_models.py::test_export_downscale_original_shape_attr tests/test_precomputed_models.py::test_export_no_downscale_no_original_shape_attr tests/test_precomputed_models.py::test_export_downscale_nondivisible_stored_shape tests/test_precomputed_models.py::test_export_downscale_nondivisible_original_shape_attr tests/test_precomputed_models.py::test_export_float32_downscale_dtype_is_float32 -v
+```
+
+Expected: FAIL (downscale_factor parameter not wired up yet — actually already implemented in Task 1. These may already pass.)
+
+- [ ] **Step 3: Verify all pass and run full suite**
+
+```bash
+python -m pytest --nomatlab tests/test_precomputed_models.py -v
+```
+
+Expected: all pass.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add tests/test_precomputed_models.py
+git commit -m "test: add downsampling export tests"
+```
+
+---
+
+## Task 3: Export — append mode and size guard
+
+Test append consistency validation and the uint8/size warning.
+
+**Files:**
+- Test: `tests/test_precomputed_models.py`
+
+- [ ] **Step 1: Write failing tests**
+
+```python
 # NOTE: The spec test table lists "Append mode — mismatch (dtype only)" but the spec design
 # section intentionally excludes dtype from the consistency check (it is purely informational
 # and cannot be determined before the first stimulus is computed). There is therefore no
@@ -495,8 +415,6 @@ def test_export_append_new_file_root_attrs(file_stimuli, tmpdir):
     with h5py.File(filename, 'r') as f:
         assert 'type' in f.attrs
         assert f.attrs['version'] == '1.0'
-        assert int(f.attrs['downscale_factor']) == 1
-        assert 'dtype' in f.attrs
 
 
 def test_export_append_legacy_file_no_root_attrs(file_stimuli, tmpdir):
@@ -507,6 +425,7 @@ def test_export_append_legacy_file_no_root_attrs(file_stimuli, tmpdir):
     remaining = pysaliency.FileStimuli(filenames=file_stimuli.filenames[3:])
 
     # Write a legacy-format file manually (no root attrs)
+    import h5py
     names = pysaliency.utils.get_minimal_unique_filenames(partial.filenames)
     with h5py.File(filename, 'w') as f:
         for k, s in enumerate(partial):
@@ -516,8 +435,6 @@ def test_export_append_legacy_file_no_root_attrs(file_stimuli, tmpdir):
 
     with h5py.File(filename, 'r') as f:
         assert 'type' not in f.attrs  # no root attrs written into legacy file
-        all_keys = pysaliency.precomputed_models.get_keys_recursive(f)
-        assert len(all_keys) == len(file_stimuli)  # all stimuli present
 
 
 def test_export_uint8_model_downscale_warns(tmpdir):
@@ -569,8 +486,8 @@ def test_export_uint8_model_float32_dtype_warns(tmpdir):
             return np.ones((stimulus.shape[0], stimulus.shape[1]), dtype=np.uint8)
 
     filenames = [str(tmpdir.join(f'stim_{i}.png')) for i in range(2)]
-    for fname in filenames:
-        imsave(fname, np.random.randint(0, 255, (20, 20, 3), dtype=np.uint8))
+    for f in filenames:
+        imsave(f, np.random.randint(0, 255, (20, 20, 3), dtype=np.uint8))
     stimuli = pysaliency.FileStimuli(filenames=filenames)
 
     model = Uint8SaliencyMapModel()
@@ -586,8 +503,8 @@ def test_export_uint8_model_uint8_dtype_no_warn(tmpdir):
             return np.ones((stimulus.shape[0], stimulus.shape[1]), dtype=np.uint8)
 
     filenames = [str(tmpdir.join(f'stim_{i}.png')) for i in range(2)]
-    for fname in filenames:
-        imsave(fname, np.random.randint(0, 255, (20, 20, 3), dtype=np.uint8))
+    for f in filenames:
+        imsave(f, np.random.randint(0, 255, (20, 20, 3), dtype=np.uint8))
     stimuli = pysaliency.FileStimuli(filenames=filenames)
 
     model = Uint8SaliencyMapModel()
@@ -595,8 +512,44 @@ def test_export_uint8_model_uint8_dtype_no_warn(tmpdir):
     with warnings.catch_warnings():
         warnings.simplefilter('error')  # any warning becomes an error
         export_model_to_hdf5(model, stimuli, filename, dtype=np.uint8)
+```
 
+- [ ] **Step 2: Run tests**
 
+```bash
+python -m pytest --nomatlab tests/test_precomputed_models.py::test_export_append_consistency_mismatch_downscale tests/test_precomputed_models.py::test_export_append_new_file_root_attrs tests/test_precomputed_models.py::test_export_append_legacy_file_no_root_attrs tests/test_precomputed_models.py::test_export_uint8_model_downscale_warns tests/test_precomputed_models.py::test_export_uint8_model_downscale_stored_as_float64 tests/test_precomputed_models.py::test_export_uint8_model_float32_dtype_warns tests/test_precomputed_models.py::test_export_uint8_model_uint8_dtype_no_warn -v
+```
+
+Note: all implementation for these tests is already in place from Task 1. Most will pass immediately; the legacy-file test (`test_export_append_legacy_file_no_root_attrs`) verifies the `file_existed` flag logic. If any fail, fix in `precomputed_models.py`.
+
+- [ ] **Step 3: Run full suite.**
+
+```bash
+python -m pytest --nomatlab tests/test_precomputed_models.py -v
+```
+
+If any new tests fail, debug and fix in `precomputed_models.py`.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add tests/test_precomputed_models.py pysaliency/precomputed_models.py
+git commit -m "test: add append-mode consistency and size-guard tests"
+```
+
+---
+
+## Task 4: Load side — `HDF5SaliencyMapModel` upsampling
+
+Add `_key_for_stimulus` helper and transparent upsampling in `_saliency_map`.
+
+**Files:**
+- Modify: `pysaliency/precomputed_models.py:303-334`
+- Test: `tests/test_precomputed_models.py`
+
+- [ ] **Step 1: Write failing tests**
+
+```python
 @pytest.mark.parametrize('dtype,downscale_factor', [
     (None, 1),
     (np.float32, 1),
@@ -653,6 +606,7 @@ def test_hdf5_saliency_map_model_nondivisible_loaded_shape(file_stimuli_nondivis
 
 def test_hdf5_saliency_map_model_resized_stimuli(tmpdir):
     """With check_shape=False and resized stimuli, upsampling targets original_shape."""
+    # Export at full size, then load with resized (smaller) stimuli
     from imageio import imsave as _imsave
     filenames = []
     for i in range(2):
@@ -686,8 +640,98 @@ def test_hdf5_saliency_map_model_legacy_file_unchanged(file_stimuli, tmpdir):
     for s in file_stimuli:
         expected = model.saliency_map(s)
         np.testing.assert_array_equal(loaded.saliency_map(s), expected)
+```
 
+- [ ] **Step 2: Run tests to verify they fail**
 
+```bash
+python -m pytest --nomatlab -k "roundtrip or downsampled_returns_float64 or nondivisible_loaded_shape" tests/test_precomputed_models.py -v
+```
+
+Expected: FAIL — `_saliency_map` doesn't upsample yet.
+
+- [ ] **Step 3: Update `HDF5SaliencyMapModel` in `pysaliency/precomputed_models.py`**
+
+Replace lines 310–334:
+
+```python
+class HDF5SaliencyMapModel(SaliencyMapModel):
+    """ exposes a HDF5 file with saliency maps as pysaliency model
+
+        The stimuli have to be of type `FileStimuli`. For each
+        stimulus file, the model expects a dataset with the same
+        name in the dataset.
+        If the file was created with downscale_factor > 1, predictions are
+        transparently upsampled to their original resolution on load.
+    """
+    def __init__(self, stimuli, filename, check_shape=True, **kwargs):
+        super(HDF5SaliencyMapModel, self).__init__(**kwargs)
+
+        self.stimuli = stimuli
+        self.filename = filename
+        self.check_shape = check_shape
+
+        if not os.path.isfile(self.filename):
+            raise ValueError(f'File {self.filename} does not exist')
+
+        import h5py
+        self.hdf5_file = h5py.File(self.filename, 'r')
+        self.version = self.hdf5_file.attrs.get('version')
+        self.all_keys = get_keys_recursive(self.hdf5_file)
+
+        self.names = get_keys_from_filenames_with_prefix(get_stimuli_filenames(stimuli), self.all_keys)
+
+    def _key_for_stimulus(self, stimulus):
+        stimulus_id = get_image_hash(stimulus)
+        stimulus_index = self.stimuli.stimulus_ids.index(stimulus_id)
+        return self.names[stimulus_index]
+
+    def _saliency_map(self, stimulus):
+        stimulus_key = self._key_for_stimulus(stimulus)
+        dataset = self.hdf5_file[stimulus_key]
+        smap = dataset[:]
+
+        if 'original_shape' in dataset.attrs:
+            # Compact downsampled file: upsample to original resolution
+            target_shape = tuple(dataset.attrs['original_shape'])
+            zoom_factors = (target_shape[0] / smap.shape[0], target_shape[1] / smap.shape[1])
+            import scipy.ndimage
+            smap = scipy.ndimage.zoom(smap.astype(np.float64), zoom_factors, order=1, mode='nearest')
+
+        if not smap.shape == (stimulus.shape[0], stimulus.shape[1]):
+            if self.check_shape:
+                warnings.warn('Wrong shape for stimulus {}'.format(stimulus_key), stacklevel=4)
+        return smap
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+```bash
+python -m pytest --nomatlab tests/test_precomputed_models.py -v
+```
+
+Expected: all pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add pysaliency/precomputed_models.py tests/test_precomputed_models.py
+git commit -m "feat: add transparent upsampling to HDF5SaliencyMapModel"
+```
+
+---
+
+## Task 5: Load side — `HDF5Model` two-path normalization
+
+Add `max_normalization_error` parameter and the two-path `_log_density`.
+
+**Files:**
+- Modify: `pysaliency/precomputed_models.py:337-355`
+- Test: `tests/test_precomputed_models.py`
+
+- [ ] **Step 1: Write failing tests**
+
+```python
 @pytest.mark.parametrize('dtype,downscale_factor', [
     (None, 1),
     (np.float32, 1),
@@ -697,6 +741,7 @@ def test_hdf5_saliency_map_model_legacy_file_unchanged(file_stimuli, tmpdir):
 ])
 def test_hdf5_model_roundtrip(file_stimuli, tmpdir, dtype, downscale_factor):
     """HDF5Model returns valid log densities after compact export."""
+    import warnings
     base = pysaliency.models.SaliencyMapNormalizingModel(
         pysaliency.GaussianSaliencyMapModel(width=0.1))
     filename = str(tmpdir.join('model.hdf5'))
@@ -784,7 +829,6 @@ def test_hdf5_model_custom_max_normalization_error(file_stimuli, tmpdir):
 
 def test_hdf5_model_threshold_within_bounds_for_float16_4x(file_stimuli, tmpdir):
     """Explicit check: logsumexp before renorm is within log(1.1) for float16+4x export."""
-    import scipy.ndimage
     from scipy.special import logsumexp as _logsumexp
     base = pysaliency.models.SaliencyMapNormalizingModel(
         pysaliency.GaussianSaliencyMapModel(width=0.1))
@@ -795,6 +839,7 @@ def test_hdf5_model_threshold_within_bounds_for_float16_4x(file_stimuli, tmpdir)
 
     # Manually load the raw stored data and upsample to measure pre-renorm logsumexp
     names = pysaliency.utils.get_minimal_unique_filenames(file_stimuli.filenames)
+    import scipy.ndimage
     with h5py.File(filename, 'r') as f:
         for k, s in enumerate(file_stimuli):
             ds = f[names[k]]
@@ -818,3 +863,113 @@ def test_hdf5_model_max_normalization_error_none(file_stimuli, tmpdir):
     for s in file_stimuli:
         result = loaded.log_density(s)
         assert abs(logsumexp(result)) < 0.001  # renorm still runs
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+```bash
+python -m pytest --nomatlab -k "hdf5_model_roundtrip or strict_path_no_renorm or threshold_exceeded_raises" tests/test_precomputed_models.py -v
+```
+
+Expected: FAIL — `HDF5Model` doesn't have the new logic yet.
+
+- [ ] **Step 3: Update `HDF5Model` in `pysaliency/precomputed_models.py`**
+
+Replace lines 337–355:
+
+```python
+class HDF5Model(Model):
+    """ exposes a HDF5 file with log densities as pysaliency model.
+
+        For more detail see HDF5SaliencyMapModel.
+        Files created with downscale_factor > 1 or dtype=np.float16 use a
+        relaxed normalization check and automatic renormalization on load.
+        All other files use the original strict ±0.01 check.
+    """
+    def __init__(self, stimuli, filename, check_shape=True,
+                 max_normalization_error=np.log(1.1), **kwargs):
+        super(HDF5Model, self).__init__(**kwargs)
+        self.parent_model = HDF5SaliencyMapModel(
+            stimuli=stimuli,
+            filename=filename,
+            caching=False,
+            check_shape=check_shape
+        )
+        self.max_normalization_error = max_normalization_error
+
+    def _log_density(self, stimulus):
+        key = self.parent_model._key_for_stimulus(stimulus)
+        dataset = self.parent_model.hdf5_file[key]
+        use_relaxed_path = (
+            'original_shape' in dataset.attrs
+            or dataset.dtype.itemsize < np.dtype(np.float32).itemsize
+        )
+
+        smap = self.parent_model.saliency_map(stimulus).astype(np.float64)
+
+        if use_relaxed_path:
+            if self.max_normalization_error is not None:
+                err = abs(logsumexp(smap))
+                if err >= self.max_normalization_error:
+                    raise ValueError(
+                        f'Log density normalization error {err:.4f} exceeds '
+                        f'threshold {self.max_normalization_error:.4f}'
+                    )
+            smap = smap - logsumexp(smap)
+        else:
+            if not -0.01 <= logsumexp(smap) <= 0.01:
+                raise ValueError('Not a correct log density!')
+
+        return smap
+```
+
+- [ ] **Step 4: Run all tests**
+
+```bash
+python -m pytest --nomatlab tests/test_precomputed_models.py -v
+```
+
+Expected: all pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add pysaliency/precomputed_models.py tests/test_precomputed_models.py
+git commit -m "feat: add two-path normalization and max_normalization_error to HDF5Model"
+```
+
+---
+
+## Task 6: Final verification
+
+Run the full test suite, check no regressions.
+
+- [ ] **Step 1: Run full test suite**
+
+```bash
+python -m pytest --nomatlab --notheano --nodownload tests/ -v
+```
+
+Expected: all pass, no regressions.
+
+- [ ] **Step 2: Spot-check the feature end-to-end**
+
+```python
+# Quick smoke test in Python (not a formal test, just sanity check)
+import numpy as np
+import pysaliency
+from pysaliency import export_model_to_hdf5
+
+# Use any FileStimuli you have, or create a small one
+# model = pysaliency.GaussianSaliencyMapModel(width=0.1)
+# export_model_to_hdf5(model, stimuli, '/tmp/compact.hdf5', dtype=np.float32, downscale_factor=2)
+# loaded = pysaliency.HDF5SaliencyMapModel(stimuli, '/tmp/compact.hdf5')
+# print(loaded.saliency_map(stimuli[0]).shape)  # should match stimulus shape
+```
+
+- [ ] **Step 3: Final commit (if any fixups needed)**
+
+```bash
+git add -p
+git commit -m "fix: <description of any fixup>"
+```
