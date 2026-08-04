@@ -29,6 +29,8 @@
   * Feature: `pysaliency.baseline_utils.BaselineModel` now supports `to_hdf5` / `read_hdf5` model persistence using HDF5 type `pysaliency.baseline_utils.BaselineModel`.
   * Enhancement: Introduced unified HDF5 I/O dispatch in `pysaliency.hdf5` (`read_hdf5`) and routed `pysaliency.datasets.read_hdf5` through the dataset dispatcher for compatibility.
   * Enhancement: `BaselineModel` no longer stores `stimuli` and `fixations` after initialization; it keeps only the normalized fixation representation used for predictions.
+  * Feature: DAEMONS dataset, as `pysaliency.external_datasets.get_DAEMONS` plus `get_DAEMONS_train`,
+    `get_DAEMONS_validation` and `get_DAEMONS_test`.
 
 
 * 0.2.22:
