@@ -94,7 +94,7 @@ def _load_attribute_dict_from_hdf5(attribute_group):
         json_attributes = json_attributes.decode('utf8')
     __attributes__ = json.loads(json_attributes)
 
-    attributes = {attribute: load_hdf5_dataset(attribute_group, attribute) for attribute in __attributes__}
+    attributes = {attribute: attribute_group[attribute][...] for attribute in __attributes__}
     return attributes
 
 
