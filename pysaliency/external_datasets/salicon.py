@@ -253,7 +253,7 @@ def get_SALICON_test(edition='2015', fixation_type='mouse', location=None):
     if location:
         name = _get_SALICON_name(edition=edition, fixation_type=fixation_type)
         if os.path.exists(os.path.join(location, name)):
-            stimuli = _load(os.path.join('SALICON', 'stimuli_test.hdf5'))
+            stimuli = _load(os.path.join(location, 'SALICON', 'stimuli_test.hdf5'))
             return stimuli
     _, _, stimuli_test, _, _ = get_SALICON(location=location, edition=edition, fixation_type=fixation_type)
 
